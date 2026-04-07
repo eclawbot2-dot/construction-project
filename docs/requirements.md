@@ -140,7 +140,9 @@ Primary emphasis:
 - quality and safety,
 - cost and commitment controls,
 - schedule coordination,
-- subcontractor collaboration.
+- subcontractor collaboration,
+- historical bid intelligence,
+- AI-assisted project startup.
 
 Defining benchmark:
 - **Procore-class workflow coverage** without blindly copying UI or data structures.
@@ -162,7 +164,11 @@ Key capability requirements:
 - schedule imports and look-ahead planning,
 - procurement and long lead tracking,
 - closeout and turnover,
-- warranty workflows.
+- warranty workflows,
+- historical bid/estimate library,
+- trade/vendor quote history,
+- conceptual estimating intelligence by building type,
+- AI-assisted project ingest from plans/specs/addenda/contracts.
 
 ## 5.3 Heavy Civil Mode
 
@@ -177,7 +183,9 @@ Target users:
 - infrastructure project controls teams.
 
 Primary emphasis:
-- production, quantities, crew/equipment planning, field tickets, installed quantities, productivity, unit cost control, materials, trucking, utility tracking, survey/GIS context, and owner/compliance reporting.
+- production, quantities, crew/equipment planning, field tickets, installed quantities, productivity, unit cost control, materials, trucking, utility tracking, survey/GIS context, owner/compliance reporting,
+- historical bid and production intelligence,
+- AI-assisted project startup and field structure generation.
 
 Defining benchmark:
 - combine project management with self-perform field production and cost control.
@@ -198,7 +206,10 @@ Key capability requirements:
 - utility segment tracking,
 - map/location-aware progress,
 - subcontractor and self-perform hybrid workflows,
-- change tickets, claims support, and as-built evidence capture.
+- change tickets, claims support, and as-built evidence capture,
+- historical bid item and unit-cost intelligence,
+- historical production-rate intelligence,
+- AI-assisted project ingest from plans, bid schedules, specifications, utility sheets, and owner contract documents.
 
 ---
 
@@ -292,8 +303,33 @@ The following are required regardless of mode.
 
 Mode-specific emphasis:
 - **Simple:** estimate to job conversion, customer proposal acceptance, deposit tracking.
-- **Vertical:** bid packages, bid leveling, scope gaps, procurement log.
-- **Heavy civil:** bid items, quantity takeoff references, production assumptions, crew/equipment assumptions, subcontract quote leveling.
+- **Vertical:** bid packages, bid leveling, scope gaps, procurement log, historical estimate assemblies, trade quote history, conceptual pricing by building/program type.
+- **Heavy civil:** bid items, quantity takeoff references, production assumptions, crew/equipment assumptions, subcontract quote leveling, historical unit prices, historical production rates, geography/owner-adjusted bid history.
+
+### 7.2A Historical Bid Intelligence and Estimating Memory
+High priority for Vertical and Heavy Civil; optional/light for Simple.
+
+Required capabilities:
+- centralized historical bid library across awarded and non-awarded opportunities,
+- estimate version history and comparison,
+- line-item history by cost code, bid item, assembly, trade, scope package, and vendor,
+- normalization of historical bids by date, geography, market conditions, customer/owner type, project type, and delivery method,
+- estimate vs actual feedback loop using final cost, production, and change history,
+- subcontractor/vendor quote history with response rates, pricing trends, exclusions, qualifications, and award results,
+- win/loss analytics,
+- benchmarking by building type, asset class, utility type, civil scope, and customer segment,
+- unit-cost history with confidence ranges,
+- production-rate history tied to actual field outcomes,
+- search and AI query interface over historical bids and estimates,
+- ability to clone prior estimates/projects as a starting point,
+- pattern detection for scope gaps, pricing outliers, missed alternates, and recurring change exposure.
+
+AI requirements for this domain:
+- recommend estimate assemblies and cost codes from uploaded plans/specs,
+- propose vendor/subcontractor invite lists based on historical relevance,
+- surface similar past jobs and pricing benchmarks,
+- predict risk areas and likely scope gaps,
+- generate a first-pass conceptual estimate framework for human review.
 
 ## 7.3 Project Setup and Master Data
 - Project record with codes, address, owner, contract type, segment, schedule, value, margin target.
@@ -604,6 +640,32 @@ Heavy civil adds:
 - closure windows,
 - crew spread planning,
 - haul/logistics timing.
+
+## 7.24A AI-Assisted Project Ingest and Auto-Bootstrap
+High priority for Vertical and Heavy Civil; optional/reduced version for Simple.
+
+Required capabilities:
+- upload package support for drawings, specifications, bid schedules, contracts, addenda, geotech reports, permits, schedules, scope sheets, utility records, and other preconstruction/project documents,
+- AI extraction and classification of uploaded documents,
+- auto-creation of project shell and metadata,
+- auto-generation of document register, drawing register, spec section index, and revision logs,
+- auto-generation of project directory suggestions from document participants,
+- auto-generation of cost code, bid item, phase, and work-package suggestions,
+- auto-generation of procurement items and long-lead watchlist,
+- auto-seeding of RFI register, submittal register, issue/risk log, meeting cadences, daily log templates, safety plans, quality checklists, and startup task lists,
+- auto-identification of permitting/compliance artifacts,
+- auto-identification of heavy civil pay items, quantities, segments, utility runs, structures, traffic control phases, and production activities where feasible,
+- auto-identification of vertical building areas, floors, disciplines, specification-driven procurement scopes, and closeout requirements,
+- user review/approval workflow before publishing AI-created structures,
+- confidence scoring, source traceability, and exception queues for low-confidence extraction,
+- re-run capability after addenda or drawing revisions,
+- comparison of new uploads against prior versions to identify changed scope.
+
+AI governance requirements:
+- every AI-generated artifact must preserve source links to originating documents/pages where possible,
+- no AI-created financial or contractual record may publish without human approval,
+- audit log must record who approved generated structures,
+- tenants must be able to disable or limit AI automation by module.
 
 ## 7.24 GIS / Maps / Location Intelligence
 Important for heavy civil and sitework.
@@ -917,6 +979,8 @@ Launch a serious but scoped enterprise foundation that demonstrates all three mo
 - meeting minutes
 - observations/punch
 - commitments/change events lite
+- historical bid library foundation
+- AI project ingest v1 for drawing/spec/contract bootstrap
 
 **Heavy civil mode v1**
 - pay items/cost codes
@@ -925,6 +989,8 @@ Launch a serious but scoped enterprise foundation that demonstrates all three mo
 - equipment/labor entries
 - tickets lite
 - location/segment tagging
+- historical unit-cost / bid-item intelligence foundation
+- AI project ingest v1 for pay item / document / structure bootstrap
 
 ### 14.3 Deferred to Phase 2+
 - advanced billing/pay apps
@@ -972,6 +1038,8 @@ Beyond the original ask, this document also adds:
 - cross-mode common core requirements,
 - non-functional enterprise constraints,
 - reference sweep notes from other eclawbot2-dot repos,
-- MVP and phase guidance.
+- MVP and phase guidance,
+- historical bid intelligence requirements for Vertical and Heavy Civil,
+- AI-assisted project ingest and auto-bootstrap requirements for non-simple modes.
 
 Why: this keeps the repo from turning into a vague wish list and makes it implementable.
