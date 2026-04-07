@@ -7,24 +7,24 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#1e3a5f",
+  themeColor: "#0f172a",
 };
 
 export const metadata: Metadata = {
-  title: "Holy Face Church — Faith Formation",
-  description: "Catechist Management Platform for Holy Face Church, Great Mills MD",
+  title: "Construction OS",
+  description: "Enterprise multi-tenant construction management platform for simple, vertical, and heavy civil operations.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Holy Face",
+    title: "Construction OS",
   },
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
       <body>
