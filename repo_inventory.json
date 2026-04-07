@@ -1,0 +1,12 @@
+[
+    {
+        "name":  "construction-project",
+        "html_url":  "https://github.com/eclawbot2-dot/construction-project",
+        "description":  "Enterprise multi-tenant construction management platform requirements and implementation"
+    },
+    {
+        "name":  "face-project",
+        "html_url":  "https://github.com/eclawbot2-dot/face-project",
+        "description":  "Holy Face Parish Catechist Management Platform"
+    }
+]
