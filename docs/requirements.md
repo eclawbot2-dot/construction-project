@@ -288,6 +288,128 @@ The following are required regardless of mode.
 - Configure default cost structure, naming conventions, fiscal calendars, reporting calendars, and approval chains.
 - Manage office locations, yards, warehouses, and regions.
 
+## 7.1A Enterprise Shared Back-Office and Workforce Operations
+These requirements must exist as shared enterprise services across the platform, even when some tenants enable them progressively.
+
+Required module coverage:
+- CRM (accounts, contacts)
+- ATS (candidates, jobs, submissions)
+- placements
+- timesheets
+- invoicing
+- contracts
+- commissions
+- compliance tracking
+- federal proposal capture
+- onboarding pipeline
+- workflow engine
+- audit logging
+
+### CRM Requirements
+- account management for owners, clients, agencies, vendors, subcontractors, consultants, and partners,
+- contact management with role history and relationship mapping,
+- activity tracking, notes, attachments, tasks, and opportunity linkage,
+- account hierarchies and parent/child structures,
+- account segmentation by market, region, contract vehicle, customer type, and strategic importance.
+
+### ATS / Recruiting / Staffing Requirements
+- candidate profiles,
+- job requisitions,
+- submissions,
+- interview pipeline,
+- offer tracking,
+- hiring/onboarding coordination,
+- recruiter and coordinator workflows,
+- internal/external notes,
+- resume/document management,
+- placement records,
+- recruiter activity metrics.
+
+### Placements / Workforce Deployment Requirements
+- placement records tied to project, contract, labor category, department, or role,
+- assignment start/end dates,
+- bill/pay rate structures where applicable,
+- extension/renewal tracking,
+- redeployment pipeline,
+- placement performance and status.
+
+### Timesheets Requirements
+- timesheet capture by employee/worker/project/cost code/task,
+- approval routing,
+- corrections/re-submissions,
+- integration hooks to payroll/accounting,
+- certified payroll support roadmap,
+- field/mobile entry and supervisor approval.
+
+### Invoicing Requirements
+- customer invoicing,
+- project billing,
+- milestone/T&M/progress billing models,
+- invoice status and aging,
+- integration/export to accounting,
+- supporting backup attachment.
+
+### Contracts Requirements
+- contract repository,
+- contract type classification,
+- renewal/expiration tracking,
+- obligations and deliverables tracking,
+- linked approvals,
+- linkage to projects, vendors, placements, and proposals.
+
+### Commissions Requirements
+- commission rule configuration,
+- split handling,
+- calculation engine,
+- accrual and payout tracking,
+- auditability and overrides with approval.
+
+### Compliance Tracking Requirements
+- insurance certificates,
+- licenses,
+- training/certifications,
+- background checks where enabled,
+- contract compliance,
+- document expiry alerts,
+- federal/state/local compliance artifact tracking.
+
+### Federal Proposal Capture Requirements
+- opportunity/capture records,
+- contract vehicle tracking,
+- agency/customer intelligence,
+- teaming/partner tracking,
+- proposal calendar and milestones,
+- capture plans,
+- color-team review workflow,
+- document repository,
+- go/no-go approvals,
+- pricing/proposal coordination.
+
+### Onboarding Pipeline Requirements
+- stage-based onboarding workflow,
+- document collection,
+- task orchestration,
+- approvals,
+- equipment/access provisioning hooks,
+- orientation/training tracking,
+- compliance pre-start checks.
+
+### Workflow Engine Requirements
+- configurable event/condition/action automation,
+- approvals,
+- escalations,
+- reminders,
+- status transitions,
+- SLA timing,
+- reusable workflow templates,
+- cross-module triggers.
+
+### Audit Logging Requirements
+- system-wide immutable audit events for critical objects,
+- actor, timestamp, before/after values, source, and approval evidence,
+- export/search/filter tools,
+- retention controls and legal hold support.
+
 ## 7.2 CRM / Opportunity / Preconstruction
 - Leads and opportunities.
 - Estimate/bid tracking.
@@ -773,6 +895,15 @@ The platform must not merely hide/show menu items. Mode toggles must alter:
 - Architect/engineer reviewer
 - Subcontractor/vendor user
 - Inspector/regulator
+- Admin
+- Executive
+- Manager
+- Recruiter
+- Coordinator
+- Capture Manager
+- Program Manager
+- Account Executive
+- Viewer
 
 ---
 
@@ -790,6 +921,15 @@ Role permissions must be configurable, but standard templates should exist.
 - external collaborator
 - owner/client user
 - read-only auditor
+- admin
+- executive
+- manager
+- recruiter
+- coordinator
+- capture manager
+- program manager
+- account executive
+- viewer
 
 ### 10.2 Object-Level Permission Needs
 Permissions must be manageable for:
@@ -810,7 +950,19 @@ Permissions must be manageable for:
 - tickets,
 - reports,
 - integrations,
-- administration.
+- administration,
+- CRM accounts/contacts,
+- ATS candidates/jobs/submissions,
+- placements,
+- timesheets,
+- invoicing,
+- contracts,
+- commissions,
+- compliance records,
+- federal capture/proposals,
+- onboarding workflows,
+- workflow engine configuration,
+- audit log access.
 
 ---
 
@@ -1030,6 +1182,20 @@ The platform will satisfy this requirements document when:
 
 ---
 
+## 10.3 Required Named Role Templates
+The following named role templates must be included in the platform requirements and initial RBAC design:
+- Admins
+- Executives
+- Managers
+- Recruiters
+- Coordinators
+- Capture Managers
+- Program Managers
+- Account Executives
+- Viewers
+
+Each template must define default permissions across construction operations and enterprise shared-service modules, while remaining tenant-configurable.
+
 ## 17. Improvements Added
 
 Beyond the original ask, this document also adds:
@@ -1040,6 +1206,8 @@ Beyond the original ask, this document also adds:
 - reference sweep notes from other eclawbot2-dot repos,
 - MVP and phase guidance,
 - historical bid intelligence requirements for Vertical and Heavy Civil,
-- AI-assisted project ingest and auto-bootstrap requirements for non-simple modes.
+- AI-assisted project ingest and auto-bootstrap requirements for non-simple modes,
+- shared-service enterprise module requirements for CRM, ATS, placements, timesheets, invoicing, contracts, commissions, compliance, federal proposal capture, onboarding, workflow engine, and audit logging,
+- explicit named role templates for Admins, Executives, Managers, Recruiters, Coordinators, Capture Managers, Program Managers, Account Executives, and Viewers.
 
 Why: this keeps the repo from turning into a vague wish list and makes it implementable.
