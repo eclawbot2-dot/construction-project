@@ -1,0 +1,488 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum ProjectMode {
+  SIMPLE
+  VERTICAL
+  HEAVY_CIVIL
+}
+
+enum UserRoleTemplate {
+  ADMIN
+  EXECUTIVE
+  MANAGER
+  RECRUITER
+  COORDINATOR
+  CAPTURE_MANAGER
+  PROGRAM_MANAGER
+  ACCOUNT_EXECUTIVE
+  VIEWER
+  PROJECT_ENGINEER
+  SUPERINTENDENT
+  FOREMAN
+  CONTROLLER
+  SAFETY_MANAGER
+  QUALITY_MANAGER
+}
+
+enum ProjectStage {
+  PRECONSTRUCTION
+  ACTIVE
+  CLOSEOUT
+  WARRANTY
+}
+
+enum ThreadChannel {
+  GENERAL
+  SCHEDULE
+  BUDGET
+  OWNER
+  FIELD
+  SAFETY
+  PROCUREMENT
+  CLOSEOUT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETE
+}
+
+enum WorkflowStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum DocumentClass {
+  CONTRACT
+  DRAWING
+  SPEC
+  PERMIT
+  RFI
+  SUBMITTAL
+  MEETING_MINUTES
+  DAILY_REPORT
+  PHOTO
+  SAFETY
+  QUALITY
+  INVOICE
+  CHANGE
+  CLOSEOUT
+  WARRANTY
+  TEST_REPORT
+  TICKET
+  OTHER
+}
+
+enum BudgetLineType {
+  COST_CODE
+  PAY_ITEM
+  ALLOWANCE
+  CONTINGENCY
+}
+
+enum DailyLogType {
+  GENERAL
+  AREA
+  CREW
+}
+
+model Tenant {
+  id                String             @id @default(cuid())
+  name              String
+  slug              String             @unique
+  primaryMode       ProjectMode
+  enabledModes      String             @default("[]")
+  featurePacks      String             @default("[]")
+  terminology       String             @default("{}")
+  brandingTheme     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  businessUnits     BusinessUnit[]
+  memberships       Membership[]
+  projects          Project[]
+  companies         Company[]
+  contacts          Contact[]
+  auditEvents       AuditEvent[]
+  workflowTemplates WorkflowTemplate[]
+}
+
+model BusinessUnit {
+  id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  code          String
+  defaultMode   ProjectMode
+  region        String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  memberships   Membership[]
+  projects      Project[]
+
+  @@unique([tenantId, code])
+}
+
+model User {
+  id            String              @id @default(cuid())
+  name          String
+  email         String              @unique
+  password      String
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  memberships   Membership[]
+  messages      ThreadMessage[]
+  tasks         Task[]              @relation("TaskAssignee")
+  approvals     Approval[]          @relation("ApprovalApprover")
+  auditEvents   AuditEvent[]        @relation("AuditActor")
+}
+
+model Membership {
+  id                String            @id @default(cuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessUnitId    String?
+  businessUnit      BusinessUnit?     @relation(fields: [businessUnitId], references: [id])
+  roleTemplate      UserRoleTemplate
+  permissionsJson   String            @default("{}")
+  createdAt         DateTime          @default(now())
+
+  @@unique([tenantId, userId])
+}
+
+model Company {
+  id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  companyType   String
+  market        String?
+  region        String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  contacts      Contact[]
+}
+
+model Contact {
+  id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId     String?
+  company       Company?    @relation(fields: [companyId], references: [id])
+  name          String
+  email         String?
+  phone         String?
+  roleTitle     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Project {
+  id                  String              @id @default(cuid())
+  tenantId            String
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessUnitId      String?
+  businessUnit        BusinessUnit?       @relation(fields: [businessUnitId], references: [id])
+  name                String
+  code                String
+  mode                ProjectMode
+  stage               ProjectStage        @default(PRECONSTRUCTION)
+  address             String?
+  ownerName           String?
+  contractType        String?
+  contractValue       Float?
+  marginTargetPct     Float?
+  progressPct         Float               @default(0)
+  healthScore         Int                 @default(75)
+  startDate           DateTime?
+  endDate             DateTime?
+  configurationJson   String              @default("{}")
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  threads             Thread[]
+  tasks               Task[]
+  documents           Document[]
+  rfis                RFI[]
+  submittals          Submittal[]
+  dailyLogs           DailyLog[]
+  budgets             Budget[]
+  quantities          QuantityBudget[]
+  productionEntries   ProductionEntry[]
+  tickets             Ticket[]
+  safetyIncidents     SafetyIncident[]
+  punchItems          PunchItem[]
+  meetings            Meeting[]
+  workflowRuns        WorkflowRun[]
+
+  @@unique([tenantId, code])
+}
+
+model Thread {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  channel       ThreadChannel
+  isDefault     Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  messages      ThreadMessage[]
+}
+
+model ThreadMessage {
+  id            String          @id @default(cuid())
+  threadId      String
+  thread        Thread          @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body          String
+  decisionFlag  Boolean         @default(false)
+  pinned        Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+}
+
+model Task {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  status        TaskStatus      @default(TODO)
+  priority      String          @default("Medium")
+  dueDate       DateTime?
+  assigneeId    String?
+  assignee      User?           @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  sourceType    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model WorkflowTemplate {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  mode          ProjectMode?
+  module        String
+  configJson    String          @default("{}")
+  createdAt     DateTime        @default(now())
+}
+
+model WorkflowRun {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  templateName  String
+  module        String
+  status        WorkflowStatus  @default(DRAFT)
+  payloadJson   String          @default("{}")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Document {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  documentClass DocumentClass
+  folderPath    String?
+  versionLabel  String          @default("v1")
+  metadataJson  String          @default("{}")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model RFI {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  number        String
+  subject       String
+  status        WorkflowStatus  @default(DRAFT)
+  dueDate       DateTime?
+  ballInCourt   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([projectId, number])
+}
+
+model Submittal {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  number        String
+  title         String
+  specSection   String?
+  status        WorkflowStatus  @default(DRAFT)
+  longLead      Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([projectId, number])
+}
+
+model Meeting {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  meetingType   String
+  scheduledAt   DateTime
+  notes         String?
+  createdAt     DateTime        @default(now())
+}
+
+model DailyLog {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  logDate       DateTime
+  logType       DailyLogType    @default(GENERAL)
+  weather       String?
+  summary       String
+  manpower      Int             @default(0)
+  notes         String?
+  createdAt     DateTime        @default(now())
+
+  productionEntries ProductionEntry[]
+}
+
+model Budget {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String
+  originalValue Float
+  currentValue  Float
+  forecastFinal Float?
+  createdAt     DateTime        @default(now())
+
+  lines         BudgetLine[]
+}
+
+model BudgetLine {
+  id            String          @id @default(cuid())
+  budgetId      String
+  budget        Budget          @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  code          String
+  description   String
+  lineType      BudgetLineType
+  budgetAmount  Float
+  committedCost Float           @default(0)
+  actualCost    Float           @default(0)
+  createdAt     DateTime        @default(now())
+}
+
+model QuantityBudget {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  code          String
+  description   String
+  unit          String
+  budgetQty     Float
+  installedQty  Float           @default(0)
+  earnedQty     Float           @default(0)
+  locationTag   String?
+  createdAt     DateTime        @default(now())
+}
+
+model ProductionEntry {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dailyLogId    String?
+  dailyLog      DailyLog?       @relation(fields: [dailyLogId], references: [id], onDelete: SetNull)
+  activity      String
+  crewName      String?
+  installedQty  Float           @default(0)
+  unit          String?
+  productionRate Float?
+  equipmentHours Float?
+  locationTag   String?
+  createdAt     DateTime        @default(now())
+}
+
+model Ticket {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ticketNumber  String
+  materialType  String
+  quantity      Float
+  unit          String
+  source        String?
+  destination   String?
+  createdAt     DateTime        @default(now())
+
+  @@unique([projectId, ticketNumber])
+}
+
+model SafetyIncident {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  severity      String
+  status        WorkflowStatus  @default(DRAFT)
+  occurredAt    DateTime
+  createdAt     DateTime        @default(now())
+}
+
+model PunchItem {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  area          String?
+  status        WorkflowStatus  @default(DRAFT)
+  dueDate       DateTime?
+  createdAt     DateTime        @default(now())
+}
+
+model Approval {
+  id            String          @id @default(cuid())
+  approverId    String
+  approver      User            @relation("ApprovalApprover", fields: [approverId], references: [id], onDelete: Cascade)
+  targetType    String
+  targetId      String
+  status        WorkflowStatus  @default(DRAFT)
+  createdAt     DateTime        @default(now())
+}
+
+model AuditEvent {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorId       String?
+  actor         User?           @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  entityType    String
+  entityId      String
+  action        String
+  beforeJson    String?
+  afterJson     String?
+  source        String?
+  createdAt     DateTime        @default(now())
+}
