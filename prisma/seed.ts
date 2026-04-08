@@ -2,7 +2,17 @@ import "dotenv/config";
 import path from "path";
 import bcrypt from "bcryptjs";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { PrismaClient, ProjectMode, ProjectStage, TaskStatus, ThreadChannel, UserRoleTemplate, WorkflowStatus, DocumentClass, BudgetLineType } from "@prisma/client";
+import {
+  BudgetLineType,
+  DocumentClass,
+  PrismaClient,
+  ProjectMode,
+  ProjectStage,
+  TaskStatus,
+  ThreadChannel,
+  UserRoleTemplate,
+  WorkflowStatus,
+} from "@prisma/client";
 
 const configuredDbUrl = process.env.DATABASE_URL;
 const dbUrl = configuredDbUrl
@@ -12,6 +22,12 @@ const adapter = new PrismaBetterSqlite3({ url: dbUrl });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  await prisma.notificationRule.deleteMany();
+  await prisma.historicalEstimate.deleteMany();
+  await prisma.materialRecord.deleteMany();
+  await prisma.equipmentRecord.deleteMany();
+  await prisma.approvalRoute.deleteMany();
+  await prisma.watcher.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.approval.deleteMany();
   await prisma.ticket.deleteMany();
@@ -54,7 +70,14 @@ async function main() {
       slug: "jah-construction",
       primaryMode: ProjectMode.VERTICAL,
       enabledModes: JSON.stringify([ProjectMode.SIMPLE, ProjectMode.VERTICAL, ProjectMode.HEAVY_CIVIL]),
-      featurePacks: JSON.stringify(["job-thread", "rfis", "heavy-civil-production", "historical-bid-intelligence"]),
+      featurePacks: JSON.stringify([
+        "job-thread",
+        "rfis",
+        "heavy-civil-production",
+        "historical-bid-intelligence",
+        "approvals",
+        "notifications",
+      ]),
       terminology: JSON.stringify({ project: "Project", thread: "Job Thread", observation: "Punch Item" }),
       brandingTheme: "slate-gold",
     },
@@ -71,6 +94,21 @@ async function main() {
       { tenantId: tenant.id, userId: exec.id, businessUnitId: commercial.id, roleTemplate: UserRoleTemplate.EXECUTIVE },
       { tenantId: tenant.id, userId: pm.id, businessUnitId: commercial.id, roleTemplate: UserRoleTemplate.MANAGER },
       { tenantId: tenant.id, userId: superintendent.id, businessUnitId: civil.id, roleTemplate: UserRoleTemplate.SUPERINTENDENT },
+    ],
+  });
+
+  await prisma.notificationRule.createMany({
+    data: [
+      { tenantId: tenant.id, name: "RFI overdue escalation", roleTemplate: UserRoleTemplate.MANAGER, triggerType: "RFI_OVERDUE", delivery: "in-app+email", cadence: "hourly", slaHours: 24, configJson: JSON.stringify({ escalateTo: ["MANAGER", "EXECUTIVE"] }) },
+      { tenantId: tenant.id, name: "Submittal digest", roleTemplate: UserRoleTemplate.PROJECT_ENGINEER, triggerType: "SUBMITTAL_DIGEST", delivery: "digest", cadence: "daily", slaHours: 12, configJson: JSON.stringify({ includeStatuses: ["UNDER_REVIEW", "REJECTED"] }) },
+      { tenantId: tenant.id, name: "Heavy civil production alert", roleTemplate: UserRoleTemplate.SUPERINTENDENT, triggerType: "PRODUCTION_UNDERRUN", delivery: "in-app+sms", cadence: "instant", slaHours: 2, configJson: JSON.stringify({ thresholdPct: 15 }) },
+    ],
+  });
+
+  await prisma.historicalEstimate.createMany({
+    data: [
+      { tenantId: tenant.id, mode: ProjectMode.VERTICAL, title: "Mid-rise multifamily shell benchmark", projectType: "Multifamily", geography: "Charleston", lineItemCode: "033000", unitCost: 182, confidencePct: 78, metadataJson: JSON.stringify({ assembly: "Concrete frame", source: "historical bid library" }) },
+      { tenantId: tenant.id, mode: ProjectMode.HEAVY_CIVIL, title: "12in DIP utility install benchmark", projectType: "Water / Sewer", geography: "Lowcountry", lineItemCode: "P-014", unitCost: 275, productionRate: 54, confidencePct: 81, metadataJson: JSON.stringify({ activity: "Pipe install", source: "production history" }) },
     ],
   });
 
@@ -110,7 +148,7 @@ async function main() {
         healthScore: 82,
         startDate: new Date("2026-02-01"),
         endDate: new Date("2027-06-15"),
-        configurationJson: JSON.stringify({ dashboard: "vertical", aiBootstrapEnabled: true, requiredForms: ["RFI", "Submittal", "Meeting Minutes"] }),
+        configurationJson: JSON.stringify({ dashboard: "vertical", aiBootstrapEnabled: true, requiredForms: ["RFI", "Submittal", "Meeting Minutes"], engagement: { ownerPortal: true, formalApprovals: true } }),
       },
     }),
     prisma.project.create({
@@ -130,7 +168,7 @@ async function main() {
         healthScore: 76,
         startDate: new Date("2026-01-15"),
         endDate: new Date("2026-11-20"),
-        configurationJson: JSON.stringify({ dashboard: "heavy-civil", locationTracking: true, ticketReconciliation: true, aiBootstrapEnabled: true }),
+        configurationJson: JSON.stringify({ dashboard: "heavy-civil", locationTracking: true, ticketReconciliation: true, aiBootstrapEnabled: true, engagement: { fieldFirst: true, supervisorEscalation: true } }),
       },
     }),
     prisma.project.create({
@@ -150,7 +188,7 @@ async function main() {
         healthScore: 91,
         startDate: new Date("2026-03-01"),
         endDate: new Date("2026-05-15"),
-        configurationJson: JSON.stringify({ dashboard: "simple", clientPortal: true, subthreads: ["Selections", "Schedule", "Punch"] }),
+        configurationJson: JSON.stringify({ dashboard: "simple", clientPortal: true, subthreads: ["Selections", "Schedule", "Punch"], engagement: { fastApprovals: true, homeownerUpdates: true } }),
       },
     }),
   ]);
@@ -165,10 +203,42 @@ async function main() {
       },
     });
 
+    const workflowRun = await prisma.workflowRun.create({
+      data: {
+        projectId: project.id,
+        templateName: project.mode === ProjectMode.VERTICAL ? "Vertical Startup" : project.mode === ProjectMode.HEAVY_CIVIL ? "Heavy Civil Daily Production" : "Simple Remodel Launch",
+        module: project.mode === ProjectMode.SIMPLE ? "job-thread" : project.mode === ProjectMode.VERTICAL ? "technical-workflows" : "field-operations",
+        status: WorkflowStatus.UNDER_REVIEW,
+        payloadJson: JSON.stringify({ seeded: true, mode: project.mode }),
+      },
+    });
+
+    await prisma.watcher.createMany({
+      data: [
+        { projectId: project.id, workflowRunId: workflowRun.id, userId: pm.id, channel: "email", objectType: "Project", objectId: project.id, required: true },
+        { projectId: project.id, workflowRunId: workflowRun.id, userId: superintendent.id, channel: "in-app", objectType: "WorkflowRun", objectId: workflowRun.id, required: project.mode === ProjectMode.HEAVY_CIVIL },
+      ],
+    });
+
+    await prisma.approvalRoute.create({
+      data: {
+        projectId: project.id,
+        targetType: project.mode === ProjectMode.SIMPLE ? "ChangeOrder" : project.mode === ProjectMode.VERTICAL ? "SubmittalPackage" : "ProductionException",
+        targetId: workflowRun.id,
+        name: `${project.name} ${project.mode} approval route`,
+        status: WorkflowStatus.UNDER_REVIEW,
+        approverRole: project.mode === ProjectMode.HEAVY_CIVIL ? UserRoleTemplate.SUPERINTENDENT : UserRoleTemplate.MANAGER,
+        stepsJson: JSON.stringify([
+          { order: 1, role: "MANAGER", action: "review" },
+          { order: 2, role: project.mode === ProjectMode.SIMPLE ? "EXECUTIVE" : "SUPERINTENDENT", action: "approve" },
+        ]),
+      },
+    });
+
     await prisma.threadMessage.createMany({
       data: [
         { threadId: generalThread.id, authorId: admin.id, body: `Project shell bootstrapped for ${project.mode} mode with tenant-aware defaults.`, pinned: true },
-        { threadId: generalThread.id, authorId: pm.id, body: `Kickoff complete. Tracking next actions, documents, and approvals in the default job thread.`, decisionFlag: true },
+        { threadId: generalThread.id, authorId: pm.id, body: `Kickoff complete. Tracking next actions, documents, approvals, and user engagement in the default job thread.`, decisionFlag: true },
       ],
     });
 
@@ -279,6 +349,20 @@ async function main() {
         data: [
           { projectId: project.id, ticketNumber: "T-24017", materialType: "Fill Sand", quantity: 24, unit: "TON", source: "Ladson Quarry", destination: "Segment B" },
           { projectId: project.id, ticketNumber: "T-24018", materialType: "12in DIP", quantity: 420, unit: "LF", source: "Pipe Yard", destination: "STA 24+00" },
+        ],
+      });
+
+      await prisma.equipmentRecord.createMany({
+        data: [
+          { projectId: project.id, equipmentCode: "EX-210", description: "Cat 320 Excavator", ownershipType: "Owned", assignedCrew: "Pipe Crew 1", utilizationHours: 8.5, status: "Active" },
+          { projectId: project.id, equipmentCode: "RL-014", description: "Compaction Roller", ownershipType: "Rented", assignedCrew: "Earthwork Crew", utilizationHours: 6.25, status: "Active" },
+        ],
+      });
+
+      await prisma.materialRecord.createMany({
+        data: [
+          { projectId: project.id, materialType: "Fill Sand", quantity: 24, unit: "TON", status: "Received", source: "Ladson Quarry", locationTag: "Segment B" },
+          { projectId: project.id, materialType: "12in Ductile Iron Pipe", quantity: 420, unit: "LF", status: "Installed", source: "Pipe Yard", locationTag: "STA 24+00 to 28+20" },
         ],
       });
     }

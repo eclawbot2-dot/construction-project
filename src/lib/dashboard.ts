@@ -29,6 +29,8 @@ export async function getDashboardData() {
       workflowTemplates: true,
       companies: true,
       contacts: true,
+      notificationRules: true,
+      historicalEstimates: true,
       projects: {
         include: {
           threads: {
@@ -55,7 +57,11 @@ export async function getDashboardData() {
           meetings: true,
           safetyIncidents: true,
           punchItems: true,
-          workflowRuns: true,
+          workflowRuns: { include: { watchers: { include: { user: true } } } },
+          watchers: { include: { user: true } },
+          approvalRoutes: true,
+          equipmentRecords: true,
+          materialRecords: true,
         },
         orderBy: { createdAt: "asc" },
       },
@@ -91,6 +97,8 @@ export async function getDashboardData() {
     documents: tenant.projects.reduce((sum, project) => sum + project.documents.length, 0),
     incidents: tenant.projects.reduce((sum, project) => sum + project.safetyIncidents.length, 0),
     punchItems: tenant.projects.reduce((sum, project) => sum + project.punchItems.length, 0),
+    watchers: tenant.projects.reduce((sum, project) => sum + project.watchers.length, 0),
+    approvalRoutes: tenant.projects.reduce((sum, project) => sum + project.approvalRoutes.length, 0),
   };
 
   const dashboardCards = tenant.projects.map((project) => {
@@ -154,6 +162,10 @@ export async function getDashboardData() {
       safetyIncidents: project.safetyIncidents,
       punchItems: project.punchItems,
       workflowRuns: project.workflowRuns,
+      watchers: project.watchers,
+      approvalRoutes: project.approvalRoutes,
+      equipmentRecords: project.equipmentRecords,
+      materialRecords: project.materialRecords,
       upcomingTasks: project.tasks
         .filter((task) => task.status !== "COMPLETE")
         .sort((a, b) => (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER))
@@ -210,6 +222,8 @@ export async function getDashboardData() {
       templateCount: tenant.workflowTemplates.length,
       recentRuns: tenant.projects.flatMap((project) => project.workflowRuns).slice(0, 8),
     },
+    notifications: tenant.notificationRules,
+    historicalEstimates: tenant.historicalEstimates,
   };
 
   return {

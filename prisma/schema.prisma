@@ -117,6 +117,8 @@ model Tenant {
   contacts          Contact[]
   auditEvents       AuditEvent[]
   workflowTemplates WorkflowTemplate[]
+  notificationRules NotificationRule[]
+  historicalEstimates HistoricalEstimate[]
 }
 
 model BusinessUnit {
@@ -150,6 +152,7 @@ model User {
   tasks         Task[]              @relation("TaskAssignee")
   approvals     Approval[]          @relation("ApprovalApprover")
   auditEvents   AuditEvent[]        @relation("AuditActor")
+  watchers      Watcher[]
 }
 
 model Membership {
@@ -232,6 +235,10 @@ model Project {
   punchItems          PunchItem[]
   meetings            Meeting[]
   workflowRuns        WorkflowRun[]
+  watchers            Watcher[]
+  approvalRoutes      ApprovalRoute[]
+  equipmentRecords    EquipmentRecord[]
+  materialRecords     MaterialRecord[]
 
   @@unique([tenantId, code])
 }
@@ -298,6 +305,93 @@ model WorkflowRun {
   payloadJson   String          @default("{}")
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+
+  watchers      Watcher[]
+}
+
+model Watcher {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workflowRunId String?
+  workflowRun   WorkflowRun?    @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  channel       String
+  objectType    String
+  objectId      String?
+  required      Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+}
+
+model NotificationRule {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  roleTemplate  UserRoleTemplate?
+  triggerType   String
+  delivery      String
+  cadence       String?
+  slaHours      Int?
+  configJson    String          @default("{}")
+  createdAt     DateTime        @default(now())
+}
+
+model ApprovalRoute {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  targetType    String
+  targetId      String?
+  name          String
+  status        WorkflowStatus  @default(DRAFT)
+  approverRole  UserRoleTemplate?
+  stepsJson     String          @default("[]")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model EquipmentRecord {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  equipmentCode String
+  description   String
+  ownershipType String
+  assignedCrew  String?
+  utilizationHours Float?       @default(0)
+  status        String          @default("Active")
+  createdAt     DateTime        @default(now())
+}
+
+model MaterialRecord {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  materialType  String
+  quantity      Float
+  unit          String
+  status        String          @default("Received")
+  source        String?
+  locationTag   String?
+  createdAt     DateTime        @default(now())
+}
+
+model HistoricalEstimate {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mode          ProjectMode
+  title         String
+  projectType   String?
+  geography     String?
+  lineItemCode  String?
+  unitCost      Float?
+  productionRate Float?
+  confidencePct Int?
+  metadataJson  String          @default("{}")
+  createdAt     DateTime        @default(now())
 }
 
 model Document {

@@ -11,7 +11,7 @@ export default async function OperationsPage() {
     <AppLayout
       eyebrow="Pass 4 — Vertical and heavy-civil depth"
       title="Operations"
-      description="Operational execution views for field production, quantities, RFIs, submittals, and project control rituals across the mode packs."
+      description="Operational execution views for field production, quantities, RFIs, submittals, equipment, materials, and project control rituals across the mode packs."
     >
       <div className="grid gap-6">
         <section className="grid gap-6 xl:grid-cols-2">
@@ -37,6 +37,24 @@ export default async function OperationsPage() {
                         <div className="font-medium text-white">{item.activity}</div>
                         <div className="mt-1">Crew: {item.crewName}</div>
                         <div className="mt-1">Rate: {item.productionRate}/hr</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {project.equipmentRecords.map((item) => (
+                      <div key={item.id} className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-200">
+                        <div className="font-medium text-white">{item.equipmentCode}</div>
+                        <div className="mt-1">{item.description}</div>
+                        <div className="mt-1 text-xs text-slate-400">{item.ownershipType} · {item.assignedCrew}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {project.materialRecords.map((item) => (
+                      <div key={item.id} className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-200">
+                        <div className="font-medium text-white">{item.materialType}</div>
+                        <div className="mt-1">{item.quantity} {item.unit}</div>
+                        <div className="mt-1 text-xs text-slate-400">{item.status} · {item.locationTag}</div>
                       </div>
                     ))}
                   </div>
@@ -67,7 +85,7 @@ export default async function OperationsPage() {
                     </div>
                   </div>
                   <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-300">
-                    Drawings/spec management, meetings, document control, and procurement risk surfaces should continue to deepen from this base.
+                    Drawings/spec management, meetings, document control, procurement risk, and approval routing are now surfaced together as one technical workflow zone.
                   </div>
                 </div>
               ))}

@@ -9,7 +9,7 @@ export default async function CrmPage() {
     <AppLayout
       eyebrow="Pass 5 — Shared services"
       title="CRM & Shared Services"
-      description="Enterprise shared-service layer spanning CRM, workforce, workflow engine, compliance direction, and future back-office modules."
+      description="Enterprise shared-service layer spanning CRM, workforce, workflow engine, compliance direction, historical intelligence, and future back-office modules."
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
         <section className="card p-6">
@@ -50,15 +50,15 @@ export default async function CrmPage() {
         </section>
 
         <section className="card p-6 xl:col-span-2">
-          <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Requirement coverage still to build deeper</div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm text-slate-300">
-            {[
-              "Contracts repository with obligations and renewal tracking",
-              "Compliance tracking for licenses, certs, insurance, and expirations",
-              "Timesheets, invoicing, placements, and bill/pay structures",
-              "Federal proposal capture and onboarding workflow orchestration",
-            ].map((item) => (
-              <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">{item}</div>
+          <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Historical bid and estimating intelligence</div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 text-sm text-slate-300">
+            {data?.sharedServices.historicalEstimates.map((estimate) => (
+              <div key={estimate.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="font-medium text-white">{estimate.title}</div>
+                <div className="mt-1 text-xs text-slate-500">{estimate.mode} · {estimate.projectType} · {estimate.geography}</div>
+                <div className="mt-2 text-xs text-cyan-200">Code: {estimate.lineItemCode}</div>
+                <div className="mt-1 text-xs text-slate-400">Unit cost: {estimate.unitCost ?? "—"} · Production rate: {estimate.productionRate ?? "—"}</div>
+              </div>
             ))}
           </div>
         </section>

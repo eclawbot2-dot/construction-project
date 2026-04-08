@@ -1,17 +1,17 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { getDashboardData } from "@/lib/dashboard";
-import { modeLabel, workflowStatusLabel } from "@/lib/utils";
+import { formatDateTime, modeLabel, roleLabel, workflowStatusLabel } from "@/lib/utils";
 
 export default async function WorkflowsPage() {
   const data = await getDashboardData();
 
   return (
     <AppLayout
-      eyebrow="Pass 3 — Workflow and engagement"
+      eyebrow="Pass 3 and 4 — Workflow + engagement depth"
       title="Workflow Center"
-      description="Central place for mode packs, reusable workflow templates, approval intent, escalation concepts, and engagement defaults."
+      description="Central place for workflow templates, watchers, notification rules, approval routing, escalation concepts, and mode-driven engagement logic."
     >
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
         <section className="card p-6">
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Mode-driven workflow templates</div>
           <div className="mt-4 space-y-4">
@@ -32,6 +32,44 @@ export default async function WorkflowsPage() {
 
         <section className="grid gap-6">
           <div className="card p-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Notification rules</div>
+            <div className="mt-4 space-y-3 text-sm text-slate-300">
+              {data?.sharedServices.notifications.map((rule) => (
+                <div key={rule.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-medium text-white">{rule.name}</div>
+                    <span className="badge-gold">{rule.delivery}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">Trigger: {rule.triggerType} · Cadence: {rule.cadence ?? "instant"} · SLA: {rule.slaHours ?? 0}h</div>
+                  <div className="mt-2 text-xs text-cyan-200">Role: {rule.roleTemplate ? roleLabel(rule.roleTemplate) : "Any"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Recent workflow runs and watchers</div>
+            <div className="mt-4 space-y-3 text-sm text-slate-300">
+              {data?.projectWorkspaces.flatMap((project) => project.workflowRuns.map((run) => ({ project, run }))).map(({ project, run }) => (
+                <div key={run.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-white">{run.templateName}</div>
+                      <div className="mt-1 text-xs text-slate-500">{project.name} · {run.module}</div>
+                    </div>
+                    <span className="badge-blue">{workflowStatusLabel(run.status)}</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {run.watchers.map((watcher) => (
+                      <span key={watcher.id} className="badge-gray">{watcher.user?.name ?? "Unassigned"} · {watcher.channel}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card p-6">
             <div className="text-xs uppercase tracking-[0.2em] text-slate-400">User engagement model</div>
             <div className="mt-4 grid gap-4 md:grid-cols-3 xl:grid-cols-1">
               {Object.entries(data?.modeDefaults ?? {}).map(([mode, details]) => (
@@ -46,35 +84,22 @@ export default async function WorkflowsPage() {
               ))}
             </div>
           </div>
-
-          <div className="card p-6">
-            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Approval / reminder / watcher logic to build out</div>
-            <div className="mt-4 grid gap-3 text-sm text-slate-300">
-              {[
-                "Route RFIs and submittals through explicit ball-in-court ownership",
-                "Allow job-thread watchers by project, channel, and record type",
-                "Add reminder/SLA timers for overdue technical workflows",
-                "Support external review participation for owners, subs, and design teams",
-                "Drive digest notifications by role and urgency",
-              ].map((item) => (
-                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">{item}</div>
-              ))}
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Recent workflow runs</div>
-            <div className="mt-4 space-y-3 text-sm text-slate-300">
-              {data?.sharedServices.workflowEngine.recentRuns.length ? data.sharedServices.workflowEngine.recentRuns.map((run) => (
-                <div key={run.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="font-medium text-white">{run.templateName}</div>
-                  <div className="mt-1 text-xs text-slate-500">{run.module} · {workflowStatusLabel(run.status)}</div>
-                </div>
-              )) : <div className="rounded-2xl border border-white/10 bg-white/5 p-4">No recent workflow runs seeded yet.</div>}
-            </div>
-          </div>
         </section>
       </div>
+
+      <section className="mt-6 card p-6">
+        <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Approval routing and reminder logic coverage</div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {data?.projectWorkspaces.flatMap((project) => project.approvalRoutes.map((route) => (
+            <div key={route.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              <div className="font-medium text-white">{route.name}</div>
+              <div className="mt-1 text-xs text-slate-500">{project.name} · {route.targetType}</div>
+              <div className="mt-2 text-xs text-cyan-200">Approver role: {route.approverRole ? roleLabel(route.approverRole) : "Any"}</div>
+              <div className="mt-2 text-xs text-slate-500">Status: {workflowStatusLabel(route.status)}</div>
+            </div>
+          ))) }
+        </div>
+      </section>
     </AppLayout>
   );
 }
