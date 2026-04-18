@@ -4,12 +4,14 @@ import { ProjectTabs } from "@/components/layout/project-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function BidsPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+  const tenant = await requireTenant();
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, tenantId: tenant.id },
     include: {
       bidPackages: {
         include: { subBids: { include: { vendor: true }, orderBy: { bidAmount: "asc" } } },

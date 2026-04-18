@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatDate } from "@/lib/utils";
 
 export default async function DocumentsRollupPage() {
+  const tenant = await requireTenant();
   const docs = await prisma.document.findMany({
+    where: { project: { tenantId: tenant.id } },
     include: { project: true },
     orderBy: { createdAt: "desc" },
     take: 200,

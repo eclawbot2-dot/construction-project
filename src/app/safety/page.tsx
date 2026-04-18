@@ -3,12 +3,14 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatDate, inspectionKindLabel } from "@/lib/utils";
 
 export default async function SafetyDashboardPage() {
+  const tenant = await requireTenant();
   const [incidents, inspections] = await Promise.all([
-    prisma.safetyIncident.findMany({ include: { project: true }, orderBy: { occurredAt: "desc" }, take: 100 }),
-    prisma.inspection.findMany({ include: { project: true }, where: { OR: [{ kind: "OSHA" }, { kind: "ENVIRONMENTAL" }] }, orderBy: { scheduledAt: "desc" }, take: 100 }),
+    prisma.safetyIncident.findMany({ where: { project: { tenantId: tenant.id } }, include: { project: true }, orderBy: { occurredAt: "desc" }, take: 100 }),
+    prisma.inspection.findMany({ where: { project: { tenantId: tenant.id }, OR: [{ kind: "OSHA" }, { kind: "ENVIRONMENTAL" }] }, include: { project: true }, orderBy: { scheduledAt: "desc" }, take: 100 }),
   ]);
   const failed = inspections.filter((i) => i.result === "FAIL").length;
   const scheduled = inspections.filter((i) => !i.completedAt).length;

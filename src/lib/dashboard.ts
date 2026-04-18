@@ -1,5 +1,6 @@
 import { ProjectMode, ThreadChannel, WorkflowStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { currentTenantSlug } from "@/lib/tenant";
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
 
@@ -23,7 +24,10 @@ function parseJsonObject<T>(value: string | null | undefined, fallback: T): T {
 }
 
 export async function getDashboardData() {
+  const slug = await currentTenantSlug();
   const tenant = await prisma.tenant.findFirst({
+    where: slug ? { slug } : undefined,
+    orderBy: { createdAt: "asc" },
     include: {
       businessUnits: true,
       workflowTemplates: true,

@@ -431,6 +431,187 @@ async function main() {
       },
     });
   }
+
+  // Additional tenants — one Simple-first (residential remodel focused), one Heavy Civil-first (infrastructure).
+  await seedExtraTenant({
+    name: "Brownstone Custom Homes",
+    slug: "brownstone",
+    primaryMode: ProjectMode.SIMPLE,
+    enabledModes: [ProjectMode.SIMPLE, ProjectMode.VERTICAL],
+    brandingTheme: "charcoal-teal",
+    businessUnits: [
+      { name: "Residential", code: "RES", defaultMode: ProjectMode.SIMPLE, region: "Charleston" },
+      { name: "Small Commercial", code: "SMC", defaultMode: ProjectMode.VERTICAL, region: "Charleston" },
+    ],
+    ownerCompany: { name: "Kiawah Private Clients", companyType: "Owner", market: "Residential" },
+    projects: [
+      { name: "Harborview Custom Residence", code: "HCR-001", mode: ProjectMode.SIMPLE, contractValue: 2850000, ownerName: "Private Client A", contractType: "Cost Plus" },
+      { name: "Sullivan Beach House Renovation", code: "SBH-002", mode: ProjectMode.SIMPLE, contractValue: 485000, ownerName: "Private Client B", contractType: "Lump Sum" },
+      { name: "Main Street Retail Buildout", code: "MSRB-003", mode: ProjectMode.VERTICAL, contractValue: 1250000, ownerName: "Charleston Retail LLC", contractType: "GMP" },
+    ],
+    admin: admin,
+    userForPm: pm,
+    userForSuper: superintendent,
+  });
+
+  await seedExtraTenant({
+    name: "Palmetto Civil Infrastructure",
+    slug: "palmetto-civil",
+    primaryMode: ProjectMode.HEAVY_CIVIL,
+    enabledModes: [ProjectMode.HEAVY_CIVIL, ProjectMode.VERTICAL],
+    brandingTheme: "midnight-amber",
+    businessUnits: [
+      { name: "Utilities", code: "UTIL", defaultMode: ProjectMode.HEAVY_CIVIL, region: "Lowcountry" },
+      { name: "DOT & Roadway", code: "DOT", defaultMode: ProjectMode.HEAVY_CIVIL, region: "Lowcountry" },
+      { name: "Vertical Structures", code: "VRTS", defaultMode: ProjectMode.VERTICAL, region: "Lowcountry" },
+    ],
+    ownerCompany: { name: "SCDOT District 6", companyType: "Owner", market: "Infrastructure" },
+    projects: [
+      { name: "Highway 17 Overlay Phase A", code: "H17A-101", mode: ProjectMode.HEAVY_CIVIL, contractValue: 6400000, ownerName: "SCDOT", contractType: "Unit Price" },
+      { name: "Mount Pleasant Water Main Ext", code: "MPWM-211", mode: ProjectMode.HEAVY_CIVIL, contractValue: 2900000, ownerName: "Mount Pleasant Water", contractType: "Unit Price" },
+      { name: "North Charleston Operations Facility", code: "NCOF-301", mode: ProjectMode.VERTICAL, contractValue: 11500000, ownerName: "North Charleston", contractType: "Design-Build" },
+    ],
+    admin: admin,
+    userForPm: pm,
+    userForSuper: superintendent,
+  });
+}
+
+type ExtraTenantSpec = {
+  name: string;
+  slug: string;
+  primaryMode: ProjectMode;
+  enabledModes: ProjectMode[];
+  brandingTheme: string;
+  businessUnits: Array<{ name: string; code: string; defaultMode: ProjectMode; region: string }>;
+  ownerCompany: { name: string; companyType: string; market: string };
+  projects: Array<{ name: string; code: string; mode: ProjectMode; contractValue: number; ownerName: string; contractType: string }>;
+  admin: { id: string };
+  userForPm: { id: string };
+  userForSuper: { id: string };
+};
+
+async function seedExtraTenant(spec: ExtraTenantSpec) {
+  const tenant = await prisma.tenant.create({
+    data: {
+      name: spec.name,
+      slug: spec.slug,
+      primaryMode: spec.primaryMode,
+      enabledModes: JSON.stringify(spec.enabledModes),
+      featurePacks: JSON.stringify(["job-thread", "approvals", "notifications"]),
+      terminology: JSON.stringify({ project: "Project", thread: "Job Thread" }),
+      brandingTheme: spec.brandingTheme,
+    },
+  });
+
+  const units = await Promise.all(spec.businessUnits.map((bu) =>
+    prisma.businessUnit.create({ data: { tenantId: tenant.id, ...bu } })
+  ));
+  const primaryUnit = units[0];
+
+  await prisma.membership.createMany({
+    data: [
+      { tenantId: tenant.id, userId: spec.admin.id, businessUnitId: primaryUnit.id, roleTemplate: UserRoleTemplate.ADMIN },
+      { tenantId: tenant.id, userId: spec.userForPm.id, businessUnitId: primaryUnit.id, roleTemplate: UserRoleTemplate.MANAGER },
+      { tenantId: tenant.id, userId: spec.userForSuper.id, businessUnitId: units[1]?.id ?? primaryUnit.id, roleTemplate: UserRoleTemplate.SUPERINTENDENT },
+    ],
+  });
+
+  const ownerCompany = await prisma.company.create({
+    data: { tenantId: tenant.id, name: spec.ownerCompany.name, companyType: spec.ownerCompany.companyType, market: spec.ownerCompany.market, region: spec.businessUnits[0].region },
+  });
+
+  const today = new Date();
+  for (let i = 0; i < spec.projects.length; i++) {
+    const p = spec.projects[i];
+    const unit = units.find((u) => u.defaultMode === p.mode) ?? primaryUnit;
+    const start = new Date(today.getTime() - (60 + i * 30) * 24 * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const project = await prisma.project.create({
+      data: {
+        tenantId: tenant.id,
+        businessUnitId: unit.id,
+        name: p.name,
+        code: p.code,
+        mode: p.mode,
+        stage: ProjectStage.ACTIVE,
+        address: `${spec.businessUnits[0].region}, SC`,
+        ownerName: p.ownerName,
+        contractType: p.contractType,
+        contractValue: p.contractValue,
+        marginTargetPct: 11,
+        progressPct: 20 + i * 15,
+        healthScore: 80,
+        startDate: start,
+        endDate: end,
+        configurationJson: JSON.stringify({ dashboard: p.mode.toLowerCase().replace("_", "-") }),
+      },
+    });
+
+    const thread = await prisma.thread.create({ data: { projectId: project.id, title: `${project.name} Job Thread`, channel: ThreadChannel.GENERAL, isDefault: true } });
+    await prisma.threadMessage.create({
+      data: { threadId: thread.id, authorId: spec.admin.id, body: `Tenant ${tenant.name} seeded project ${project.name} in ${p.mode} mode.`, pinned: true },
+    });
+
+    await prisma.task.create({
+      data: {
+        projectId: project.id,
+        title: p.mode === ProjectMode.SIMPLE ? "Confirm client selections" : p.mode === ProjectMode.VERTICAL ? "Publish drawing register" : "Validate pay item structure",
+        status: TaskStatus.IN_PROGRESS,
+        priority: "High",
+        dueDate: new Date(start.getTime() + 60 * 24 * 60 * 60 * 1000),
+        assigneeId: spec.userForPm.id,
+        sourceType: "extra-tenant-seed",
+      },
+    });
+
+    const budget = await prisma.budget.create({
+      data: {
+        projectId: project.id,
+        name: "Current Control Budget",
+        originalValue: p.contractValue,
+        currentValue: p.contractValue * 1.03,
+        forecastFinal: p.contractValue * 1.02,
+      },
+    });
+    await prisma.budgetLine.createMany({
+      data: [
+        { budgetId: budget.id, code: p.mode === ProjectMode.HEAVY_CIVIL ? "P-014" : "033000", description: p.mode === ProjectMode.HEAVY_CIVIL ? "12in water main" : "Shell construction", lineType: BudgetLineType.COST_CODE, budgetAmount: p.contractValue * 0.35, committedCost: p.contractValue * 0.28, actualCost: p.contractValue * 0.12 },
+        { budgetId: budget.id, code: "GC", description: "General conditions", lineType: BudgetLineType.COST_CODE, budgetAmount: p.contractValue * 0.12, committedCost: p.contractValue * 0.09, actualCost: p.contractValue * 0.05 },
+      ],
+    });
+
+    await prisma.dailyLog.create({
+      data: {
+        projectId: project.id,
+        logDate: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000),
+        weather: "70F clear",
+        summary: `Daily production report — ${p.mode.toLowerCase()} scope ongoing.`,
+        manpower: p.mode === ProjectMode.SIMPLE ? 6 : p.mode === ProjectMode.VERTICAL ? 32 : 18,
+      },
+    });
+
+    await prisma.document.create({
+      data: { projectId: project.id, title: `${p.code} Contract Cover Sheet`, documentClass: DocumentClass.CONTRACT, folderPath: "/contracts", metadataJson: JSON.stringify({ source: "extra-tenant-seed" }) },
+    });
+
+    await seedFinancialsAndSchedule({ ...project, contractValue: p.contractValue }, { pmId: spec.userForPm.id, superintendentId: spec.userForSuper.id });
+    await seedLifecycle({ ...project, contractValue: p.contractValue }, tenant.id);
+
+    await prisma.auditEvent.create({
+      data: {
+        tenantId: tenant.id,
+        actorId: spec.admin.id,
+        entityType: "Project",
+        entityId: project.id,
+        action: "SEEDED",
+        afterJson: JSON.stringify({ mode: project.mode, stage: project.stage }),
+        source: "extra-tenant-seed",
+      },
+    });
+  }
+
+  void ownerCompany;
 }
 
 async function seedFinancialsAndSchedule(project: { id: string; name: string; code: string; contractValue: number | null; mode: ProjectMode; startDate: Date | null; endDate: Date | null }, users: { pmId: string; superintendentId: string }) {

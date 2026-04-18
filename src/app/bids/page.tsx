@@ -3,12 +3,14 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, modeLabel } from "@/lib/utils";
 
 export default async function BidsHubPage() {
+  const tenant = await requireTenant();
   const [opportunities, bidPackages] = await Promise.all([
-    prisma.opportunity.findMany({ orderBy: [{ stage: "asc" }, { dueDate: "asc" }] }),
-    prisma.bidPackage.findMany({ include: { project: true, subBids: true }, orderBy: { dueDate: "asc" } }),
+    prisma.opportunity.findMany({ where: { tenantId: tenant.id }, orderBy: [{ stage: "asc" }, { dueDate: "asc" }] }),
+    prisma.bidPackage.findMany({ where: { project: { tenantId: tenant.id } }, include: { project: true, subBids: true }, orderBy: { dueDate: "asc" } }),
   ]);
 
   const pipelineValue = opportunities.filter((o) => o.stage !== "LOST" && o.stage !== "WITHDRAWN").reduce((s, o) => s + o.estimatedValue, 0);

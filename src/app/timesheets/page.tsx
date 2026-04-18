@@ -3,10 +3,12 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function TimesheetsRollupPage() {
-  const entries = await prisma.timeEntry.findMany({ include: { project: true }, orderBy: [{ weekEnding: "desc" }, { employeeName: "asc" }], take: 500 });
+  const tenant = await requireTenant();
+  const entries = await prisma.timeEntry.findMany({ where: { project: { tenantId: tenant.id } }, include: { project: true }, orderBy: [{ weekEnding: "desc" }, { employeeName: "asc" }], take: 500 });
   const totalHours = entries.reduce((s, t) => s + t.regularHours + t.overtimeHours + t.doubleTimeHours, 0);
   const totalCost = entries.reduce((s, t) => s + (t.regularHours * t.rate + t.overtimeHours * t.rate * 1.5 + t.doubleTimeHours * t.rate * 2), 0);
   const pending = entries.filter((t) => t.status === "SUBMITTED" || t.status === "DRAFT").length;

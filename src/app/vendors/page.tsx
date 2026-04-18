@@ -2,10 +2,13 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function VendorsPage() {
+  const tenant = await requireTenant();
   const vendors = await prisma.vendor.findMany({
+    where: { tenantId: tenant.id },
     include: { insuranceCerts: true, subBids: true, subInvoices: true },
     orderBy: { name: "asc" },
   });

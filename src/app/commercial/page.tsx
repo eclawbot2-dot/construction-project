@@ -2,15 +2,18 @@ import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, formatPercent, contractTypeLabel, changeOrderKindLabel } from "@/lib/utils";
 
 export default async function CommercialPage() {
+  const tenant = await requireTenant();
+  const projectScope = { project: { tenantId: tenant.id } } as const;
   const [projects, contracts, changeOrders, payApps, lienWaivers] = await Promise.all([
-    prisma.project.findMany({ orderBy: { name: "asc" } }),
-    prisma.contract.findMany({ include: { project: true, commitments: true } }),
-    prisma.changeOrder.findMany({ include: { project: true }, orderBy: { requestedAt: "desc" } }),
-    prisma.payApplication.findMany({ include: { project: true, contract: true }, orderBy: { periodNumber: "desc" } }),
-    prisma.lienWaiver.findMany({ include: { project: true, contract: true }, orderBy: { createdAt: "desc" } }),
+    prisma.project.findMany({ where: { tenantId: tenant.id }, orderBy: { name: "asc" } }),
+    prisma.contract.findMany({ where: projectScope, include: { project: true, commitments: true } }),
+    prisma.changeOrder.findMany({ where: projectScope, include: { project: true }, orderBy: { requestedAt: "desc" } }),
+    prisma.payApplication.findMany({ where: projectScope, include: { project: true, contract: true }, orderBy: { periodNumber: "desc" } }),
+    prisma.lienWaiver.findMany({ where: projectScope, include: { project: true, contract: true }, orderBy: { createdAt: "desc" } }),
   ]);
 
   const contractedValue = contracts.reduce((s, c) => s + c.currentValue, 0);

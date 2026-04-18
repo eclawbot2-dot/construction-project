@@ -1,10 +1,13 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatDate, roleLabel } from "@/lib/utils";
 
 export default async function PeoplePage() {
+  const tenant = await requireTenant();
   const users = await prisma.user.findMany({
-    include: { memberships: { include: { businessUnit: true, tenant: true } } },
+    where: { memberships: { some: { tenantId: tenant.id } } },
+    include: { memberships: { where: { tenantId: tenant.id }, include: { businessUnit: true, tenant: true } } },
     orderBy: { name: "asc" },
   });
 

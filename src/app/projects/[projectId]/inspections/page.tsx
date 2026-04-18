@@ -3,12 +3,14 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { formatDate, inspectionKindLabel } from "@/lib/utils";
 
 export default async function InspectionsPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+  const tenant = await requireTenant();
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, tenantId: tenant.id },
     include: { inspections: { orderBy: { scheduledAt: "asc" } } },
   });
   if (!project) notFound();
