@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { getDashboardData } from "@/lib/dashboard";
 import { modeLabel } from "@/lib/utils";
@@ -20,8 +21,10 @@ export default async function OperationsPage() {
             <div className="mt-4 space-y-4">
               {heavyCivil.map((project) => (
                 <div key={project.id} className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
-                  <div className="font-medium text-white">{project.name}</div>
-                  <div className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-200">{modeLabel(project.mode)}</div>
+                  <Link href={`/projects/${project.id}`} className="block hover:text-cyan-200">
+                    <div className="font-medium text-white">{project.name}</div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-200">{modeLabel(project.mode)} · Open workspace →</div>
+                  </Link>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     {project.quantityHighlights.map((item) => (
                       <div key={item.id} className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-200">
@@ -68,21 +71,23 @@ export default async function OperationsPage() {
             <div className="mt-4 space-y-4">
               {vertical.map((project) => (
                 <div key={project.id} className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
-                  <div className="font-medium text-white">{project.name}</div>
-                  <div className="mt-1 text-xs uppercase tracking-[0.16em] text-cyan-200">{modeLabel(project.mode)}</div>
+                  <Link href={`/projects/${project.id}`} className="block hover:text-cyan-200">
+                    <div className="font-medium text-white">{project.name}</div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.16em] text-cyan-200">{modeLabel(project.mode)} · Open workspace →</div>
+                  </Link>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <div className="text-sm font-medium text-white">RFIs</div>
+                    <Link href={`/projects/${project.id}/rfis`} className="rounded-xl border border-white/10 bg-black/20 p-3 transition hover:border-cyan-500/40">
+                      <div className="text-sm font-medium text-white">RFIs →</div>
                       <div className="mt-2 space-y-2 text-sm text-slate-300">
                         {project.rfis.map((rfi) => <div key={rfi.id}>{rfi.number} · {rfi.subject}</div>)}
                       </div>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <div className="text-sm font-medium text-white">Submittals</div>
+                    </Link>
+                    <Link href={`/projects/${project.id}/submittals`} className="rounded-xl border border-white/10 bg-black/20 p-3 transition hover:border-cyan-500/40">
+                      <div className="text-sm font-medium text-white">Submittals →</div>
                       <div className="mt-2 space-y-2 text-sm text-slate-300">
                         {project.submittals.map((submittal) => <div key={submittal.id}>{submittal.number} · {submittal.title}</div>)}
                       </div>
-                    </div>
+                    </Link>
                   </div>
                   <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-300">
                     Drawings/spec management, meetings, document control, procurement risk, and approval routing are now surfaced together as one technical workflow zone.
