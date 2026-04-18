@@ -1,0 +1,156 @@
+import Link from "next/link";
+import { AppLayout } from "@/components/layout/app-layout";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { prisma } from "@/lib/prisma";
+import { formatCurrency, formatDate, formatPercent, contractTypeLabel, changeOrderKindLabel } from "@/lib/utils";
+
+export default async function CommercialPage() {
+  const [projects, contracts, changeOrders, payApps, lienWaivers] = await Promise.all([
+    prisma.project.findMany({ orderBy: { name: "asc" } }),
+    prisma.contract.findMany({ include: { project: true, commitments: true } }),
+    prisma.changeOrder.findMany({ include: { project: true }, orderBy: { requestedAt: "desc" } }),
+    prisma.payApplication.findMany({ include: { project: true, contract: true }, orderBy: { periodNumber: "desc" } }),
+    prisma.lienWaiver.findMany({ include: { project: true, contract: true }, orderBy: { createdAt: "desc" } }),
+  ]);
+
+  const contractedValue = contracts.reduce((s, c) => s + c.currentValue, 0);
+  const coApproved = changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").reduce((s, c) => s + c.amount, 0);
+  const coPending = changeOrders.filter((c) => c.status === "PENDING" || c.status === "DRAFT").reduce((s, c) => s + c.amount, 0);
+  const billedToDate = payApps.reduce((s, p) => s + p.workCompletedToDate, 0);
+  const retainageHeld = payApps.reduce((s, p) => s + p.retainageHeld, 0);
+  const pendingPayment = payApps.filter((p) => p.status !== "PAID").reduce((s, p) => s + p.currentPaymentDue, 0);
+  const waiverPending = lienWaivers.filter((w) => w.status === "PENDING").length;
+
+  return (
+    <AppLayout eyebrow="Commercial controls" title="Commercial rollup" description="Contracts, change orders, progress billing, and lien waivers across every project.">
+      <div className="grid gap-6">
+        <section className="grid gap-4 md:grid-cols-4">
+          <Stat label="Projects" value={projects.length} href="/projects" />
+          <Stat label="Contracted value" value={formatCurrency(contractedValue)} />
+          <Stat label="Billed to date" value={formatCurrency(billedToDate)} tone="good" />
+          <Stat label="Pending payment" value={formatCurrency(pendingPayment)} tone="warn" />
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-4">
+          <Stat label="Change orders approved" value={formatCurrency(coApproved)} tone="good" />
+          <Stat label="Change orders pending" value={formatCurrency(coPending)} tone="warn" />
+          <Stat label="Retainage held" value={formatCurrency(retainageHeld)} />
+          <Stat label="Lien waivers pending" value={waiverPending} tone={waiverPending > 0 ? "warn" : "good"} />
+        </section>
+
+        <section className="card p-0 overflow-hidden">
+          <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Contract ledger</div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-white/10">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="table-header">Contract</th>
+                  <th className="table-header">Project</th>
+                  <th className="table-header">Type</th>
+                  <th className="table-header">Counterparty</th>
+                  <th className="table-header">Current value</th>
+                  <th className="table-header">Retainage</th>
+                  <th className="table-header">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10 bg-slate-950/40">
+                {contracts.map((c) => (
+                  <tr key={c.id} className="transition hover:bg-white/5">
+                    <td className="table-cell">
+                      <Link href={`/projects/${c.project.id}/contracts`} className="font-medium text-white hover:underline">{c.contractNumber}</Link>
+                      <div className="text-xs text-slate-500">{c.title}</div>
+                    </td>
+                    <td className="table-cell"><Link href={`/projects/${c.project.id}`} className="text-cyan-300 hover:underline">{c.project.code}</Link></td>
+                    <td className="table-cell">{contractTypeLabel(c.type)}</td>
+                    <td className="table-cell text-slate-400">{c.counterparty}</td>
+                    <td className="table-cell">{formatCurrency(c.currentValue)}</td>
+                    <td className="table-cell">{formatPercent(c.retainagePct)}</td>
+                    <td className="table-cell"><StatusBadge status={c.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="card p-0 overflow-hidden">
+          <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Change order ledger</div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-white/10">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="table-header">#</th>
+                  <th className="table-header">Project</th>
+                  <th className="table-header">Kind</th>
+                  <th className="table-header">Title</th>
+                  <th className="table-header">Amount</th>
+                  <th className="table-header">Schedule</th>
+                  <th className="table-header">Status</th>
+                  <th className="table-header">Requested</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10 bg-slate-950/40">
+                {changeOrders.map((co) => (
+                  <tr key={co.id} className="transition hover:bg-white/5">
+                    <td className="table-cell font-mono text-xs text-slate-400">{co.coNumber}</td>
+                    <td className="table-cell"><Link href={`/projects/${co.project.id}/change-orders`} className="text-cyan-300 hover:underline">{co.project.code}</Link></td>
+                    <td className="table-cell">{changeOrderKindLabel(co.kind)}</td>
+                    <td className="table-cell">{co.title}</td>
+                    <td className="table-cell">{formatCurrency(co.amount)}</td>
+                    <td className="table-cell">{co.scheduleImpactDays ? `${co.scheduleImpactDays}d` : "—"}</td>
+                    <td className="table-cell"><StatusBadge status={co.status} /></td>
+                    <td className="table-cell text-slate-400">{formatDate(co.requestedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="card p-0 overflow-hidden">
+          <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Pay application pipeline</div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-white/10">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="table-header">Project</th>
+                  <th className="table-header">Period</th>
+                  <th className="table-header">Range</th>
+                  <th className="table-header">Work completed</th>
+                  <th className="table-header">Retainage</th>
+                  <th className="table-header">Payment due</th>
+                  <th className="table-header">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10 bg-slate-950/40">
+                {payApps.map((p) => (
+                  <tr key={p.id} className="transition hover:bg-white/5">
+                    <td className="table-cell"><Link href={`/projects/${p.project.id}/pay-apps`} className="text-cyan-300 hover:underline">{p.project.code}</Link></td>
+                    <td className="table-cell font-mono text-xs">#{p.periodNumber}</td>
+                    <td className="table-cell text-slate-400">{formatDate(p.periodFrom)} → {formatDate(p.periodTo)}</td>
+                    <td className="table-cell">{formatCurrency(p.workCompletedToDate)}</td>
+                    <td className="table-cell">{formatCurrency(p.retainageHeld)}</td>
+                    <td className="table-cell">{formatCurrency(p.currentPaymentDue)}</td>
+                    <td className="table-cell"><StatusBadge status={p.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </AppLayout>
+  );
+}
+
+function Stat({ label, value, tone, href }: { label: string; value: string | number; tone?: "good" | "warn" | "bad"; href?: string }) {
+  const toneClass = tone === "good" ? "text-emerald-300" : tone === "warn" ? "text-amber-300" : tone === "bad" ? "text-rose-300" : "text-white";
+  const inner = (
+    <div className={`panel p-4 ${href ? "transition hover:border-cyan-500/40" : ""}`}>
+      <div className="text-xs uppercase tracking-[0.16em] text-slate-400">{label}</div>
+      <div className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</div>
+      {href ? <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-cyan-300">View →</div> : null}
+    </div>
+  );
+  return href ? <Link href={href} className="block">{inner}</Link> : inner;
+}

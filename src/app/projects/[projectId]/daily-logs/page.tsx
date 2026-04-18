@@ -1,0 +1,48 @@
+import { notFound } from "next/navigation";
+import { AppLayout } from "@/components/layout/app-layout";
+import { ProjectTabs } from "@/components/layout/project-tabs";
+import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/utils";
+
+export default async function DailyLogsPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { dailyLogs: { orderBy: { logDate: "desc" } } },
+  });
+  if (!project) notFound();
+
+  const manpower = project.dailyLogs.reduce((s, l) => s + l.manpower, 0);
+
+  return (
+    <AppLayout eyebrow={`${project.code} · Daily logs`} title={project.name} description="Field superintendent daily reports — manpower, weather, delays, work performed.">
+      <div className="grid gap-6">
+        <ProjectTabs projectId={project.id} active="daily-logs" />
+        <section className="grid gap-4 md:grid-cols-3">
+          <Stat label="Total reports" value={project.dailyLogs.length} />
+          <Stat label="Logged manpower" value={manpower.toLocaleString()} />
+          <Stat label="Most recent" value={project.dailyLogs[0] ? formatDate(project.dailyLogs[0].logDate) : "—"} />
+        </section>
+        <section className="grid gap-3">
+          {project.dailyLogs.map((log) => (
+            <div key={log.id} className="card p-5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-white">{formatDate(log.logDate)}</div>
+                  <div className="text-xs text-slate-400">Type: {log.logType} · Weather: {log.weather ?? "—"} · Manpower: {log.manpower}</div>
+                </div>
+              </div>
+              <div className="mt-3 text-sm leading-6 text-slate-300">{log.summary}</div>
+              {log.notes ? <div className="mt-2 text-xs text-slate-500">{log.notes}</div> : null}
+            </div>
+          ))}
+          {project.dailyLogs.length === 0 ? <div className="card p-8 text-center text-slate-500">No daily logs yet.</div> : null}
+        </section>
+      </div>
+    </AppLayout>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return <div className="panel p-4"><div className="text-xs uppercase tracking-[0.16em] text-slate-400">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{value}</div></div>;
+}

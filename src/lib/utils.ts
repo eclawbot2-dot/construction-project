@@ -87,3 +87,62 @@ export function taskStatusLabel(status: string): string {
   };
   return map[status] ?? status.replaceAll("_", " ");
 }
+
+export function statusTone(status: string): "good" | "warn" | "bad" | "neutral" | "info" {
+  const GOOD = new Set(["APPROVED", "EXECUTED", "PASS", "PAID", "RECEIVED", "ACTIVE", "COMPLETE", "COMPLETED"]);
+  const WARN = new Set(["PENDING", "PENDING_APPROVAL", "SUBMITTED", "CONDITIONAL", "NEGOTIATING", "UNDER_REVIEW", "IN_PROGRESS"]);
+  const BAD = new Set(["REJECTED", "FAIL", "EXPIRED", "TERMINATED", "VOID", "BLOCKED"]);
+  const INFO = new Set(["DRAFT", "TODO", "WAIVED"]);
+  if (GOOD.has(status)) return "good";
+  if (BAD.has(status)) return "bad";
+  if (WARN.has(status)) return "warn";
+  if (INFO.has(status)) return "info";
+  return "neutral";
+}
+
+export function changeOrderKindLabel(kind: string): string {
+  const map: Record<string, string> = {
+    PCO: "Potential CO",
+    COR: "CO Request",
+    OCO: "Owner CO",
+    INTERNAL: "Internal",
+  };
+  return map[kind] ?? kind;
+}
+
+export function contractTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    PRIME_OWNER: "Prime / Owner",
+    SUBCONTRACT: "Subcontract",
+    PURCHASE_ORDER: "Purchase Order",
+    MSA: "MSA",
+    TASK_ORDER: "Task Order",
+    GC_CONTRACT: "GC Contract",
+    FEE_AGREEMENT: "Fee Agreement",
+  };
+  return map[type] ?? type.replaceAll("_", " ");
+}
+
+export function lienWaiverTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    CONDITIONAL_PARTIAL: "Conditional · Partial",
+    UNCONDITIONAL_PARTIAL: "Unconditional · Partial",
+    CONDITIONAL_FINAL: "Conditional · Final",
+    UNCONDITIONAL_FINAL: "Unconditional · Final",
+  };
+  return map[type] ?? type.replaceAll("_", " ");
+}
+
+export function inspectionKindLabel(kind: string): string {
+  const map: Record<string, string> = {
+    MUNICIPAL: "Municipal",
+    THIRD_PARTY: "Third-party",
+    INTERNAL_QC: "Internal QC",
+    PRE_POUR: "Pre-pour",
+    PRE_COVER: "Pre-cover",
+    FINAL: "Final",
+    OSHA: "OSHA",
+    ENVIRONMENTAL: "Environmental",
+  };
+  return map[kind] ?? kind.replaceAll("_", " ");
+}

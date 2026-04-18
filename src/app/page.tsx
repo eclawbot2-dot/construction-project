@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
+import { StatTile } from "@/components/ui/stat-tile";
 import { getDashboardData } from "@/lib/dashboard";
 import { formatCurrency, formatPercent, modeLabel, roleLabel } from "@/lib/utils";
 
@@ -25,22 +26,10 @@ export default async function Home() {
           <div className="card p-6">
             <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">Tenant controls</div>
             <div className="mt-4 grid gap-4 md:grid-cols-4">
-              <div className="panel p-4">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-400">Projects</div>
-                <div className="mt-2 text-3xl font-semibold text-white">{data.kpis.projects}</div>
-              </div>
-              <div className="panel p-4">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-400">Open tasks</div>
-                <div className="mt-2 text-3xl font-semibold text-white">{data.kpis.openTasks}</div>
-              </div>
-              <div className="panel p-4">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-400">RFIs</div>
-                <div className="mt-2 text-3xl font-semibold text-white">{data.kpis.activeRfis}</div>
-              </div>
-              <div className="panel p-4">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-400">Tickets</div>
-                <div className="mt-2 text-3xl font-semibold text-white">{data.kpis.tickets}</div>
-              </div>
+              <StatTile label="Projects" value={data.kpis.projects} href="/projects" />
+              <StatTile label="Open tasks" value={data.kpis.openTasks} href="/projects" />
+              <StatTile label="RFIs" value={data.kpis.activeRfis} href="/projects" />
+              <StatTile label="Tickets" value={data.kpis.tickets} href="/operations" />
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               <span className="badge-blue">Primary: {modeLabel(data.tenant.primaryMode)}</span>
@@ -69,7 +58,7 @@ export default async function Home() {
 
         <section className="grid gap-4 md:grid-cols-3">
           {data.projectsByMode.map((group) => (
-            <div key={group.mode} className="card p-5">
+            <Link key={group.mode} href="/projects" className="card p-5 transition hover:border-cyan-500/40">
               <div className="text-xs uppercase tracking-[0.2em] text-slate-400">{modeLabel(group.mode)}</div>
               <div className="mt-3 text-3xl font-semibold text-white">{group.count}</div>
               <div className="mt-3 flex items-center justify-between text-sm text-slate-400">
@@ -80,29 +69,24 @@ export default async function Home() {
                 <span>Avg progress</span>
                 <span>{group.progressAvg}%</span>
               </div>
-            </div>
+              <div className="mt-3 text-[10px] uppercase tracking-[0.22em] text-cyan-300">View projects →</div>
+            </Link>
           ))}
         </section>
 
         <section className="grid gap-5">
           {data.projectWorkspaces.map((project) => (
-            <article key={project.id} className="card p-6">
+            <article key={project.id} className="card p-6 transition hover:border-cyan-500/40">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">{modeLabel(project.mode)}</div>
-                  <h2 className="mt-1 text-2xl font-semibold text-white">{project.name}</h2>
+                  <Link href={`/projects/${project.id}`} className="mt-1 block text-2xl font-semibold text-white hover:text-cyan-200">{project.name}</Link>
                   <div className="mt-2 text-sm text-slate-400">{project.code} · {project.ownerName} · {project.contractType}</div>
                   <div className="mt-3 text-sm leading-6 text-slate-300">{project.latestSummary}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 lg:min-w-[280px]">
-                  <div className="panel p-4">
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-400">Value</div>
-                    <div className="mt-2 text-xl font-semibold text-white">{formatCurrency(project.contractValue)}</div>
-                  </div>
-                  <div className="panel p-4">
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-400">Progress</div>
-                    <div className="mt-2 text-xl font-semibold text-white">{formatPercent(project.progressPct)}</div>
-                  </div>
+                  <StatTile label="Value" value={formatCurrency(project.contractValue)} href={`/projects/${project.id}/contracts`} />
+                  <StatTile label="Progress" value={formatPercent(project.progressPct)} href={`/projects/${project.id}/schedule`} />
                 </div>
               </div>
 

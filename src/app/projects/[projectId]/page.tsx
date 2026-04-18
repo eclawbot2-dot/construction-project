@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
+import { ProjectTabs } from "@/components/layout/project-tabs";
 import { getProjectWorkspace } from "@/lib/dashboard";
 import { formatCurrency, formatDate, formatDateTime, modeLabel, workflowStatusLabel } from "@/lib/utils";
 
@@ -16,6 +17,8 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
       description="A single project workspace that changes required tabs, operating rituals, and execution depth by project mode."
     >
       <div className="grid gap-6">
+        <ProjectTabs projectId={project.id} active="overview" />
+
         <section className="grid gap-4 lg:grid-cols-4">
           <div className="card p-5 lg:col-span-2">
             <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Project identity</div>

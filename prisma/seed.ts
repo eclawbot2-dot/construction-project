@@ -3,14 +3,32 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import {
+  BidPackageStatus,
   BudgetLineType,
+  ChangeOrderKind,
+  ChangeOrderStatus,
+  ContractStatus,
+  ContractType,
   DocumentClass,
+  InspectionKind,
+  InspectionResult,
+  InsuranceType,
+  LienWaiverStatus,
+  LienWaiverType,
+  OpportunityStage,
+  PayApplicationStatus,
+  PrequalificationStatus,
   PrismaClient,
   ProjectMode,
   ProjectStage,
+  ScheduleDependencyType,
+  SubBidStatus,
+  SubInvoiceStatus,
   TaskStatus,
   ThreadChannel,
+  TimeEntryStatus,
   UserRoleTemplate,
+  WarrantyStatus,
   WorkflowStatus,
 } from "@prisma/client";
 
@@ -22,6 +40,25 @@ const adapter = new PrismaBetterSqlite3({ url: dbUrl });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  await prisma.warrantyItem.deleteMany();
+  await prisma.purchaseOrder.deleteMany();
+  await prisma.subInvoice.deleteMany();
+  await prisma.timeEntry.deleteMany();
+  await prisma.subBid.deleteMany();
+  await prisma.bidPackage.deleteMany();
+  await prisma.insuranceCert.deleteMany();
+  await prisma.vendor.deleteMany();
+  await prisma.opportunity.deleteMany();
+  await prisma.inspection.deleteMany();
+  await prisma.lienWaiver.deleteMany();
+  await prisma.payApplicationLine.deleteMany();
+  await prisma.payApplication.deleteMany();
+  await prisma.contractCommitment.deleteMany();
+  await prisma.contract.deleteMany();
+  await prisma.scheduleDependency.deleteMany();
+  await prisma.scheduleTask.deleteMany();
+  await prisma.changeOrderLine.deleteMany();
+  await prisma.changeOrder.deleteMany();
   await prisma.notificationRule.deleteMany();
   await prisma.historicalEstimate.deleteMany();
   await prisma.materialRecord.deleteMany();
@@ -379,6 +416,9 @@ async function main() {
       });
     }
 
+    await seedFinancialsAndSchedule(project, { pmId: pm.id, superintendentId: superintendent.id });
+    await seedLifecycle(project, tenant.id);
+
     await prisma.auditEvent.create({
       data: {
         tenantId: tenant.id,
@@ -391,6 +431,396 @@ async function main() {
       },
     });
   }
+}
+
+async function seedFinancialsAndSchedule(project: { id: string; name: string; code: string; contractValue: number | null; mode: ProjectMode; startDate: Date | null; endDate: Date | null }, users: { pmId: string; superintendentId: string }) {
+  // Contract + commitments
+  const primeContract = await prisma.contract.create({
+    data: {
+      projectId: project.id,
+      counterparty: project.mode === ProjectMode.SIMPLE ? "Private Client" : "Atlantic Development Partners",
+      contractNumber: `${project.code}-PRIME`,
+      title: `${project.name} — Prime Owner Contract`,
+      type: ContractType.PRIME_OWNER,
+      status: ContractStatus.ACTIVE,
+      originalValue: project.contractValue ?? 0,
+      currentValue: (project.contractValue ?? 0) * 1.04,
+      retainagePct: 10,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      executedAt: project.startDate,
+      notes: "Seeded prime contract linking budgets, CO log, and pay applications.",
+    },
+  });
+
+  const subCounterparty = project.mode === ProjectMode.HEAVY_CIVIL ? "Atlantic Underground LLC" : project.mode === ProjectMode.VERTICAL ? "Coastal Concrete Co" : "Lowcountry Finish Carpentry";
+  const subContract = await prisma.contract.create({
+    data: {
+      projectId: project.id,
+      counterparty: subCounterparty,
+      contractNumber: `${project.code}-SUB-001`,
+      title: `${subCounterparty} — Scope Subcontract`,
+      type: ContractType.SUBCONTRACT,
+      status: ContractStatus.ACTIVE,
+      originalValue: (project.contractValue ?? 0) * 0.32,
+      currentValue: (project.contractValue ?? 0) * 0.33,
+      retainagePct: 10,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      executedAt: project.startDate,
+    },
+  });
+
+  await prisma.contractCommitment.createMany({
+    data: [
+      { contractId: primeContract.id, costCode: "ZZ-PRIME", description: "Overall contract commitment", committedAmount: primeContract.currentValue, invoicedToDate: primeContract.currentValue * 0.42, paidToDate: primeContract.currentValue * 0.38 },
+      { contractId: subContract.id, costCode: project.mode === ProjectMode.HEAVY_CIVIL ? "P-014" : "033000", description: project.mode === ProjectMode.HEAVY_CIVIL ? "12in Water main install" : "Structural concrete scope", committedAmount: subContract.currentValue, invoicedToDate: subContract.currentValue * 0.45, paidToDate: subContract.currentValue * 0.40 },
+    ],
+  });
+
+  // Change orders
+  const co1 = await prisma.changeOrder.create({
+    data: {
+      projectId: project.id,
+      coNumber: "CO-001",
+      kind: ChangeOrderKind.OCO,
+      title: project.mode === ProjectMode.VERTICAL ? "Owner-directed storefront upgrade" : project.mode === ProjectMode.HEAVY_CIVIL ? "Additional utility crossing (field-directed)" : "Homeowner requested upgraded cabinetry",
+      description: "Seeded change order for MVP demo.",
+      reason: "OWNER_REQUEST",
+      amount: project.mode === ProjectMode.VERTICAL ? 185000 : project.mode === ProjectMode.HEAVY_CIVIL ? 42000 : 8500,
+      markupPct: 12,
+      scheduleImpactDays: project.mode === ProjectMode.HEAVY_CIVIL ? 6 : 0,
+      status: ChangeOrderStatus.APPROVED,
+      requestedById: users.pmId,
+      approvedById: users.pmId,
+      requestedAt: new Date("2026-03-15"),
+      approvedAt: new Date("2026-03-22"),
+      executedAt: new Date("2026-03-28"),
+    },
+  });
+
+  await prisma.changeOrderLine.createMany({
+    data: [
+      { changeOrderId: co1.id, costCode: "LAB", description: "Labor impact", category: "LABOR", quantity: project.mode === ProjectMode.VERTICAL ? 420 : project.mode === ProjectMode.HEAVY_CIVIL ? 96 : 24, unit: "HR", unitCost: project.mode === ProjectMode.VERTICAL ? 165 : 110, amount: (project.mode === ProjectMode.VERTICAL ? 420 : project.mode === ProjectMode.HEAVY_CIVIL ? 96 : 24) * (project.mode === ProjectMode.VERTICAL ? 165 : 110) },
+      { changeOrderId: co1.id, costCode: "MAT", description: "Materials", category: "MATERIAL", quantity: 1, unit: "LS", unitCost: project.mode === ProjectMode.VERTICAL ? 105000 : project.mode === ProjectMode.HEAVY_CIVIL ? 25000 : 4200, amount: project.mode === ProjectMode.VERTICAL ? 105000 : project.mode === ProjectMode.HEAVY_CIVIL ? 25000 : 4200 },
+    ],
+  });
+
+  const co2 = await prisma.changeOrder.create({
+    data: {
+      projectId: project.id,
+      coNumber: "CO-002",
+      kind: ChangeOrderKind.PCO,
+      title: project.mode === ProjectMode.VERTICAL ? "Mechanical rerouting (PCO)" : project.mode === ProjectMode.HEAVY_CIVIL ? "Unforeseen rock excavation" : "Structural header revision",
+      description: "Potential change order under review.",
+      reason: "FIELD_CONDITION",
+      amount: project.mode === ProjectMode.HEAVY_CIVIL ? 96500 : 38000,
+      markupPct: 10,
+      scheduleImpactDays: project.mode === ProjectMode.HEAVY_CIVIL ? 4 : 1,
+      status: ChangeOrderStatus.PENDING,
+      requestedById: users.pmId,
+      requestedAt: new Date("2026-04-01"),
+    },
+  });
+  void co2;
+
+  // Schedule tasks (simple WBS)
+  const scheduleSeed = project.mode === ProjectMode.VERTICAL
+    ? [
+        { wbs: "1", name: "Preconstruction", startOffset: 0, durationDays: 30, parentIndex: null, milestone: false },
+        { wbs: "2", name: "Substructure", startOffset: 30, durationDays: 60, parentIndex: null, milestone: false },
+        { wbs: "2.1", name: "Foundations", startOffset: 30, durationDays: 35, parentIndex: 1, milestone: false },
+        { wbs: "2.2", name: "Waterproofing", startOffset: 65, durationDays: 25, parentIndex: 1, milestone: false },
+        { wbs: "3", name: "Superstructure", startOffset: 90, durationDays: 180, parentIndex: null, milestone: false },
+        { wbs: "4", name: "Topping Out", startOffset: 270, durationDays: 0, parentIndex: null, milestone: true },
+        { wbs: "5", name: "MEP Rough", startOffset: 150, durationDays: 120, parentIndex: null, milestone: false },
+        { wbs: "6", name: "Finishes & Closeout", startOffset: 270, durationDays: 140, parentIndex: null, milestone: false },
+      ]
+    : project.mode === ProjectMode.HEAVY_CIVIL
+    ? [
+        { wbs: "1", name: "Mobilization", startOffset: 0, durationDays: 10, parentIndex: null, milestone: false },
+        { wbs: "2", name: "Erosion control & clearing", startOffset: 10, durationDays: 14, parentIndex: null, milestone: false },
+        { wbs: "3", name: "Utility install — water main", startOffset: 24, durationDays: 90, parentIndex: null, milestone: false },
+        { wbs: "4", name: "Backfill & compaction", startOffset: 60, durationDays: 70, parentIndex: null, milestone: false },
+        { wbs: "5", name: "Pavement restoration", startOffset: 130, durationDays: 35, parentIndex: null, milestone: false },
+        { wbs: "6", name: "Substantial completion", startOffset: 170, durationDays: 0, parentIndex: null, milestone: true },
+      ]
+    : [
+        { wbs: "1", name: "Demolition", startOffset: 0, durationDays: 5, parentIndex: null, milestone: false },
+        { wbs: "2", name: "Rough-in (electrical + plumbing)", startOffset: 5, durationDays: 10, parentIndex: null, milestone: false },
+        { wbs: "3", name: "Cabinet install", startOffset: 15, durationDays: 7, parentIndex: null, milestone: false },
+        { wbs: "4", name: "Countertops & backsplash", startOffset: 22, durationDays: 6, parentIndex: null, milestone: false },
+        { wbs: "5", name: "Punch & walkthrough", startOffset: 28, durationDays: 3, parentIndex: null, milestone: false },
+        { wbs: "6", name: "Project complete", startOffset: 35, durationDays: 0, parentIndex: null, milestone: true },
+      ];
+
+  const baseStart = project.startDate ?? new Date();
+  const createdTasks: Array<{ id: string; idx: number }> = [];
+  for (let i = 0; i < scheduleSeed.length; i++) {
+    const row = scheduleSeed[i];
+    const parentTaskId = row.parentIndex !== null ? createdTasks[row.parentIndex]?.id : null;
+    const start = new Date(baseStart.getTime() + row.startOffset * 24 * 3600 * 1000);
+    const end = new Date(start.getTime() + Math.max(row.durationDays, 1) * 24 * 3600 * 1000);
+    const task = await prisma.scheduleTask.create({
+      data: {
+        projectId: project.id,
+        parentId: parentTaskId ?? null,
+        wbs: row.wbs,
+        name: row.name,
+        startDate: start,
+        endDate: end,
+        durationDays: row.durationDays,
+        isMilestone: row.milestone,
+        onCriticalPath: !row.milestone && i < scheduleSeed.length - 1,
+        baselineStart: start,
+        baselineEnd: end,
+        percentComplete: i <= 2 ? 100 : i <= 4 ? 55 : i <= 5 ? 15 : 0,
+        responsible: row.milestone ? "Project Manager" : i % 2 === 0 ? "Superintendent" : "Foreman",
+      },
+    });
+    createdTasks.push({ id: task.id, idx: i });
+  }
+  for (let i = 0; i < createdTasks.length - 1; i++) {
+    const next = createdTasks[i + 1];
+    if (!next) continue;
+    await prisma.scheduleDependency.create({
+      data: {
+        predecessorId: createdTasks[i].id,
+        successorId: next.id,
+        type: ScheduleDependencyType.FS,
+        lagDays: 0,
+      },
+    });
+  }
+
+  // Pay Application
+  const periodFrom = new Date("2026-04-01");
+  const periodTo = new Date("2026-04-30");
+  const scheduledValue = primeContract.currentValue;
+  const workCompletedPrev = scheduledValue * 0.32;
+  const workCompletedThis = scheduledValue * 0.08;
+  const totalCompleted = workCompletedPrev + workCompletedThis;
+  const retainageHeld = totalCompleted * 0.10;
+  const currentPaymentDue = (totalCompleted * 0.90) - workCompletedPrev;
+  const payApp = await prisma.payApplication.create({
+    data: {
+      projectId: project.id,
+      contractId: primeContract.id,
+      periodNumber: 1,
+      periodFrom,
+      periodTo,
+      status: PayApplicationStatus.SUBMITTED,
+      originalContractValue: primeContract.originalValue,
+      changeOrderValue: primeContract.currentValue - primeContract.originalValue,
+      totalContractValue: primeContract.currentValue,
+      workCompletedToDate: totalCompleted,
+      materialsStoredToDate: 0,
+      retainagePct: 10,
+      retainageHeld,
+      lessPreviousPayments: workCompletedPrev * 0.90,
+      currentPaymentDue,
+      submittedAt: new Date("2026-05-02"),
+      notes: "AIA G702/G703 style draw seeded for demo.",
+    },
+  });
+
+  await prisma.payApplicationLine.createMany({
+    data: [
+      {
+        payApplicationId: payApp.id,
+        lineNumber: 1,
+        costCode: project.mode === ProjectMode.HEAVY_CIVIL ? "2010" : "033000",
+        description: project.mode === ProjectMode.HEAVY_CIVIL ? "Earthwork / Excavation" : "Structural concrete",
+        scheduledValue: scheduledValue * 0.45,
+        workCompletedPrev: scheduledValue * 0.45 * 0.40,
+        workCompletedThis: scheduledValue * 0.45 * 0.15,
+        totalCompleted: scheduledValue * 0.45 * 0.55,
+        percentComplete: 55,
+        balanceToFinish: scheduledValue * 0.45 * 0.45,
+        retainage: scheduledValue * 0.45 * 0.55 * 0.10,
+      },
+      {
+        payApplicationId: payApp.id,
+        lineNumber: 2,
+        costCode: "GC",
+        description: "General Conditions",
+        scheduledValue: scheduledValue * 0.12,
+        workCompletedPrev: scheduledValue * 0.12 * 0.30,
+        workCompletedThis: scheduledValue * 0.12 * 0.08,
+        totalCompleted: scheduledValue * 0.12 * 0.38,
+        percentComplete: 38,
+        balanceToFinish: scheduledValue * 0.12 * 0.62,
+        retainage: scheduledValue * 0.12 * 0.38 * 0.10,
+      },
+    ],
+  });
+
+  // Lien waivers
+  await prisma.lienWaiver.createMany({
+    data: [
+      { projectId: project.id, contractId: subContract.id, waiverType: LienWaiverType.CONDITIONAL_PARTIAL, partyName: subCounterparty, throughDate: periodTo, amount: workCompletedThis, status: LienWaiverStatus.RECEIVED, receivedAt: new Date("2026-05-05") },
+      { projectId: project.id, contractId: primeContract.id, waiverType: LienWaiverType.UNCONDITIONAL_PARTIAL, partyName: primeContract.counterparty, throughDate: periodFrom, amount: workCompletedPrev * 0.10, status: LienWaiverStatus.PENDING },
+    ],
+  });
+
+  // Inspections
+  await prisma.inspection.createMany({
+    data: [
+      { projectId: project.id, kind: InspectionKind.PRE_POUR, title: project.mode === ProjectMode.VERTICAL ? "Level 2 slab pre-pour" : project.mode === ProjectMode.HEAVY_CIVIL ? "Bedding pre-pour" : "Slab repair pre-pour", scheduledAt: new Date("2026-04-12"), inspector: "Third-party QC", location: project.mode === ProjectMode.VERTICAL ? "Level 2" : "Segment B", result: InspectionResult.PENDING, checklistJson: JSON.stringify(["rebar clearance", "embed placement", "vapor barrier"]) },
+      { projectId: project.id, kind: InspectionKind.OSHA, title: "Weekly OSHA site walk", scheduledAt: new Date("2026-04-15"), completedAt: new Date("2026-04-15"), inspector: "Safety Manager", location: "Site-wide", result: InspectionResult.PASS, followUpNeeded: false, checklistJson: JSON.stringify(["fall protection", "housekeeping", "PPE compliance"]) },
+    ],
+  });
+}
+
+async function seedLifecycle(project: { id: string; name: string; code: string; mode: ProjectMode; contractValue: number | null; startDate: Date | null }, tenantId: string) {
+  // Tenant-scoped one-time seeding of opportunities and vendors — guard via upsert-by-marker.
+  const existingOpp = await prisma.opportunity.findFirst({ where: { tenantId, name: "Lowline Civic Center — Pursue" } });
+  if (!existingOpp) {
+    await prisma.opportunity.createMany({
+      data: [
+        { tenantId, name: "Lowline Civic Center — Pursue", clientName: "City of Charleston", stage: OpportunityStage.QUALIFIED, estimatedValue: 18500000, probability: 45, dueDate: new Date("2026-06-15"), ownerName: "Paula PM", source: "RFQ", mode: ProjectMode.VERTICAL },
+        { tenantId, name: "James Island Sewer Upgrade", clientName: "Charleston Water", stage: OpportunityStage.BID, estimatedValue: 4200000, probability: 60, dueDate: new Date("2026-05-01"), ownerName: "Sam Superintendent", source: "DOT bid board", mode: ProjectMode.HEAVY_CIVIL },
+        { tenantId, name: "Folly Beach Cottage Remodels", clientName: "Private developer", stage: OpportunityStage.PROPOSAL, estimatedValue: 320000, probability: 70, dueDate: new Date("2026-04-22"), ownerName: "Elena Executive", source: "Referral", mode: ProjectMode.SIMPLE },
+        { tenantId, name: "Harbor Point — Package B", clientName: "Atlantic Development Partners", stage: OpportunityStage.AWARDED, estimatedValue: 4800000, probability: 100, awardDate: new Date("2026-03-01"), ownerName: "Paula PM", source: "Repeat client", mode: ProjectMode.VERTICAL },
+      ],
+    });
+  }
+
+  const vendorNamesByMode: Record<ProjectMode, Array<{ name: string; trade: string; legal?: string }>> = {
+    [ProjectMode.VERTICAL]: [
+      { name: "Coastal Concrete Co", trade: "Concrete / formwork", legal: "Coastal Concrete Company LLC" },
+      { name: "Palmetto Steel Erectors", trade: "Structural steel" },
+      { name: "Lowcountry Mechanical", trade: "HVAC" },
+    ],
+    [ProjectMode.HEAVY_CIVIL]: [
+      { name: "Atlantic Underground LLC", trade: "Utility install" },
+      { name: "Ladson Quarry Materials", trade: "Aggregates" },
+      { name: "Southeast Paving", trade: "Asphalt & paving" },
+    ],
+    [ProjectMode.SIMPLE]: [
+      { name: "Lowcountry Finish Carpentry", trade: "Finish carpentry" },
+      { name: "Tidewater Tile & Stone", trade: "Tile setter" },
+    ],
+  };
+
+  for (const v of vendorNamesByMode[project.mode]) {
+    const existing = await prisma.vendor.findFirst({ where: { tenantId, name: v.name } });
+    if (existing) continue;
+    const vendor = await prisma.vendor.create({
+      data: {
+        tenantId,
+        name: v.name,
+        legalName: v.legal ?? v.name,
+        trade: v.trade,
+        email: v.name.toLowerCase().replace(/[^a-z]+/g, "") + "@example.com",
+        phone: "843-555-0100",
+        emrRate: 0.82 + Math.random() * 0.3,
+        prequalStatus: PrequalificationStatus.APPROVED,
+        prequalScore: Math.floor(75 + Math.random() * 20),
+        prequalExpires: new Date("2027-03-01"),
+        bondingCapacity: 5000000,
+      },
+    });
+    await prisma.insuranceCert.createMany({
+      data: [
+        { vendorId: vendor.id, type: InsuranceType.GENERAL_LIABILITY, carrier: "Travelers", policyNumber: "GL-" + vendor.id.slice(-6), limitEach: 1000000, limitAggregate: 2000000, effectiveDate: new Date("2026-01-01"), expirationDate: new Date("2027-01-01") },
+        { vendorId: vendor.id, type: InsuranceType.WORKERS_COMP, carrier: "Liberty Mutual", policyNumber: "WC-" + vendor.id.slice(-6), limitEach: 1000000, limitAggregate: 1000000, effectiveDate: new Date("2026-01-01"), expirationDate: new Date("2027-01-01") },
+      ],
+    });
+  }
+
+  const vendors = await prisma.vendor.findMany({ where: { tenantId, trade: { in: vendorNamesByMode[project.mode].map((v) => v.trade) } } });
+
+  // Bid package + sub bids for this project
+  const bidPkg = await prisma.bidPackage.create({
+    data: {
+      projectId: project.id,
+      name: project.mode === ProjectMode.VERTICAL ? "Structural Concrete — L1-L3" : project.mode === ProjectMode.HEAVY_CIVIL ? "Utility install package" : "Finish carpentry package",
+      trade: project.mode === ProjectMode.VERTICAL ? "Concrete" : project.mode === ProjectMode.HEAVY_CIVIL ? "Utilities" : "Finish carpentry",
+      scopeSummary: "Seeded package for bid leveling demo.",
+      dueDate: new Date("2026-04-25"),
+      estimatedValue: (project.contractValue ?? 1000000) * 0.18,
+      status: BidPackageStatus.LEVELING,
+    },
+  });
+  for (let i = 0; i < vendors.length; i++) {
+    const v = vendors[i];
+    await prisma.subBid.create({
+      data: {
+        bidPackageId: bidPkg.id,
+        vendorId: v.id,
+        bidAmount: bidPkg.estimatedValue * (0.94 + i * 0.04),
+        daysToComplete: 45 + i * 5,
+        inclusions: "Labor, material, equipment, supervision.",
+        exclusions: "Permits, testing, owner-furnished items.",
+        status: i === 0 ? SubBidStatus.SELECTED : i === vendors.length - 1 ? SubBidStatus.DECLINED : SubBidStatus.SUBMITTED,
+        submittedAt: new Date("2026-04-20"),
+      },
+    });
+  }
+
+  // Time entries (this week + last week)
+  const today = new Date();
+  const lastFriday = new Date(today);
+  lastFriday.setDate(today.getDate() - ((today.getDay() + 2) % 7 || 7));
+  for (const emp of ["Derrick Adams", "Maria Lopez", "Trevor Johnson"]) {
+    await prisma.timeEntry.create({
+      data: {
+        projectId: project.id,
+        employeeName: emp,
+        trade: project.mode === ProjectMode.VERTICAL ? "Carpenter" : project.mode === ProjectMode.HEAVY_CIVIL ? "Pipe layer" : "Finish carpenter",
+        weekEnding: lastFriday,
+        regularHours: 40,
+        overtimeHours: emp === "Derrick Adams" ? 6 : 2,
+        rate: project.mode === ProjectMode.VERTICAL ? 52 : project.mode === ProjectMode.HEAVY_CIVIL ? 45 : 48,
+        costCode: project.mode === ProjectMode.HEAVY_CIVIL ? "P-014" : "033000",
+        status: emp === "Derrick Adams" ? TimeEntryStatus.APPROVED : TimeEntryStatus.SUBMITTED,
+        submittedAt: lastFriday,
+        approvedAt: emp === "Derrick Adams" ? lastFriday : null,
+      },
+    });
+  }
+
+  // Sub invoices
+  const primaryVendor = vendors[0];
+  if (primaryVendor) {
+    await prisma.subInvoice.create({
+      data: {
+        projectId: project.id,
+        vendorId: primaryVendor.id,
+        invoiceNumber: `${project.code}-INV-001`,
+        description: `${primaryVendor.name} — Period 1 invoice`,
+        amount: (project.contractValue ?? 1000000) * 0.08,
+        retainageHeld: (project.contractValue ?? 1000000) * 0.08 * 0.10,
+        netDue: (project.contractValue ?? 1000000) * 0.08 * 0.90,
+        status: SubInvoiceStatus.APPROVED,
+        invoiceDate: new Date("2026-05-01"),
+        dueDate: new Date("2026-05-31"),
+        approvedAt: new Date("2026-05-08"),
+        waiverReceived: true,
+      },
+    });
+    await prisma.purchaseOrder.create({
+      data: {
+        projectId: project.id,
+        vendorId: primaryVendor.id,
+        poNumber: `${project.code}-PO-001`,
+        description: project.mode === ProjectMode.VERTICAL ? "Rebar fabrication" : project.mode === ProjectMode.HEAVY_CIVIL ? "DIP pipe order" : "Cabinet delivery",
+        amount: 68000,
+        invoicedToDate: 42000,
+        status: "PARTIAL",
+        expectedDelivery: new Date("2026-04-30"),
+      },
+    });
+  }
+
+  // Warranty items (only on closeout-adjacent projects)
+  await prisma.warrantyItem.createMany({
+    data: [
+      { projectId: project.id, title: "Window sealant chatter on Level 2", description: "Owner reported stain.", reportedBy: "Owner rep", assignedTo: "Coastal Concrete Co", severity: "NORMAL", status: WarrantyStatus.OPEN, warrantyExpires: new Date("2027-06-30") },
+      { projectId: project.id, title: "HVAC balancing follow-up", description: "South zone under-conditioned.", reportedBy: "Facilities", severity: "LOW", status: WarrantyStatus.IN_PROGRESS, warrantyExpires: new Date("2027-09-30") },
+    ],
+  });
 }
 
 main()

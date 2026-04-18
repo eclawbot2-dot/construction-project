@@ -92,6 +92,160 @@ enum BudgetLineType {
   CONTINGENCY
 }
 
+enum ChangeOrderKind {
+  PCO
+  COR
+  OCO
+  INTERNAL
+}
+
+enum ChangeOrderStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  VOID
+}
+
+enum ScheduleDependencyType {
+  FS
+  SS
+  FF
+  SF
+}
+
+enum ContractType {
+  PRIME_OWNER
+  SUBCONTRACT
+  PURCHASE_ORDER
+  MSA
+  TASK_ORDER
+  GC_CONTRACT
+  FEE_AGREEMENT
+}
+
+enum ContractStatus {
+  DRAFT
+  NEGOTIATING
+  EXECUTED
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+enum PayApplicationStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum LienWaiverType {
+  CONDITIONAL_PARTIAL
+  UNCONDITIONAL_PARTIAL
+  CONDITIONAL_FINAL
+  UNCONDITIONAL_FINAL
+}
+
+enum LienWaiverStatus {
+  PENDING
+  RECEIVED
+  REJECTED
+  EXPIRED
+}
+
+enum InspectionKind {
+  MUNICIPAL
+  THIRD_PARTY
+  INTERNAL_QC
+  PRE_POUR
+  PRE_COVER
+  FINAL
+  OSHA
+  ENVIRONMENTAL
+}
+
+enum InspectionResult {
+  PENDING
+  PASS
+  FAIL
+  CONDITIONAL
+  WAIVED
+}
+
+enum OpportunityStage {
+  LEAD
+  QUALIFIED
+  PROPOSAL
+  BID
+  AWARDED
+  LOST
+  WITHDRAWN
+}
+
+enum BidPackageStatus {
+  PLANNING
+  INVITED
+  COLLECTING
+  LEVELING
+  AWARDED
+  CANCELLED
+}
+
+enum SubBidStatus {
+  INVITED
+  DECLINED
+  BIDDING
+  SUBMITTED
+  SELECTED
+  NOT_SELECTED
+}
+
+enum PrequalificationStatus {
+  NOT_STARTED
+  IN_REVIEW
+  APPROVED
+  DECLINED
+  EXPIRED
+}
+
+enum InsuranceType {
+  GENERAL_LIABILITY
+  WORKERS_COMP
+  AUTO
+  UMBRELLA
+  PROFESSIONAL
+  POLLUTION
+}
+
+enum TimeEntryStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum SubInvoiceStatus {
+  RECEIVED
+  UNDER_REVIEW
+  APPROVED
+  PAID
+  DISPUTED
+  REJECTED
+}
+
+enum WarrantyStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  ESCALATED
+}
+
 enum DailyLogType {
   GENERAL
   AREA
@@ -119,6 +273,8 @@ model Tenant {
   workflowTemplates WorkflowTemplate[]
   notificationRules NotificationRule[]
   historicalEstimates HistoricalEstimate[]
+  opportunities     Opportunity[]
+  vendors           Vendor[]
 }
 
 model BusinessUnit {
@@ -239,6 +395,18 @@ model Project {
   approvalRoutes      ApprovalRoute[]
   equipmentRecords    EquipmentRecord[]
   materialRecords     MaterialRecord[]
+  changeOrders        ChangeOrder[]
+  scheduleTasks       ScheduleTask[]
+  contracts           Contract[]
+  payApplications     PayApplication[]
+  lienWaivers         LienWaiver[]
+  inspections         Inspection[]
+  opportunities       Opportunity[]
+  bidPackages         BidPackage[]
+  timeEntries         TimeEntry[]
+  subInvoices         SubInvoice[]
+  warrantyItems       WarrantyItem[]
+  purchaseOrders      PurchaseOrder[]
 
   @@unique([tenantId, code])
 }
@@ -579,4 +747,385 @@ model AuditEvent {
   afterJson     String?
   source        String?
   createdAt     DateTime        @default(now())
+}
+
+model ChangeOrder {
+  id            String            @id @default(cuid())
+  projectId     String
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  coNumber      String
+  kind          ChangeOrderKind   @default(PCO)
+  title         String
+  description   String?
+  reason        String?
+  amount        Float             @default(0)
+  markupPct     Float             @default(0)
+  scheduleImpactDays Int          @default(0)
+  status        ChangeOrderStatus @default(DRAFT)
+  requestedById String?
+  approvedById  String?
+  requestedAt   DateTime?
+  approvedAt    DateTime?
+  executedAt    DateTime?
+  linkedRfiId   String?
+  linkedSubmittalId String?
+  lines         ChangeOrderLine[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([projectId, coNumber])
+}
+
+model ChangeOrderLine {
+  id              String       @id @default(cuid())
+  changeOrderId   String
+  changeOrder     ChangeOrder  @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+  costCode        String?
+  description     String
+  category        String       @default("LABOR")
+  quantity        Float        @default(1)
+  unit            String?
+  unitCost        Float        @default(0)
+  amount          Float        @default(0)
+  createdAt       DateTime     @default(now())
+}
+
+model ScheduleTask {
+  id              String                  @id @default(cuid())
+  projectId       String
+  project         Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentId        String?
+  parent          ScheduleTask?           @relation("ScheduleTaskParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children        ScheduleTask[]          @relation("ScheduleTaskParent")
+  wbs             String?
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  durationDays    Float                   @default(1)
+  percentComplete Float                   @default(0)
+  isMilestone     Boolean                 @default(false)
+  onCriticalPath  Boolean                 @default(false)
+  baselineStart   DateTime?
+  baselineEnd     DateTime?
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  responsible     String?
+  notes           String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  predecessors    ScheduleDependency[]    @relation("ScheduleDepSuccessor")
+  successors      ScheduleDependency[]    @relation("ScheduleDepPredecessor")
+}
+
+model ScheduleDependency {
+  id              String                  @id @default(cuid())
+  predecessorId   String
+  predecessor     ScheduleTask            @relation("ScheduleDepPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successorId     String
+  successor       ScheduleTask            @relation("ScheduleDepSuccessor", fields: [successorId], references: [id], onDelete: Cascade)
+  type            ScheduleDependencyType  @default(FS)
+  lagDays         Float                   @default(0)
+  createdAt       DateTime                @default(now())
+
+  @@unique([predecessorId, successorId])
+}
+
+model Contract {
+  id              String              @id @default(cuid())
+  projectId       String
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  counterparty    String
+  contractNumber  String
+  title           String
+  type            ContractType
+  status          ContractStatus      @default(DRAFT)
+  originalValue   Float               @default(0)
+  currentValue    Float               @default(0)
+  retainagePct    Float               @default(10)
+  startDate       DateTime?
+  endDate         DateTime?
+  executedAt      DateTime?
+  notes           String?
+  commitments     ContractCommitment[]
+  payApplications PayApplication[]
+  lienWaivers     LienWaiver[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([projectId, contractNumber])
+}
+
+model ContractCommitment {
+  id            String        @id @default(cuid())
+  contractId    String
+  contract      Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  costCode      String?
+  description   String
+  scope         String?
+  committedAmount Float       @default(0)
+  invoicedToDate Float        @default(0)
+  paidToDate    Float         @default(0)
+  createdAt     DateTime      @default(now())
+}
+
+model PayApplication {
+  id                String                @id @default(cuid())
+  projectId         String
+  project           Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractId        String?
+  contract          Contract?             @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  periodNumber      Int
+  periodFrom        DateTime
+  periodTo          DateTime
+  status            PayApplicationStatus  @default(DRAFT)
+  originalContractValue Float             @default(0)
+  changeOrderValue  Float                 @default(0)
+  totalContractValue Float                @default(0)
+  workCompletedToDate Float               @default(0)
+  materialsStoredToDate Float             @default(0)
+  retainagePct      Float                 @default(10)
+  retainageHeld     Float                 @default(0)
+  lessPreviousPayments Float              @default(0)
+  currentPaymentDue Float                 @default(0)
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  paidAt            DateTime?
+  notes             String?
+  lines             PayApplicationLine[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@unique([projectId, periodNumber])
+}
+
+model PayApplicationLine {
+  id                String          @id @default(cuid())
+  payApplicationId  String
+  payApplication    PayApplication  @relation(fields: [payApplicationId], references: [id], onDelete: Cascade)
+  lineNumber        Int
+  costCode          String?
+  description       String
+  scheduledValue    Float           @default(0)
+  workCompletedPrev Float           @default(0)
+  workCompletedThis Float           @default(0)
+  materialsStored   Float           @default(0)
+  totalCompleted    Float           @default(0)
+  percentComplete   Float           @default(0)
+  balanceToFinish   Float           @default(0)
+  retainage         Float           @default(0)
+  createdAt         DateTime        @default(now())
+
+  @@unique([payApplicationId, lineNumber])
+}
+
+model LienWaiver {
+  id              String           @id @default(cuid())
+  projectId       String
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractId      String?
+  contract        Contract?        @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  waiverType      LienWaiverType
+  partyName       String
+  throughDate     DateTime
+  amount          Float            @default(0)
+  status          LienWaiverStatus @default(PENDING)
+  receivedAt      DateTime?
+  documentUrl     String?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Inspection {
+  id              String             @id @default(cuid())
+  projectId       String
+  project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind            InspectionKind
+  title           String
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  inspector       String?
+  location        String?
+  result          InspectionResult   @default(PENDING)
+  followUpNeeded  Boolean            @default(false)
+  followUpNotes   String?
+  checklistJson   String             @default("[]")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model Opportunity {
+  id              String             @id @default(cuid())
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId       String?
+  project         Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  name            String
+  clientName      String?
+  stage           OpportunityStage   @default(LEAD)
+  estimatedValue  Float              @default(0)
+  probability     Int                @default(20)
+  dueDate         DateTime?
+  awardDate       DateTime?
+  notes           String?
+  ownerName       String?
+  source          String?
+  mode            ProjectMode        @default(VERTICAL)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model Vendor {
+  id              String              @id @default(cuid())
+  tenantId        String
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  legalName       String?
+  trade           String?
+  phone           String?
+  email           String?
+  address         String?
+  emrRate         Float?
+  ein             String?
+  prequalStatus   PrequalificationStatus @default(NOT_STARTED)
+  prequalScore    Int?
+  prequalExpires  DateTime?
+  bondingCapacity Float?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  insuranceCerts  InsuranceCert[]
+  subBids         SubBid[]
+  subInvoices     SubInvoice[]
+  purchaseOrders  PurchaseOrder[]
+}
+
+model InsuranceCert {
+  id              String          @id @default(cuid())
+  vendorId        String
+  vendor          Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  type            InsuranceType
+  carrier         String
+  policyNumber    String
+  limitEach       Float           @default(0)
+  limitAggregate  Float           @default(0)
+  effectiveDate   DateTime
+  expirationDate  DateTime
+  certificateUrl  String?
+  createdAt       DateTime        @default(now())
+}
+
+model BidPackage {
+  id              String            @id @default(cuid())
+  projectId       String
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String
+  trade           String
+  scopeSummary    String?
+  dueDate         DateTime?
+  estimatedValue  Float             @default(0)
+  status          BidPackageStatus  @default(PLANNING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  subBids         SubBid[]
+}
+
+model SubBid {
+  id              String            @id @default(cuid())
+  bidPackageId    String
+  bidPackage      BidPackage        @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
+  vendorId        String
+  vendor          Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bidAmount       Float?
+  daysToComplete  Int?
+  inclusions      String?
+  exclusions      String?
+  status          SubBidStatus      @default(INVITED)
+  submittedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([bidPackageId, vendorId])
+}
+
+model TimeEntry {
+  id              String            @id @default(cuid())
+  projectId       String
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employeeName    String
+  trade           String?
+  weekEnding      DateTime
+  regularHours    Float             @default(0)
+  overtimeHours   Float             @default(0)
+  doubleTimeHours Float             @default(0)
+  rate            Float             @default(0)
+  costCode        String?
+  status          TimeEntryStatus   @default(DRAFT)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model SubInvoice {
+  id              String              @id @default(cuid())
+  projectId       String
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorId        String
+  vendor          Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  invoiceNumber   String
+  description     String?
+  amount          Float               @default(0)
+  retainageHeld   Float               @default(0)
+  netDue          Float               @default(0)
+  status          SubInvoiceStatus    @default(RECEIVED)
+  invoiceDate     DateTime
+  dueDate         DateTime?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  waiverReceived  Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([projectId, invoiceNumber])
+}
+
+model PurchaseOrder {
+  id              String              @id @default(cuid())
+  projectId       String
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorId        String
+  vendor          Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  poNumber        String
+  description     String
+  amount          Float               @default(0)
+  invoicedToDate  Float               @default(0)
+  status          String              @default("OPEN")
+  issuedAt        DateTime            @default(now())
+  expectedDelivery DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([projectId, poNumber])
+}
+
+model WarrantyItem {
+  id              String              @id @default(cuid())
+  projectId       String
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  reportedBy      String?
+  assignedTo      String?
+  severity        String              @default("NORMAL")
+  status          WarrantyStatus      @default(OPEN)
+  reportedAt      DateTime            @default(now())
+  resolvedAt      DateTime?
+  resolution      String?
+  warrantyExpires DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 }
