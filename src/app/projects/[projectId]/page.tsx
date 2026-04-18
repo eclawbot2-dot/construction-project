@@ -1,8 +1,19 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
 import { getProjectWorkspace } from "@/lib/dashboard";
 import { formatCurrency, formatDate, formatDateTime, modeLabel, workflowStatusLabel } from "@/lib/utils";
+
+function CardTitle({ title, href }: { title: string; href?: string }) {
+  if (!href) return <div className="text-xs uppercase tracking-[0.2em] text-slate-400">{title}</div>;
+  return (
+    <Link href={href} className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-cyan-300 transition hover:text-cyan-200">
+      <span>{title}</span>
+      <span className="text-[10px]">View all →</span>
+    </Link>
+  );
+}
 
 export default async function ProjectWorkspacePage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -53,7 +64,7 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
         <section className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
           <div className="grid gap-6">
             <div className="card p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Job thread / engagement stream</div>
+              <CardTitle title="Job thread / engagement stream" href={`/projects/${project.id}/tasks`} />
               <div className="mt-4 space-y-3">
                 {project.recentMessages.map((message) => (
                   <div key={message.id} className="rounded-2xl border border-white/5 bg-white/5 p-4">
@@ -68,7 +79,7 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
             </div>
 
             <div className="card p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Tasks and execution</div>
+              <CardTitle title="Tasks and execution" href={`/projects/${project.id}/tasks`} />
               <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
                 <table className="min-w-full divide-y divide-white/10">
                   <thead className="bg-white/5">
@@ -80,10 +91,12 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
                   </thead>
                   <tbody className="divide-y divide-white/10 bg-slate-950/40">
                     {project.upcomingTasks.map((task) => (
-                      <tr key={task.id}>
+                      <tr key={task.id} className="cursor-pointer transition hover:bg-white/5">
                         <td className="table-cell">
-                          <div className="font-medium text-white">{task.title}</div>
-                          <div className="text-xs text-slate-500">{task.status.replaceAll("_", " ")}</div>
+                          <Link href={`/projects/${project.id}/tasks`} className="block">
+                            <div className="font-medium text-white">{task.title}</div>
+                            <div className="text-xs text-slate-500">{task.status.replaceAll("_", " ")}</div>
+                          </Link>
                         </td>
                         <td className="table-cell">{task.priority}</td>
                         <td className="table-cell">{formatDate(task.dueDate)}</td>
@@ -97,30 +110,30 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
             {project.mode !== "SIMPLE" ? (
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="card p-5">
-                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400">RFIs</div>
+                  <CardTitle title="RFIs" href={`/projects/${project.id}/rfis`} />
                   <div className="mt-4 space-y-3">
                     {project.rfis.map((rfi) => (
-                      <div key={rfi.id} className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                      <Link key={rfi.id} href={`/projects/${project.id}/rfis`} className="block rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-cyan-500/30">
                         <div className="flex items-center justify-between gap-3">
                           <div className="font-medium text-white">{rfi.number}</div>
                           <span className="badge-gold">{workflowStatusLabel(rfi.status)}</span>
                         </div>
                         <div className="mt-2 text-sm text-slate-300">{rfi.subject}</div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
                 <div className="card p-5">
-                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Submittals</div>
+                  <CardTitle title="Submittals" href={`/projects/${project.id}/submittals`} />
                   <div className="mt-4 space-y-3">
                     {project.submittals.map((submittal) => (
-                      <div key={submittal.id} className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                      <Link key={submittal.id} href={`/projects/${project.id}/submittals`} className="block rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-cyan-500/30">
                         <div className="flex items-center justify-between gap-3">
                           <div className="font-medium text-white">{submittal.number}</div>
                           <span className="badge-blue">{workflowStatusLabel(submittal.status)}</span>
                         </div>
                         <div className="mt-2 text-sm text-slate-300">{submittal.title}</div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -159,44 +172,44 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
 
           <aside className="grid gap-6">
             <div className="card p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Latest daily logs</div>
+              <CardTitle title="Latest daily logs" href={`/projects/${project.id}/daily-logs`} />
               <div className="mt-4 space-y-3">
                 {project.dailyLogs.map((log) => (
-                  <div key={log.id} className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                  <Link key={log.id} href={`/projects/${project.id}/daily-logs`} className="block rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-cyan-500/30">
                     <div className="font-medium text-white">{formatDate(log.logDate)}</div>
                     <div className="mt-2 text-sm text-slate-300">{log.summary}</div>
                     <div className="mt-2 text-xs text-slate-500">Weather: {log.weather} · Manpower: {log.manpower}</div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
 
             <div className="card p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Documents</div>
+              <CardTitle title="Documents" href={`/projects/${project.id}/documents`} />
               <div className="mt-4 space-y-3 text-sm text-slate-300">
                 {project.documents.map((document) => (
-                  <div key={document.id} className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                  <Link key={document.id} href={`/projects/${project.id}/documents`} className="block rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-cyan-500/30">
                     <div className="font-medium text-white">{document.title}</div>
                     <div className="mt-1 text-xs text-slate-500">{document.documentClass} · {document.folderPath}</div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
 
             <div className="card p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Meetings / workflow runs</div>
+              <CardTitle title="Meetings / workflow runs" href="/workflows" />
               <div className="mt-4 space-y-3 text-sm text-slate-300">
                 {project.meetings.map((meeting) => (
-                  <div key={meeting.id} className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                  <Link key={meeting.id} href="/workflows" className="block rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-cyan-500/30">
                     <div className="font-medium text-white">{meeting.title}</div>
                     <div className="mt-1 text-xs text-slate-500">{meeting.meetingType} · {formatDateTime(meeting.scheduledAt)}</div>
-                  </div>
+                  </Link>
                 ))}
                 {project.workflowRuns.map((run) => (
-                  <div key={run.id} className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                  <Link key={run.id} href="/workflows" className="block rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-cyan-500/30">
                     <div className="font-medium text-white">{run.templateName}</div>
                     <div className="mt-1 text-xs text-slate-500">{workflowStatusLabel(run.status)}</div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
