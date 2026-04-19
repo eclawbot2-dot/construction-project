@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -39,8 +40,8 @@ export default async function PunchListPage({ params }: { params: Promise<{ proj
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.punchItems.map((p) => (
-                  <tr key={p.id}>
-                    <td className="table-cell">{p.title}</td>
+                  <tr key={p.id} className="cursor-pointer transition hover:bg-white/5">
+                    <td className="table-cell"><Link href={`/projects/${project.id}/punch-list/${p.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{p.title}</Link></td>
                     <td className="table-cell text-slate-400">{p.area ?? "—"}</td>
                     <td className="table-cell text-slate-400">{formatDate(p.dueDate)}</td>
                     <td className="table-cell"><StatusBadge status={p.status} /></td>

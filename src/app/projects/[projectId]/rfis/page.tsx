@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -43,9 +44,9 @@ export default async function RfisPage({ params }: { params: Promise<{ projectId
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.rfis.map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell font-mono text-xs text-slate-400">{r.number}</td>
-                    <td className="table-cell">{r.subject}</td>
+                    <td className="table-cell"><Link href={`/projects/${project.id}/rfis/${r.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{r.subject}</Link></td>
                     <td className="table-cell">{r.ballInCourt ?? "—"}</td>
                     <td className="table-cell text-slate-400">{formatDate(r.dueDate)}</td>
                     <td className="table-cell"><StatusBadge status={r.status} /></td>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -47,6 +48,7 @@ export default async function PayAppsPage({ params }: { params: Promise<{ projec
               <div className="flex flex-col items-end gap-2">
                 <StatusBadge status={app.status} />
                 <div className="text-xs text-slate-400">Submitted: {formatDate(app.submittedAt)} · Paid: {formatDate(app.paidAt)}</div>
+                <Link href={`/projects/${project.id}/pay-apps/${app.id}`} className="text-xs text-cyan-300 hover:text-cyan-200 hover:underline">View full schedule →</Link>
               </div>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-4">

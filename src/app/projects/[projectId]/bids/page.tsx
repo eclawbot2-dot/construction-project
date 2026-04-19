@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -43,7 +44,7 @@ export default async function BidsPage({ params }: { params: Promise<{ projectId
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">{pkg.trade}</div>
-                  <div className="mt-1 text-lg font-semibold text-white">{pkg.name}</div>
+                  <Link href={`/projects/${project.id}/bids/${pkg.id}`} className="mt-1 block text-lg font-semibold text-white hover:text-cyan-200 hover:underline">{pkg.name}</Link>
                   <div className="text-xs text-slate-500">Due: {formatDate(pkg.dueDate)} · Est. value: {formatCurrency(pkg.estimatedValue)}</div>
                   {pkg.scopeSummary ? <div className="mt-2 text-sm text-slate-300">{pkg.scopeSummary}</div> : null}
                 </div>
@@ -64,10 +65,12 @@ export default async function BidsPage({ params }: { params: Promise<{ projectId
                     {pkg.subBids.map((b) => {
                       const delta = b.bidAmount && isFinite(low) ? b.bidAmount - low : null;
                       return (
-                        <tr key={b.id}>
+                        <tr key={b.id} className="cursor-pointer transition hover:bg-white/5">
                           <td className="table-cell">
-                            <div className="font-medium text-white">{b.vendor.name}</div>
-                            <div className="text-xs text-slate-500">{b.vendor.trade ?? "—"}</div>
+                            <Link href={`/vendors/${b.vendor.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">
+                              <div className="font-medium">{b.vendor.name}</div>
+                              <div className="text-xs text-slate-500">{b.vendor.trade ?? "—"}</div>
+                            </Link>
                           </td>
                           <td className="table-cell">{b.bidAmount ? formatCurrency(b.bidAmount) : "—"}</td>
                           <td className="table-cell">{delta == null ? "—" : delta === 0 ? <span className="text-emerald-300">Low bid</span> : `+${formatCurrency(delta)}`}</td>

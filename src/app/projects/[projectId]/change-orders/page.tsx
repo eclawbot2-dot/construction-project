@@ -55,12 +55,14 @@ export default async function ChangeOrdersPage({ params }: { params: Promise<{ p
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.changeOrders.map((co) => (
-                  <tr key={co.id} className="transition hover:bg-white/5">
+                  <tr key={co.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell font-mono text-xs text-slate-400">{co.coNumber}</td>
                     <td className="table-cell">{changeOrderKindLabel(co.kind)}</td>
                     <td className="table-cell">
-                      <div className="font-medium text-white">{co.title}</div>
-                      {co.description ? <div className="text-xs text-slate-500">{co.description}</div> : null}
+                      <Link href={`/projects/${project.id}/change-orders/${co.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">
+                        <div className="font-medium">{co.title}</div>
+                        {co.description ? <div className="text-xs text-slate-500">{co.description}</div> : null}
+                      </Link>
                     </td>
                     <td className="table-cell font-medium text-white">{formatCurrency(co.amount)}</td>
                     <td className="table-cell">{co.scheduleImpactDays ? `${co.scheduleImpactDays}d` : "—"}</td>

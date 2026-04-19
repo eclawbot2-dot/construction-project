@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -52,6 +53,7 @@ export default async function ContractsPage({ params }: { params: Promise<{ proj
                 <div className="flex flex-col items-end gap-2">
                   <StatusBadge status={c.status} />
                   <div className="text-xs text-slate-400">{formatDate(c.startDate)} → {formatDate(c.endDate)}</div>
+                  <Link href={`/projects/${project.id}/contracts/${c.id}`} className="text-xs text-cyan-300 hover:text-cyan-200 hover:underline">View contract detail →</Link>
                 </div>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-4">

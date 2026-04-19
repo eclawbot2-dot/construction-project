@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -45,8 +46,8 @@ export default async function PurchaseOrdersPage({ params }: { params: Promise<{
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.purchaseOrders.map((p) => (
-                  <tr key={p.id}>
-                    <td className="table-cell font-mono text-xs">{p.poNumber}</td>
+                  <tr key={p.id} className="cursor-pointer transition hover:bg-white/5">
+                    <td className="table-cell font-mono text-xs"><Link href={`/projects/${project.id}/purchase-orders/${p.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{p.poNumber}</Link></td>
                     <td className="table-cell">{p.vendor.name}</td>
                     <td className="table-cell">{p.description}</td>
                     <td className="table-cell">{formatCurrency(p.amount)}</td>

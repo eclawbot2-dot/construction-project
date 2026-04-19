@@ -39,9 +39,9 @@ export default async function SafetyDashboardPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {incidents.map((i) => (
-                  <tr key={i.id}>
+                  <tr key={i.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell"><Link href={`/projects/${i.project.id}/safety`} className="text-cyan-300 hover:underline">{i.project.code}</Link></td>
-                    <td className="table-cell">{i.title}</td>
+                    <td className="table-cell"><Link href={`/projects/${i.project.id}/safety/${i.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{i.title}</Link></td>
                     <td className="table-cell">{i.severity}</td>
                     <td className="table-cell text-slate-400">{formatDate(i.occurredAt)}</td>
                     <td className="table-cell"><StatusBadge status={i.status} /></td>
@@ -66,10 +66,10 @@ export default async function SafetyDashboardPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {inspections.map((i) => (
-                  <tr key={i.id}>
+                  <tr key={i.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell"><Link href={`/projects/${i.project.id}/inspections`} className="text-cyan-300 hover:underline">{i.project.code}</Link></td>
                     <td className="table-cell">{inspectionKindLabel(i.kind)}</td>
-                    <td className="table-cell">{i.title}</td>
+                    <td className="table-cell"><Link href={`/projects/${i.project.id}/inspections/${i.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{i.title}</Link></td>
                     <td className="table-cell text-slate-400">{formatDate(i.scheduledAt)}</td>
                     <td className="table-cell"><StatusBadge status={i.result} /></td>
                   </tr>

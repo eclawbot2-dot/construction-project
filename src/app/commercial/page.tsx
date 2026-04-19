@@ -58,10 +58,12 @@ export default async function CommercialPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {contracts.map((c) => (
-                  <tr key={c.id} className="transition hover:bg-white/5">
+                  <tr key={c.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell">
-                      <Link href={`/projects/${c.project.id}/contracts`} className="font-medium text-white hover:underline">{c.contractNumber}</Link>
-                      <div className="text-xs text-slate-500">{c.title}</div>
+                      <Link href={`/projects/${c.project.id}/contracts/${c.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">
+                        <div className="font-medium">{c.contractNumber}</div>
+                        <div className="text-xs text-slate-500">{c.title}</div>
+                      </Link>
                     </td>
                     <td className="table-cell"><Link href={`/projects/${c.project.id}`} className="text-cyan-300 hover:underline">{c.project.code}</Link></td>
                     <td className="table-cell">{contractTypeLabel(c.type)}</td>
@@ -94,11 +96,11 @@ export default async function CommercialPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {changeOrders.map((co) => (
-                  <tr key={co.id} className="transition hover:bg-white/5">
+                  <tr key={co.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell font-mono text-xs text-slate-400">{co.coNumber}</td>
                     <td className="table-cell"><Link href={`/projects/${co.project.id}/change-orders`} className="text-cyan-300 hover:underline">{co.project.code}</Link></td>
                     <td className="table-cell">{changeOrderKindLabel(co.kind)}</td>
-                    <td className="table-cell">{co.title}</td>
+                    <td className="table-cell"><Link href={`/projects/${co.project.id}/change-orders/${co.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{co.title}</Link></td>
                     <td className="table-cell">{formatCurrency(co.amount)}</td>
                     <td className="table-cell">{co.scheduleImpactDays ? `${co.scheduleImpactDays}d` : "—"}</td>
                     <td className="table-cell"><StatusBadge status={co.status} /></td>
@@ -127,9 +129,9 @@ export default async function CommercialPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {payApps.map((p) => (
-                  <tr key={p.id} className="transition hover:bg-white/5">
+                  <tr key={p.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell"><Link href={`/projects/${p.project.id}/pay-apps`} className="text-cyan-300 hover:underline">{p.project.code}</Link></td>
-                    <td className="table-cell font-mono text-xs">#{p.periodNumber}</td>
+                    <td className="table-cell font-mono text-xs"><Link href={`/projects/${p.project.id}/pay-apps/${p.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">#{p.periodNumber}</Link></td>
                     <td className="table-cell text-slate-400">{formatDate(p.periodFrom)} → {formatDate(p.periodTo)}</td>
                     <td className="table-cell">{formatCurrency(p.workCompletedToDate)}</td>
                     <td className="table-cell">{formatCurrency(p.retainageHeld)}</td>

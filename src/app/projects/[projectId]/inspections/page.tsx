@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -50,11 +51,13 @@ export default async function InspectionsPage({ params }: { params: Promise<{ pr
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.inspections.map((i) => (
-                  <tr key={i.id}>
+                  <tr key={i.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell">{inspectionKindLabel(i.kind)}</td>
                     <td className="table-cell">
-                      <div className="font-medium text-white">{i.title}</div>
-                      {i.followUpNotes ? <div className="text-xs text-slate-500">{i.followUpNotes}</div> : null}
+                      <Link href={`/projects/${project.id}/inspections/${i.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">
+                        <div className="font-medium">{i.title}</div>
+                        {i.followUpNotes ? <div className="text-xs text-slate-500">{i.followUpNotes}</div> : null}
+                      </Link>
                     </td>
                     <td className="table-cell text-slate-400">{i.location ?? "—"}</td>
                     <td className="table-cell text-slate-400">{i.inspector ?? "—"}</td>

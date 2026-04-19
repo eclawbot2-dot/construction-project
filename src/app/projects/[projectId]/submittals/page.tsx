@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -40,9 +41,9 @@ export default async function SubmittalsPage({ params }: { params: Promise<{ pro
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.submittals.map((s) => (
-                  <tr key={s.id}>
+                  <tr key={s.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell font-mono text-xs text-slate-400">{s.number}</td>
-                    <td className="table-cell">{s.title}</td>
+                    <td className="table-cell"><Link href={`/projects/${project.id}/submittals/${s.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{s.title}</Link></td>
                     <td className="table-cell text-slate-400">{s.specSection ?? "—"}</td>
                     <td className="table-cell">{s.longLead ? <StatusBadge tone="warn" label="Long lead" /> : "—"}</td>
                     <td className="table-cell"><StatusBadge status={s.status} /></td>

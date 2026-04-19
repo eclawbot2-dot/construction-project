@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -44,10 +45,12 @@ export default async function VendorsPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {vendors.map((v) => (
-                  <tr key={v.id}>
+                  <tr key={v.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell">
-                      <div className="font-medium text-white">{v.name}</div>
-                      <div className="text-xs text-slate-500">{v.legalName}</div>
+                      <Link href={`/vendors/${v.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">
+                        <div className="font-medium">{v.name}</div>
+                        <div className="text-xs text-slate-500">{v.legalName}</div>
+                      </Link>
                     </td>
                     <td className="table-cell">{v.trade ?? "—"}</td>
                     <td className="table-cell"><StatusBadge status={v.prequalStatus} /></td>

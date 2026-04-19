@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -48,12 +49,12 @@ export default async function SubInvoicesPage({ params }: { params: Promise<{ pr
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.subInvoices.map((i) => (
-                  <tr key={i.id}>
+                  <tr key={i.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell">
                       <div className="font-medium text-white">{i.vendor.name}</div>
                       <div className="text-xs text-slate-500">{i.description}</div>
                     </td>
-                    <td className="table-cell font-mono text-xs">{i.invoiceNumber}</td>
+                    <td className="table-cell font-mono text-xs"><Link href={`/projects/${project.id}/sub-invoices/${i.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{i.invoiceNumber}</Link></td>
                     <td className="table-cell">{formatCurrency(i.amount)}</td>
                     <td className="table-cell">{formatCurrency(i.retainageHeld)}</td>
                     <td className="table-cell">{formatCurrency(i.netDue)}</td>

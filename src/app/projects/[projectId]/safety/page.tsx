@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -40,8 +41,8 @@ export default async function SafetyPage({ params }: { params: Promise<{ project
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.safetyIncidents.map((i) => (
-                  <tr key={i.id}>
-                    <td className="table-cell">{i.title}</td>
+                  <tr key={i.id} className="cursor-pointer transition hover:bg-white/5">
+                    <td className="table-cell"><Link href={`/projects/${project.id}/safety/${i.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{i.title}</Link></td>
                     <td className="table-cell">{i.severity}</td>
                     <td className="table-cell text-slate-400">{formatDate(i.occurredAt)}</td>
                     <td className="table-cell"><StatusBadge status={i.status} /></td>

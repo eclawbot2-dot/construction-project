@@ -46,8 +46,8 @@ export default async function BidsHubPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {opportunities.map((o) => (
-                  <tr key={o.id}>
-                    <td className="table-cell font-medium text-white">{o.name}</td>
+                  <tr key={o.id} className="cursor-pointer transition hover:bg-white/5">
+                    <td className="table-cell font-medium"><Link href={`/opportunities/${o.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{o.name}</Link></td>
                     <td className="table-cell text-slate-400">{o.clientName ?? "—"}</td>
                     <td className="table-cell">{modeLabel(o.mode)}</td>
                     <td className="table-cell"><StatusBadge status={o.stage} /></td>
@@ -80,7 +80,7 @@ export default async function BidsHubPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {bidPackages.map((p) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell"><Link href={`/projects/${p.project.id}/bids`} className="text-cyan-300 hover:underline">{p.project.code}</Link></td>
                     <td className="table-cell font-medium text-white">{p.name}</td>
                     <td className="table-cell">{p.trade}</td>

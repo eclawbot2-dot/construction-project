@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
@@ -34,8 +35,8 @@ export default async function PeoplePage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {users.map((u) => (
-                  <tr key={u.id}>
-                    <td className="table-cell font-medium text-white">{u.name}</td>
+                  <tr key={u.id} className="cursor-pointer transition hover:bg-white/5">
+                    <td className="table-cell font-medium"><Link href={`/people/${u.id}`} className="text-cyan-300 hover:text-cyan-200 hover:underline">{u.name}</Link></td>
                     <td className="table-cell text-slate-400">{u.email}</td>
                     <td className="table-cell">{Array.from(new Set(u.memberships.map((m) => roleLabel(m.roleTemplate)))).join(", ") || "—"}</td>
                     <td className="table-cell text-slate-400">{u.memberships.map((m) => m.businessUnit?.name).filter(Boolean).join(", ") || "—"}</td>
