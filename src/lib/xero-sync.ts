@@ -151,7 +151,7 @@ export async function syncFromXero(tenantId: string): Promise<{ ok: boolean; jou
   return { ok: true, journals: jCount, statements: sCount, note: `${jCount} journals, ${sCount} statements, P&L refreshed` };
 }
 
-async function ensureChartOfAccounts(tenantId: string) {
+export async function ensureChartOfAccounts(tenantId: string) {
   const count = await prisma.chartOfAccount.count({ where: { tenantId } });
   if (count > 0) return;
   const rows: Array<{ code: string; name: string; accountType: string; journalEntryType: JournalEntryType }> = [
@@ -175,7 +175,7 @@ async function ensureChartOfAccounts(tenantId: string) {
   });
 }
 
-function memoFor(accountName: string, seed: number): string {
+export function memoFor(accountName: string, seed: number): string {
   const variants: Record<string, string[]> = {
     "Direct Labor": ["Weekly payroll allocation", "OT approval impact", "Crew time-card posting"],
     "Direct Materials": ["Material PO receipt", "Stored materials draw", "Vendor restocking"],
@@ -196,7 +196,7 @@ function memoFor(accountName: string, seed: number): string {
   return list[seed % list.length];
 }
 
-function vendorFor(accountName: string, seed: number): string | null {
+export function vendorFor(accountName: string, seed: number): string | null {
   if (accountName === "Subcontracted Costs") return ["Coastal Concrete Co", "Atlantic Underground LLC", "Palmetto Steel Erectors"][seed % 3];
   if (accountName === "Direct Materials") return ["Builder's Supply Co", "Lowcountry Lumber", "Charleston Rebar"][seed % 3];
   if (accountName === "Equipment Rental") return ["Sunbelt Rentals", "United Rentals", "Herc Rentals"][seed % 3];

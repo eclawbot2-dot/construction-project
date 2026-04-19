@@ -8,8 +8,9 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function FinanceHubPage() {
   const tenant = await requireTenant();
-  const [xero, inbox, statements, snapshots, unreconciled, flagged] = await Promise.all([
+  const [xero, qbo, inbox, statements, snapshots, unreconciled, flagged] = await Promise.all([
     prisma.xeroConnection.findUnique({ where: { tenantId: tenant.id } }),
+    prisma.qboConnection.findUnique({ where: { tenantId: tenant.id } }),
     prisma.invoiceInboxConnection.findUnique({ where: { tenantId: tenant.id } }),
     prisma.financialStatement.findMany({ where: { tenantId: tenant.id, statementType: "INCOME_STATEMENT" }, orderBy: { periodStart: "desc" }, take: 12 }),
     prisma.projectPnlSnapshot.findMany({ where: { project: { tenantId: tenant.id } }, include: { project: true }, orderBy: { updatedAt: "desc" } }),
@@ -55,11 +56,16 @@ export default async function FinanceHubPage() {
 
         <section className="card p-5">
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Data quality</div>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
             <div className="panel p-3">
               <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Xero sync</div>
-              <div className="mt-1 text-sm text-white">{xero?.lastSyncedAt ? `Synced ${formatDate(xero.lastSyncedAt)}` : "Never synced"}</div>
+              <div className="mt-1 text-sm text-white">{xero?.lastSyncedAt ? `Synced ${formatDate(xero.lastSyncedAt)}` : xero?.status === "CONNECTED" ? "Connected, never synced" : "Not connected"}</div>
               {xero?.lastSyncedAt && Date.now() - new Date(xero.lastSyncedAt).getTime() > 7 * 24 * 60 * 60 * 1000 ? <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-amber-300">Stale — run sync</div> : null}
+            </div>
+            <div className="panel p-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">QBO sync</div>
+              <div className="mt-1 text-sm text-white">{qbo?.lastSyncedAt ? `Synced ${formatDate(qbo.lastSyncedAt)}` : qbo?.status === "CONNECTED" ? "Connected, never synced" : "Not connected"}</div>
+              {qbo?.lastSyncedAt && Date.now() - new Date(qbo.lastSyncedAt).getTime() > 7 * 24 * 60 * 60 * 1000 ? <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-amber-300">Stale — run sync</div> : null}
             </div>
             <div className="panel p-3">
               <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Invoice inbox</div>
@@ -73,16 +79,12 @@ export default async function FinanceHubPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-4 md:grid-cols-3">
           <div className="card p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Xero</div>
-                <div className="mt-1 text-lg font-semibold text-white">{xero?.organizationName ?? "Not connected"}</div>
-                <div className="text-xs text-slate-400">Status: <StatusBadge status={xero?.status ?? "DISCONNECTED"} /></div>
-                {xero?.lastSyncedAt ? <div className="mt-1 text-xs text-slate-500">Last sync {formatDate(xero.lastSyncedAt)} · {xero.lastSyncNote}</div> : null}
-              </div>
-            </div>
+            <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Xero</div>
+            <div className="mt-1 text-lg font-semibold text-white">{xero?.organizationName ?? "Not connected"}</div>
+            <div className="text-xs text-slate-400">Status: <StatusBadge status={xero?.status ?? "DISCONNECTED"} /></div>
+            {xero?.lastSyncedAt ? <div className="mt-1 text-xs text-slate-500">Last sync {formatDate(xero.lastSyncedAt)} · {xero.lastSyncNote}</div> : null}
             <div className="mt-4 flex flex-wrap gap-2">
               {xero?.status === "CONNECTED" ? (
                 <>
@@ -102,6 +104,34 @@ export default async function FinanceHubPage() {
                 </form>
               )}
             </div>
+          </div>
+
+          <div className="card p-5">
+            <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">QuickBooks Online</div>
+            <div className="mt-1 text-lg font-semibold text-white">{qbo?.organizationName ?? "Not connected"}</div>
+            <div className="text-xs text-slate-400">Status: <StatusBadge status={qbo?.status ?? "DISCONNECTED"} /></div>
+            {qbo?.realmId ? <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">Realm {qbo.realmId} · {qbo.environment}</div> : null}
+            {qbo?.lastSyncedAt ? <div className="mt-1 text-xs text-slate-500">Last sync {formatDate(qbo.lastSyncedAt)} · {qbo.lastSyncNote}</div> : null}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {qbo?.status === "CONNECTED" ? (
+                <>
+                  <form action="/api/qbo/connect" method="post">
+                    <input type="hidden" name="action" value="sync" />
+                    <button className="btn-primary text-xs">Sync now</button>
+                  </form>
+                  <form action="/api/qbo/connect" method="post">
+                    <input type="hidden" name="action" value="disconnect" />
+                    <button className="btn-outline text-xs">Disconnect</button>
+                  </form>
+                </>
+              ) : (
+                <form action="/api/qbo/connect" method="post">
+                  <input type="hidden" name="action" value="connect" />
+                  <button className="btn-primary text-xs">Connect QBO (demo)</button>
+                </form>
+              )}
+            </div>
+            <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-slate-500">Pulls JournalEntry + ProfitAndLoss reports · Class / Customer:Job → project</div>
           </div>
 
           <div className="card p-5">

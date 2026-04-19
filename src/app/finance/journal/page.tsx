@@ -34,6 +34,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
               <thead className="bg-white/5">
                 <tr>
                   <th className="table-header">Date</th>
+                  <th className="table-header">Source</th>
                   <th className="table-header">Account</th>
                   <th className="table-header">Memo</th>
                   <th className="table-header">Vendor</th>
@@ -46,9 +47,13 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
-                {entries.map((e) => (
+                {entries.map((e) => {
+                  const sourceLabel = e.source === "qbo-sync" ? "QBO" : e.source === "xero-sync" ? "Xero" : e.source === "email-inbox" ? "Inbox" : e.source === "manual" ? "Manual" : e.source;
+                  const sourceClass = e.source === "qbo-sync" ? "bg-emerald-500/10 text-emerald-200 border-emerald-500/30" : e.source === "xero-sync" ? "bg-sky-500/10 text-sky-200 border-sky-500/30" : e.source === "email-inbox" ? "bg-amber-500/10 text-amber-200 border-amber-500/30" : "bg-white/5 text-slate-300 border-white/10";
+                  return (
                   <tr key={e.id} className="align-top transition hover:bg-white/5">
                     <td className="table-cell text-slate-400">{formatDate(e.entryDate)}</td>
+                    <td className="table-cell"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${sourceClass}`}>{sourceLabel}</span></td>
                     <td className="table-cell"><div>{e.accountName}</div><div className="font-mono text-[10px] text-slate-500">{e.accountCode}</div></td>
                     <td className="table-cell max-w-[260px]">{e.memo}</td>
                     <td className="table-cell text-slate-400">{e.vendorName ?? "—"}</td>
@@ -69,8 +74,9 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                       </form>
                     </td>
                   </tr>
-                ))}
-                {entries.length === 0 ? <tr><td colSpan={10} className="table-cell text-center text-slate-500">No journal rows yet. Run a Xero sync.</td></tr> : null}
+                  );
+                })}
+                {entries.length === 0 ? <tr><td colSpan={11} className="table-cell text-center text-slate-500">No journal rows yet. Connect Xero or QuickBooks Online and run a sync.</td></tr> : null}
               </tbody>
             </table>
           </div>

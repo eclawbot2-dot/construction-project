@@ -309,6 +309,13 @@ enum XeroConnectionStatus {
   ERROR
 }
 
+enum QboConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  EXPIRED
+  ERROR
+}
+
 enum JournalEntryType {
   REVENUE
   COST_OF_GOODS
@@ -323,6 +330,23 @@ enum CostReconciliationStatus {
   SUGGESTED
   CONFIRMED
   NEEDS_INPUT
+  REJECTED
+}
+
+enum HistoricalImportKind {
+  PROJECT_ACTUALS
+  BID_HISTORY
+  INCOME_STATEMENT
+  BUDGET_TEMPLATE
+  SCHEDULE_OF_VALUES
+  VENDOR_LIST
+}
+
+enum HistoricalImportStatus {
+  UPLOADED
+  PARSED
+  AI_REVIEWED
+  IMPORTED
   REJECTED
 }
 
@@ -359,6 +383,7 @@ model Tenant {
   rfpListings       RfpListing[]
   bidDrafts         BidDraft[]
   xeroConnection    XeroConnection?
+  qboConnection     QboConnection?
   chartOfAccounts   ChartOfAccount[]
   financialStatements FinancialStatement[]
   journalEntries    JournalEntryRow[]
@@ -366,6 +391,7 @@ model Tenant {
   invoiceInboxMessages InvoiceInboxMessage[]
   alertRules        AlertRule[]
   alertEvents       AlertEvent[]
+  historicalImports HistoricalImport[]
 }
 
 model BusinessUnit {
@@ -504,6 +530,7 @@ model Project {
   invoiceInboxMessages InvoiceInboxMessage[]
   revenueProjections  RevenueProjection[]
   alertEvents         AlertEvent[]
+  historicalImports   HistoricalImport[]
 
   @@unique([tenantId, code])
 }
@@ -1524,6 +1551,23 @@ model XeroConnection {
   lastSyncNote     String?
 }
 
+model QboConnection {
+  id               String                @id @default(cuid())
+  tenantId         String                @unique
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  realmId          String?
+  organizationName String?
+  environment      String                @default("sandbox")
+  status           QboConnectionStatus   @default(DISCONNECTED)
+  accessToken      String?
+  refreshToken     String?
+  expiresAt        DateTime?
+  scopes           String                @default("")
+  connectedAt      DateTime?
+  lastSyncedAt     DateTime?
+  lastSyncNote     String?
+}
+
 model ChartOfAccount {
   id               String           @id @default(cuid())
   tenantId         String
@@ -1567,6 +1611,8 @@ model JournalEntryRow {
   tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   entryDate             DateTime
   xeroId                String?                   @unique
+  qboId                 String?                   @unique
+  externalSource        String?
   reference             String?
   memo                  String
   accountCode           String
@@ -1648,4 +1694,43 @@ model InvoiceInboxMessage {
   notes              String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
+}
+
+model HistoricalImport {
+  id               String                 @id @default(cuid())
+  tenantId         String
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId        String?
+  project          Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  kind             HistoricalImportKind
+  label            String
+  filename         String
+  fileSize         Int                    @default(0)
+  uploadedBy       String?
+  status           HistoricalImportStatus @default(UPLOADED)
+  aiModel          String                 @default("bcon-reviewer-v1")
+  aiSummary        String?
+  aiFlagsJson      String                 @default("[]")
+  rowsDetected     Int                    @default(0)
+  rowsImported     Int                    @default(0)
+  totalDollarValue Float                  @default(0)
+  columnsJson      String                 @default("[]")
+  headerRowJson    String                 @default("[]")
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  rows             HistoricalImportRow[]
+}
+
+model HistoricalImportRow {
+  id             String            @id @default(cuid())
+  importId       String
+  import         HistoricalImport  @relation(fields: [importId], references: [id], onDelete: Cascade)
+  rowIndex       Int
+  dataJson       String
+  extractedJson  String            @default("{}")
+  confidence     Int               @default(50)
+  issuesJson     String            @default("[]")
+  accepted       Boolean           @default(false)
+  createdAt      DateTime          @default(now())
 }

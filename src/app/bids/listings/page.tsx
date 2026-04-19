@@ -67,9 +67,14 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
                     <td className="table-cell"><StatusBadge status={l.status} /></td>
                     <td className="table-cell text-xs text-slate-400">{l.bidDrafts.length}</td>
                     <td className="table-cell">
-                      <form action={`/api/rfp/listings/${l.id}/draft`} method="post">
-                        <button className="btn-primary text-xs">Draft bid</button>
-                      </form>
+                      <div className="flex flex-wrap gap-1">
+                        <form action={`/api/rfp/listings/${l.id}/draft`} method="post">
+                          <button className="btn-outline text-xs">Draft bid</button>
+                        </form>
+                        <form action={`/api/rfp/listings/${l.id}/autopilot`} method="post">
+                          <button className="btn-primary text-xs" title="Draft + estimate + compliance in one click">AI autopilot</button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))}

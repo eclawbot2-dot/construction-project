@@ -21,6 +21,18 @@ export default async function BidSourcesPage() {
           <StatTile label="Paused / error" value={sources.length - active} tone={sources.length - active > 0 ? "warn" : "good"} />
           <StatTile label="Listings on file" value={totalListings} href="/bids/listings" />
         </section>
+        <section className="card p-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Scheduled sweep</div>
+            <p className="text-sm text-slate-300 mt-1">
+              <span className="text-white font-medium">Daily cadence = 6× per business day</span>. Each source re-polls every 4 hours; sweep-now ignores already-fresh sources.
+            </p>
+            <p className="text-xs text-slate-500 mt-1">External cron can POST to <span className="font-mono">/api/cron/rfp-sweep</span> to trigger programmatically.</p>
+          </div>
+          <form action="/api/rfp/sweep" method="post">
+            <button type="submit" className="btn-primary text-sm">Run sweep now</button>
+          </form>
+        </section>
         <section className="card p-6">
           <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Add source</div>
           <form action="/api/rfp/sources/create" method="post" className="mt-4 grid gap-3 md:grid-cols-[2fr_2fr_1fr_auto]">
