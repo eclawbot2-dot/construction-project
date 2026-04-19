@@ -1,9 +1,13 @@
 import Link from "next/link";
-import { Building2, BriefcaseBusiness, ClipboardList, Coins, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Users } from "lucide-react";
+import { Bell, Building2, BriefcaseBusiness, ClipboardList, Coins, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Users } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 import { getDashboardData } from "@/lib/dashboard";
+import { requireTenant } from "@/lib/tenant";
 
 const navItems = [
   { href: "/", label: "Executive Dashboard", icon: LayoutDashboard },
+  { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/search", label: "Search", icon: Search },
   { href: "/projects", label: "Projects", icon: Building2 },
   { href: "/bids", label: "Bid Hub", icon: Gavel },
   { href: "/bids/discover", label: "Discover RFP sources", icon: Search },
@@ -24,6 +28,8 @@ const navItems = [
 
 export async function Sidebar() {
   const data = await getDashboardData();
+  const tenant = await requireTenant().catch(() => null);
+  const alertCount = tenant ? await prisma.alertEvent.count({ where: { tenantId: tenant.id, acknowledgedAt: null } }) : 0;
 
   return (
     <aside className="w-full border-r border-white/10 bg-slate-950/90 lg:w-72">
@@ -36,6 +42,7 @@ export async function Sidebar() {
       <nav className="space-y-1 px-3 py-4">
         {navItems.map((item) => {
           const Icon = item.icon;
+          const badge = item.href === "/alerts" && alertCount > 0 ? alertCount : null;
           return (
             <Link
               key={item.href}
@@ -43,7 +50,8 @@ export async function Sidebar() {
               className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
             >
               <Icon className="h-5 w-5 text-cyan-300" />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {badge ? <span className="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-200">{badge}</span> : null}
             </Link>
           );
         })}

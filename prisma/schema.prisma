@@ -364,6 +364,8 @@ model Tenant {
   journalEntries    JournalEntryRow[]
   invoiceInbox      InvoiceInboxConnection?
   invoiceInboxMessages InvoiceInboxMessage[]
+  alertRules        AlertRule[]
+  alertEvents       AlertEvent[]
 }
 
 model BusinessUnit {
@@ -500,6 +502,8 @@ model Project {
   journalEntries      JournalEntryRow[]
   pnlSnapshot         ProjectPnlSnapshot?
   invoiceInboxMessages InvoiceInboxMessage[]
+  revenueProjections  RevenueProjection[]
+  alertEvents         AlertEvent[]
 
   @@unique([tenantId, code])
 }
@@ -1383,6 +1387,8 @@ model BidDraft {
   title           String
   status          BidDraftStatus    @default(DRAFT)
   totalValue      Float             @default(0)
+  overheadPct     Float             @default(10)
+  profitPct       Float             @default(8)
   winThemes       String?
   keyDifferentiators String?
   modelUsed       String            @default("stub-v1")
@@ -1393,6 +1399,76 @@ model BidDraft {
 
   sections        BidDraftSection[]
   complianceRuns  ComplianceCheck[]
+  lineItems       BidDraftLineItem[]
+}
+
+model BidDraftLineItem {
+  id            String      @id @default(cuid())
+  draftId       String
+  draft         BidDraft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  position      Int
+  costCode      String?
+  description   String
+  category      String      @default("LABOR")
+  quantity      Float       @default(1)
+  unit          String?
+  unitCost      Float       @default(0)
+  laborCost     Float       @default(0)
+  materialCost  Float       @default(0)
+  equipmentCost Float       @default(0)
+  subCost       Float       @default(0)
+  markupPct     Float       @default(0)
+  amount        Float       @default(0)
+  createdAt     DateTime    @default(now())
+}
+
+model RevenueProjection {
+  id            String      @id @default(cuid())
+  projectId     String
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  periodStart   DateTime
+  periodEnd     DateTime
+  forecastRevenue Float     @default(0)
+  forecastCost  Float       @default(0)
+  forecastMargin Float      @default(0)
+  confidence    Int         @default(50)
+  source        String      @default("schedule-derived")
+  createdAt     DateTime    @default(now())
+
+  @@unique([projectId, periodStart])
+}
+
+model AlertRule {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  category      String
+  triggerType   String
+  configJson    String       @default("{}")
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+
+  events        AlertEvent[]
+}
+
+model AlertEvent {
+  id             String      @id @default(cuid())
+  tenantId       String
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ruleId         String?
+  rule           AlertRule?  @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  severity       String      @default("INFO")
+  title          String
+  body           String?
+  entityType     String?
+  entityId       String?
+  link           String?
+  projectId      String?
+  project        Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  createdAt      DateTime    @default(now())
 }
 
 model BidDraftSection {

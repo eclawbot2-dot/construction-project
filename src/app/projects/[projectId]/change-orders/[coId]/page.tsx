@@ -26,7 +26,16 @@ export default async function ChangeOrderDetailPage({ params }: { params: Promis
       title={`${co.coNumber} — ${co.title}`}
       subtitle={co.description ?? undefined}
       crumbs={[{ label: "Projects", href: "/projects" }, { label: co.project.code, href: `/projects/${co.project.id}` }, { label: "Change orders", href: `/projects/${co.project.id}/change-orders` }, { label: co.coNumber }]}
-      actions={<StatusBadge status={co.status} />}
+      actions={(
+        <div className="flex items-center gap-2">
+          <StatusBadge status={co.status} />
+          {co.scheduleImpactDays > 0 && (co.status === "APPROVED" || co.status === "EXECUTED") ? (
+            <form action={`/api/change-orders/${co.id}/apply-schedule`} method="post">
+              <button className="btn-primary text-xs">Apply +{co.scheduleImpactDays}d to schedule</button>
+            </form>
+          ) : null}
+        </div>
+      )}
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Kind" value={changeOrderKindLabel(co.kind)} />

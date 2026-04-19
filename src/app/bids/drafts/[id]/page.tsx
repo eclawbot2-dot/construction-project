@@ -17,12 +17,17 @@ export default async function BidDraftDetailPage({ params }: { params: Promise<{
       complianceRuns: { include: { items: true }, orderBy: { runAt: "desc" }, take: 5 },
       rfpListing: true,
       opportunity: true,
+      lineItems: { orderBy: { position: "asc" } },
     },
   });
   if (!draft) notFound();
 
   const latestRun = draft.complianceRuns[0];
   const wordCount = draft.sections.reduce((s, sc) => s + sc.wordCount, 0);
+  const rawTotal = draft.lineItems.reduce((s, l) => s + l.amount, 0);
+  const withOh = rawTotal * (1 + draft.overheadPct / 100);
+  const withProfit = withOh * (1 + draft.profitPct / 100);
+  const byCategory = draft.lineItems.reduce<Record<string, number>>((acc, l) => { acc[l.category] = (acc[l.category] ?? 0) + l.amount; return acc; }, {});
 
   return (
     <DetailShell
@@ -53,11 +58,78 @@ export default async function BidDraftDetailPage({ params }: { params: Promise<{
           <DetailField label="Linked opportunity">{draft.opportunity ? <Link href={`/opportunities/${draft.opportunity.id}`} className="text-cyan-300 hover:underline">{draft.opportunity.name}</Link> : "—"}</DetailField>
         </DetailGrid>
         <div className="mt-4 flex flex-wrap gap-3">
+          <form action={`/api/bid-drafts/${draft.id}/estimate`} method="post">
+            <button className="btn-primary">{draft.lineItems.length > 0 ? "Regenerate estimate" : "Build line-item estimate"}</button>
+          </form>
           <form action={`/api/bid-drafts/${draft.id}/compliance`} method="post">
-            <button className="btn-primary">Run compliance check</button>
+            <button className="btn-outline">Run compliance check</button>
           </form>
         </div>
       </section>
+
+      {draft.lineItems.length > 0 ? (
+        <section className="card p-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Line-item estimate</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            {Object.entries(byCategory).map(([cat, amt]) => (
+              <div key={cat} className="panel p-3">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{cat}</div>
+                <div className="mt-1 text-xl font-semibold text-white">{formatCurrency(amt)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+            <table className="min-w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="table-header">Cost code</th>
+                  <th className="table-header">Description</th>
+                  <th className="table-header">Category</th>
+                  <th className="table-header">Qty</th>
+                  <th className="table-header">Unit</th>
+                  <th className="table-header">Labor</th>
+                  <th className="table-header">Material</th>
+                  <th className="table-header">Equipment</th>
+                  <th className="table-header">Sub</th>
+                  <th className="table-header">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10 bg-slate-950/40">
+                {draft.lineItems.map((l) => (
+                  <tr key={l.id}>
+                    <td className="table-cell font-mono text-xs">{l.costCode ?? "—"}</td>
+                    <td className="table-cell">{l.description}</td>
+                    <td className="table-cell">{l.category}</td>
+                    <td className="table-cell">{l.quantity}</td>
+                    <td className="table-cell">{l.unit ?? "—"}</td>
+                    <td className="table-cell">{formatCurrency(l.laborCost)}</td>
+                    <td className="table-cell">{formatCurrency(l.materialCost)}</td>
+                    <td className="table-cell">{formatCurrency(l.equipmentCost)}</td>
+                    <td className="table-cell">{formatCurrency(l.subCost)}</td>
+                    <td className="table-cell font-medium text-white">{formatCurrency(l.amount)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-white/5">
+                  <td className="table-cell" colSpan={9}><span className="text-slate-400">Subtotal</span></td>
+                  <td className="table-cell font-semibold text-white">{formatCurrency(rawTotal)}</td>
+                </tr>
+                <tr className="bg-white/5">
+                  <td className="table-cell" colSpan={9}><span className="text-slate-400">+ Overhead ({draft.overheadPct}%)</span></td>
+                  <td className="table-cell font-semibold text-white">{formatCurrency(withOh - rawTotal)}</td>
+                </tr>
+                <tr className="bg-white/5">
+                  <td className="table-cell" colSpan={9}><span className="text-slate-400">+ Profit ({draft.profitPct}%)</span></td>
+                  <td className="table-cell font-semibold text-white">{formatCurrency(withProfit - withOh)}</td>
+                </tr>
+                <tr className="bg-cyan-500/10">
+                  <td className="table-cell" colSpan={9}><span className="text-cyan-200 font-semibold">Proposed total</span></td>
+                  <td className="table-cell font-semibold text-cyan-100">{formatCurrency(withProfit)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {draft.sections.map((s) => (
         <section key={s.id} className="card p-5">

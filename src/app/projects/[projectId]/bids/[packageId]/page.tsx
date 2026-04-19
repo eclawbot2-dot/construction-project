@@ -63,12 +63,14 @@ export default async function BidPackageDetailPage({ params }: { params: Promise
                 <th className="table-header">Δ vs. estimate</th>
                 <th className="table-header">Days</th>
                 <th className="table-header">Status</th>
+                <th className="table-header" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10 bg-slate-950/40">
               {pkg.subBids.map((b) => {
                 const deltaLow = b.bidAmount !== null && low !== null ? b.bidAmount - low : null;
                 const deltaEst = b.bidAmount !== null ? b.bidAmount - pkg.estimatedValue : null;
+                const awardable = pkg.status !== "AWARDED" && b.status !== "SELECTED" && b.bidAmount != null;
                 return (
                   <tr key={b.id} className="transition hover:bg-white/5">
                     <td className="table-cell">
@@ -80,6 +82,13 @@ export default async function BidPackageDetailPage({ params }: { params: Promise
                     <td className="table-cell">{deltaEst === null ? "—" : <span className={deltaEst <= 0 ? "text-emerald-300" : "text-rose-300"}>{deltaEst > 0 ? "+" : ""}{formatCurrency(deltaEst)}</span>}</td>
                     <td className="table-cell text-slate-400">{b.daysToComplete ? `${b.daysToComplete}d` : "—"}</td>
                     <td className="table-cell"><StatusBadge status={b.status} /></td>
+                    <td className="table-cell">
+                      {awardable ? (
+                        <form action={`/api/bids/${pkg.id}/subbids/${b.id}/award`} method="post">
+                          <button className="btn-primary text-xs">Award →</button>
+                        </form>
+                      ) : b.status === "SELECTED" ? <span className="text-xs text-emerald-300">awarded</span> : null}
+                    </td>
                   </tr>
                 );
               })}
