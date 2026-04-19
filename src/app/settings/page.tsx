@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
-import { formatDate, modeLabel } from "@/lib/utils";
+import { formatDate, modeLabel, roleLabel } from "@/lib/utils";
 import { ProjectMode } from "@prisma/client";
+
+const ROLE_TEMPLATES = ["ADMIN", "EXECUTIVE", "MANAGER", "PROJECT_ENGINEER", "SUPERINTENDENT", "FOREMAN", "CONTROLLER", "SAFETY_MANAGER", "QUALITY_MANAGER", "VIEWER"] as const;
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
   SIMPLE: "Simple Construction PM — remodels, custom homes, single-trade GCs. Job-thread-first UX, lightweight tasks, homeowner portal-ready.",
@@ -19,6 +22,10 @@ export default async function SettingsPage() {
     where: { tenantId: tenant.id },
     _count: { _all: true },
   });
+  const [memberships, businessUnits] = await Promise.all([
+    prisma.membership.findMany({ where: { tenantId: tenant.id }, include: { user: true, businessUnit: true }, orderBy: { createdAt: "asc" } }),
+    prisma.businessUnit.findMany({ where: { tenantId: tenant.id }, orderBy: { name: "asc" } }),
+  ]);
   const enabled: string[] = (() => {
     try { return JSON.parse(tenant.enabledModes); } catch { return []; }
   })();
@@ -119,6 +126,68 @@ export default async function SettingsPage() {
             </table>
           </div>
           <p className="mt-3 text-xs text-slate-500">Use the tenant switcher in the header to jump between companies. Each tenant sees only its own projects, vendors, contracts, and financials.</p>
+        </section>
+
+        <section className="card p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Team + role management</div>
+              <p className="mt-1 text-sm text-slate-400">Invite teammates into this tenant and assign role templates. Existing users get their membership updated.</p>
+            </div>
+            <Link href="/people" className="btn-outline text-xs">Open people directory</Link>
+          </div>
+          <form action="/api/users/invite" method="post" className="mt-4 grid gap-3 md:grid-cols-[2fr_2fr_1fr_1fr_auto]">
+            <input name="name" required placeholder="Full name" className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
+            <input name="email" type="email" required placeholder="email@company.com" className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
+            <select name="role" defaultValue="PROJECT_ENGINEER" className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
+              {ROLE_TEMPLATES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
+            </select>
+            <select name="businessUnitId" defaultValue="" className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
+              <option value="">— no BU —</option>
+              {businessUnits.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+            <button className="btn-primary">Invite / update</button>
+          </form>
+          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+            <table className="min-w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="table-header">Name</th>
+                  <th className="table-header">Email</th>
+                  <th className="table-header">Role</th>
+                  <th className="table-header">Business unit</th>
+                  <th className="table-header">Joined</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10 bg-slate-950/40">
+                {memberships.map((m) => (
+                  <tr key={m.id} className="transition hover:bg-white/5">
+                    <td className="table-cell"><Link href={`/people/${m.user.id}`} className="text-cyan-300 hover:underline">{m.user.name}</Link></td>
+                    <td className="table-cell text-slate-400">{m.user.email}</td>
+                    <td className="table-cell">{roleLabel(m.roleTemplate)}</td>
+                    <td className="table-cell text-slate-400">{m.businessUnit?.name ?? "—"}</td>
+                    <td className="table-cell text-slate-400">{formatDate(m.createdAt)}</td>
+                  </tr>
+                ))}
+                {memberships.length === 0 ? <tr><td colSpan={5} className="table-cell text-center text-slate-500">No memberships yet.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="card p-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Identity provider (SSO)</div>
+          <p className="mt-1 text-sm text-slate-400">bcon ships with local password auth. For production tenants, hook an external OIDC provider here.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {["Auth0", "Okta", "Azure AD / Entra ID"].map((provider) => (
+              <div key={provider} className="panel p-4">
+                <div className="text-sm font-semibold text-white">{provider}</div>
+                <p className="mt-2 text-xs text-slate-400">OIDC connector. Paste issuer URL + client ID + client secret to enable SAML/OIDC sign-in for this tenant.</p>
+                <button className="btn-outline text-xs mt-3" disabled>Coming soon</button>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-slate-500">SSO wiring is scaffolded but not live — contact support to enable for production.</p>
         </section>
       </div>
     </AppLayout>

@@ -22,7 +22,7 @@ export default async function RfisPage({ params }: { params: Promise<{ projectId
   return (
     <AppLayout eyebrow={`${project.code} · RFIs`} title={project.name} description="Requests for information — ball-in-court, aging, cost & schedule impact.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="rfis" />
+        <ProjectTabs projectId={project.id} active="rfis" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Total RFIs" value={project.rfis.length} />
           <Stat label="Open" value={open} tone="warn" />

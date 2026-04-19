@@ -28,7 +28,7 @@ export default async function WarrantyPage({ params }: { params: Promise<{ proje
   return (
     <AppLayout eyebrow={`${project.code} · Warranty`} title={project.name} description="Post-occupancy issues, who reported, who owns, and resolution tracking.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="warranty" />
+        <ProjectTabs projectId={project.id} active="warranty" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-4">
           <StatTile label="Items on file" value={project.warrantyItems.length} />
           <StatTile label="Open" value={open} tone="warn" />

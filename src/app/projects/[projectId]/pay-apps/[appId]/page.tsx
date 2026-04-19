@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { DetailShell, DetailGrid, DetailField } from "@/components/layout/detail-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PrintButton } from "@/components/ui/print-button";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/utils";
@@ -25,7 +26,12 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
       title={`AIA G702/G703 — ${formatDate(app.periodFrom)} → ${formatDate(app.periodTo)}`}
       subtitle={app.contract ? `Against ${app.contract.title}` : undefined}
       crumbs={[{ label: "Projects", href: "/projects" }, { label: app.project.code, href: `/projects/${app.project.id}` }, { label: "Pay apps", href: `/projects/${app.project.id}/pay-apps` }, { label: `#${app.periodNumber}` }]}
-      actions={<StatusBadge status={app.status} />}
+      actions={(
+        <div className="flex items-center gap-2">
+          <StatusBadge status={app.status} />
+          <PrintButton label="Print G702/G703" />
+        </div>
+      )}
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Original contract" value={formatCurrency(app.originalContractValue)} />

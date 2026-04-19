@@ -24,7 +24,7 @@ export default async function InspectionsPage({ params }: { params: Promise<{ pr
   return (
     <AppLayout eyebrow={`${project.code} · Inspections`} title={project.name} description="Municipal, third-party, internal QC, pre-pour, pre-cover, OSHA — with pass/fail tracking.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="inspections" />
+        <ProjectTabs projectId={project.id} active="inspections" mode={project.mode} />
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Scheduled" value={scheduled} tone="warn" />

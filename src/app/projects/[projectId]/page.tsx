@@ -21,14 +21,41 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
 
   if (!project) notFound();
 
+  const STAGES = [
+    { key: "PRECONSTRUCTION", label: "Preconstruction" },
+    { key: "ACTIVE", label: "Active" },
+    { key: "CLOSEOUT", label: "Closeout" },
+    { key: "WARRANTY", label: "Warranty" },
+  ] as const;
+  const currentStageIdx = STAGES.findIndex((s) => s.key === project.stage);
+
   return (
     <AppLayout
-      eyebrow="Pass 2 — Detailed workspace"
+      eyebrow="Project workspace"
       title={project.name}
       description="A single project workspace that changes required tabs, operating rituals, and execution depth by project mode."
     >
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="overview" />
+        <ProjectTabs projectId={project.id} active="overview" mode={project.mode} />
+
+        <section className="card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Project lifecycle stage</div>
+              <div className="mt-1 text-sm text-slate-400">Advancing to <strong>Closeout</strong> auto-creates closeout punch items. Advancing to <strong>Warranty</strong> opens a 1-year warranty record.</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {STAGES.map((s, i) => (
+                <form key={s.key} action={`/api/projects/${project.id}/stage`} method="post">
+                  <input type="hidden" name="stage" value={s.key} />
+                  <button disabled={s.key === project.stage || i <= currentStageIdx - 1} className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${s.key === project.stage ? "border-cyan-500/40 bg-cyan-500/15 text-cyan-100" : i <= currentStageIdx - 1 ? "border-white/5 text-slate-600" : "border-white/10 text-slate-200 hover:border-cyan-500/40 hover:bg-white/5"}`}>
+                    {s.key === project.stage ? `● ${s.label}` : s.label}
+                  </button>
+                </form>
+              ))}
+            </div>
+          </div>
+        </section>
 
         <section className="grid gap-4 lg:grid-cols-4">
           <div className="card p-5 lg:col-span-2">

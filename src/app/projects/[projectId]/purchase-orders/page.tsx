@@ -23,7 +23,7 @@ export default async function PurchaseOrdersPage({ params }: { params: Promise<{
   return (
     <AppLayout eyebrow={`${project.code} · Purchase orders`} title={project.name} description="Material POs with vendor, expected delivery, and invoice-to-date tracking.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="purchase-orders" />
+        <ProjectTabs projectId={project.id} active="purchase-orders" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-3">
           <StatTile label="Open POs" value={project.purchaseOrders.length} />
           <StatTile label="Committed" value={formatCurrency(total)} />

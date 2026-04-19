@@ -30,7 +30,7 @@ export default async function BidsPage({ params }: { params: Promise<{ projectId
   return (
     <AppLayout eyebrow={`${project.code} · Bid packages`} title={project.name} description="Trade bid packages with sub invites, bid leveling, and selection.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="bids" />
+        <ProjectTabs projectId={project.id} active="bids" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-4">
           <StatTile label="Bid packages" value={totalPackages} />
           <StatTile label="Subs invited" value={totalInvited} />

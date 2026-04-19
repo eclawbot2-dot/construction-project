@@ -45,10 +45,32 @@ export default async function FinanceHubPage() {
           <StatTile label="Cash position est." value={formatCurrency(totalBilled - totalCost + snapshots.reduce((s, p) => s + (p.totalContractValue * 0.10), 0))} sub="billed - costs + retainage equiv." tone="good" />
           <StatTile label="Overbilled / underbilled" value={`${formatCurrency(overbilled)} / ${formatCurrency(underbilled)}`} tone="warn" href="/finance/ap-aging" />
         </section>
-        <section className="flex gap-3">
+        <section className="flex flex-wrap gap-3">
           <Link href="/finance/ap-aging" className="btn-outline text-xs">Open AP aging →</Link>
           <Link href="/finance/journal" className="btn-outline text-xs">Journal</Link>
           <Link href="/finance/inbox" className="btn-outline text-xs">Invoice inbox</Link>
+          <a href="/api/export/journal" className="btn-outline text-xs">Export journal CSV</a>
+          <a href="/api/export/ap-aging" className="btn-outline text-xs">Export AP CSV</a>
+        </section>
+
+        <section className="card p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Data quality</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <div className="panel p-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Xero sync</div>
+              <div className="mt-1 text-sm text-white">{xero?.lastSyncedAt ? `Synced ${formatDate(xero.lastSyncedAt)}` : "Never synced"}</div>
+              {xero?.lastSyncedAt && Date.now() - new Date(xero.lastSyncedAt).getTime() > 7 * 24 * 60 * 60 * 1000 ? <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-amber-300">Stale — run sync</div> : null}
+            </div>
+            <div className="panel p-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Invoice inbox</div>
+              <div className="mt-1 text-sm text-white">{inbox?.lastPolledAt ? `Polled ${formatDate(inbox.lastPolledAt)}` : inbox?.status === "CONNECTED" ? "Connected, never polled" : "Not connected"}</div>
+            </div>
+            <div className="panel p-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Unreconciled journal rows</div>
+              <div className="mt-1 text-sm text-white">{unreconciled + flagged} rows awaiting action</div>
+              {unreconciled + flagged > 0 ? <Link href="/finance/journal" className="mt-1 text-[10px] uppercase tracking-[0.18em] text-cyan-300">Review now →</Link> : null}
+            </div>
+          </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">

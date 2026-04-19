@@ -19,7 +19,7 @@ export default async function DailyLogsPage({ params }: { params: Promise<{ proj
   return (
     <AppLayout eyebrow={`${project.code} · Daily logs`} title={project.name} description="Field superintendent daily reports — manpower, weather, delays, work performed.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="daily-logs" />
+        <ProjectTabs projectId={project.id} active="daily-logs" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-3">
           <Stat label="Total reports" value={project.dailyLogs.length} />
           <Stat label="Logged manpower" value={manpower.toLocaleString()} />

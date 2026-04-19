@@ -23,7 +23,7 @@ export default async function TimesheetsPage({ params }: { params: Promise<{ pro
   return (
     <AppLayout eyebrow={`${project.code} · Timesheets`} title={project.name} description="Weekly crew timesheets with regular, overtime, and double-time hours tied to cost codes.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="timesheets" />
+        <ProjectTabs projectId={project.id} active="timesheets" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-4">
           <StatTile label="Entries" value={project.timeEntries.length} />
           <StatTile label="Total hours" value={totalHours.toLocaleString()} />

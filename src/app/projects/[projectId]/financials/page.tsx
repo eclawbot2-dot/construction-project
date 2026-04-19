@@ -35,7 +35,7 @@ export default async function ProjectFinancialsPage({ params }: { params: Promis
   return (
     <AppLayout eyebrow={`${project.code} · P&L`} title={project.name} description="Project-level financials — contract value, billed vs earned, cost-to-date, forecast margin, WIP over/under billing.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="financials" />
+        <ProjectTabs projectId={project.id} active="financials" mode={project.mode} />
         {pnl ? (
           <>
             <section className="grid gap-4 md:grid-cols-4">

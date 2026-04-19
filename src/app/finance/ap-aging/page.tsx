@@ -52,6 +52,7 @@ export default async function ApAgingPage() {
             <div className="flex gap-2 text-xs text-slate-400">
               <Link href="/finance" className="btn-outline">Back to finance</Link>
               <Link href="/finance/journal" className="btn-outline">Journal</Link>
+              <a href="/api/export/ap-aging" className="btn-outline">Export CSV</a>
             </div>
           </div>
         </section>

@@ -21,7 +21,7 @@ export default async function PunchListPage({ params }: { params: Promise<{ proj
   return (
     <AppLayout eyebrow={`${project.code} · Punch list`} title={project.name} description="Pre-completion deficiency tracking by area.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="punch-list" />
+        <ProjectTabs projectId={project.id} active="punch-list" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-3">
           <Stat label="Total items" value={project.punchItems.length} />
           <Stat label="Open" value={open} tone="warn" />

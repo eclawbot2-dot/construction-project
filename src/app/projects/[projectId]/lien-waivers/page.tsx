@@ -23,7 +23,7 @@ export default async function LienWaiversPage({ params }: { params: Promise<{ pr
   return (
     <AppLayout eyebrow={`${project.code} · Lien waivers`} title={project.name} description="Conditional and unconditional waivers by party, tied to pay applications.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="lien-waivers" />
+        <ProjectTabs projectId={project.id} active="lien-waivers" mode={project.mode} />
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Waivers on file" value={project.lienWaivers.length} />

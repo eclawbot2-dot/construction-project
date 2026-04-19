@@ -18,7 +18,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ proje
   if (tasks.length === 0) {
     return (
       <AppLayout eyebrow={`${project.code} · Schedule`} title={project.name}>
-        <ProjectTabs projectId={project.id} active="schedule" />
+        <ProjectTabs projectId={project.id} active="schedule" mode={project.mode} />
         <div className="card mt-6 p-8 text-center text-slate-400">No schedule tasks yet.</div>
       </AppLayout>
     );
@@ -35,7 +35,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ proje
   return (
     <AppLayout eyebrow={`${project.code} · Schedule`} title={project.name} description="Gantt-style project schedule with critical path, milestones, and baseline tracking.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="schedule" />
+        <ProjectTabs projectId={project.id} active="schedule" mode={project.mode} />
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Total tasks" value={tasks.length} />

@@ -90,3 +90,10 @@ a {
 .table-cell {
   @apply px-4 py-3 text-sm text-slate-200;
 }
+
+@media print {
+  aside, .no-print { display: none !important; }
+  body, .card, .panel { background: white !important; color: black !important; border-color: #ccc !important; }
+  .table-header, .table-cell { color: black !important; }
+  .btn-primary, .btn-outline { display: none !important; }
+}

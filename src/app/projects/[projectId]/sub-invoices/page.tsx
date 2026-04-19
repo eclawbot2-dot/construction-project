@@ -24,7 +24,7 @@ export default async function SubInvoicesPage({ params }: { params: Promise<{ pr
   return (
     <AppLayout eyebrow={`${project.code} · Sub invoices`} title={project.name} description="Subcontractor pay applications with retainage, compliance, and waiver tracking.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="sub-invoices" />
+        <ProjectTabs projectId={project.id} active="sub-invoices" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-4">
           <StatTile label="Invoices on file" value={project.subInvoices.length} />
           <StatTile label="Gross billed" value={formatCurrency(totalGross)} />

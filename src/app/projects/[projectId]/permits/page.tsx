@@ -29,7 +29,7 @@ export default async function PermitsPage({ params }: { params: Promise<{ projec
   return (
     <AppLayout eyebrow={`${project.code} · Permits`} title={project.name} description="Permit applications, issued permits, jurisdiction inspection lookup, and compliance aging.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="permits" />
+        <ProjectTabs projectId={project.id} active="permits" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-4">
           <StatTile label="Permits on file" value={project.permits.length} />
           <StatTile label="Active / in review" value={active} />

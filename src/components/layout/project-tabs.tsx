@@ -1,34 +1,45 @@
 import Link from "next/link";
+import type { ProjectMode } from "@prisma/client";
 
-export const PROJECT_TABS = [
+type Tab = { slug: string; label: string; modes?: ProjectMode[] };
+
+const ALL_MODES: ProjectMode[] = ["SIMPLE", "VERTICAL", "HEAVY_CIVIL"];
+const VERTICAL_OR_CIVIL: ProjectMode[] = ["VERTICAL", "HEAVY_CIVIL"];
+
+export const PROJECT_TABS: Tab[] = [
   { slug: "", label: "Overview" },
   { slug: "schedule", label: "Schedule" },
   { slug: "tasks", label: "Tasks" },
   { slug: "daily-logs", label: "Daily Logs" },
-  { slug: "rfis", label: "RFIs" },
-  { slug: "submittals", label: "Submittals" },
+  { slug: "rfis", label: "RFIs", modes: VERTICAL_OR_CIVIL },
+  { slug: "submittals", label: "Submittals", modes: VERTICAL_OR_CIVIL },
   { slug: "change-orders", label: "Change Orders" },
   { slug: "contracts", label: "Contracts" },
-  { slug: "bids", label: "Bids" },
+  { slug: "bids", label: "Bids", modes: VERTICAL_OR_CIVIL },
   { slug: "pay-apps", label: "Pay Apps" },
   { slug: "sub-invoices", label: "Sub Invoices" },
-  { slug: "lien-waivers", label: "Lien Waivers" },
+  { slug: "lien-waivers", label: "Lien Waivers", modes: VERTICAL_OR_CIVIL },
   { slug: "purchase-orders", label: "POs" },
   { slug: "timesheets", label: "Timesheets" },
   { slug: "permits", label: "Permits" },
   { slug: "inspections", label: "Inspections" },
-  { slug: "safety", label: "Safety" },
+  { slug: "safety", label: "Safety", modes: VERTICAL_OR_CIVIL },
   { slug: "financials", label: "P&L" },
   { slug: "punch-list", label: "Punch List" },
   { slug: "warranty", label: "Warranty" },
   { slug: "documents", label: "Documents" },
-] as const;
+];
 
-export function ProjectTabs({ projectId, active }: { projectId: string; active: string }) {
+export function filteredTabsForMode(mode: ProjectMode): Tab[] {
+  return PROJECT_TABS.filter((t) => !t.modes || t.modes.includes(mode));
+}
+
+export function ProjectTabs({ projectId, active, mode }: { projectId: string; active: string; mode?: ProjectMode }) {
+  const tabs = mode ? filteredTabsForMode(mode) : PROJECT_TABS;
   return (
     <div className="card overflow-hidden p-0">
       <div className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2 text-sm">
-        {PROJECT_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const href = tab.slug ? `/projects/${projectId}/${tab.slug}` : `/projects/${projectId}`;
           const isActive = active === (tab.slug || "overview");
           return (
@@ -48,3 +59,5 @@ export function ProjectTabs({ projectId, active }: { projectId: string; active: 
     </div>
   );
 }
+
+void ALL_MODES;

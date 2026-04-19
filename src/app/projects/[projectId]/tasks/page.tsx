@@ -25,7 +25,7 @@ export default async function TasksPage({ params }: { params: Promise<{ projectI
   return (
     <AppLayout eyebrow={`${project.code} · Tasks`} title={project.name} description="Field and office tasks across trades, with priority, due dates and assignees.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="tasks" />
+        <ProjectTabs projectId={project.id} active="tasks" mode={project.mode} />
         <section className="grid gap-4 md:grid-cols-4">
           {(["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETE"] as const).map((s) => (
             <div key={s} className="panel p-4">

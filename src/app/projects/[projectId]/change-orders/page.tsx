@@ -23,7 +23,7 @@ export default async function ChangeOrdersPage({ params }: { params: Promise<{ p
   return (
     <AppLayout eyebrow={`${project.code} · Change orders`} title={project.name} description="Formal change management with approval workflows and cost + schedule impact.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="change-orders" />
+        <ProjectTabs projectId={project.id} active="change-orders" mode={project.mode} />
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Total change orders" value={project.changeOrders.length} />

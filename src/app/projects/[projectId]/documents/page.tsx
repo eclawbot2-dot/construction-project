@@ -19,7 +19,7 @@ export default async function ProjectDocumentsPage({ params }: { params: Promise
   return (
     <AppLayout eyebrow={`${project.code} · Documents`} title={project.name} description="Drawings, specs, permits, contracts, photos — organized by class and folder.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="documents" />
+        <ProjectTabs projectId={project.id} active="documents" mode={project.mode} />
         <section className="grid gap-3 md:grid-cols-4 lg:grid-cols-6">
           {Object.entries(byClass).map(([cls, count]) => (
             <div key={cls} className="panel p-4">

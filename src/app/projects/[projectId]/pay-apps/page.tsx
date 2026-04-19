@@ -28,7 +28,7 @@ export default async function PayAppsPage({ params }: { params: Promise<{ projec
   return (
     <AppLayout eyebrow={`${project.code} · Pay applications`} title={project.name} description="AIA G702/G703 progress billing with schedule of values, retainage, and approvals.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="pay-apps" />
+        <ProjectTabs projectId={project.id} active="pay-apps" mode={project.mode} />
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Draws filed" value={project.payApplications.length} />

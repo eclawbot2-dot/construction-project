@@ -28,7 +28,7 @@ export default async function ContractsPage({ params }: { params: Promise<{ proj
   return (
     <AppLayout eyebrow={`${project.code} · Contracts`} title={project.name} description="Prime contracts, subcontracts, purchase orders — with cost commitments and billed/paid positions.">
       <div className="grid gap-6">
-        <ProjectTabs projectId={project.id} active="contracts" />
+        <ProjectTabs projectId={project.id} active="contracts" mode={project.mode} />
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Contracts" value={project.contracts.length} />
