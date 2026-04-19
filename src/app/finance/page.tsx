@@ -39,10 +39,16 @@ export default async function FinanceHubPage() {
           <StatTile label="Unreconciled journal rows" value={unreconciled + flagged} sub={`${unreconciled} unreviewed · ${flagged} needs input`} tone={unreconciled + flagged > 0 ? "warn" : "good"} href="/finance/journal" />
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-4">
           <StatTile label="Billed to date (portfolio)" value={formatCurrency(totalBilled)} />
           <StatTile label="Costs to date (portfolio)" value={formatCurrency(totalCost)} />
-          <StatTile label="Overbilled / underbilled" value={`${formatCurrency(overbilled)} / ${formatCurrency(underbilled)}`} tone="warn" />
+          <StatTile label="Cash position est." value={formatCurrency(totalBilled - totalCost + snapshots.reduce((s, p) => s + (p.totalContractValue * 0.10), 0))} sub="billed - costs + retainage equiv." tone="good" />
+          <StatTile label="Overbilled / underbilled" value={`${formatCurrency(overbilled)} / ${formatCurrency(underbilled)}`} tone="warn" href="/finance/ap-aging" />
+        </section>
+        <section className="flex gap-3">
+          <Link href="/finance/ap-aging" className="btn-outline text-xs">Open AP aging →</Link>
+          <Link href="/finance/journal" className="btn-outline text-xs">Journal</Link>
+          <Link href="/finance/inbox" className="btn-outline text-xs">Invoice inbox</Link>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">

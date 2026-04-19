@@ -19,13 +19,23 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   const weighted = opp.estimatedValue * (opp.probability / 100);
   const daysToDue = opp.dueDate ? Math.round((new Date(opp.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
+  const awarded = opp.stage === "AWARDED" && !opp.projectId;
   return (
     <DetailShell
       eyebrow="Opportunity"
       title={opp.name}
       subtitle={opp.clientName ? `${opp.clientName} · ${modeLabel(opp.mode)}` : modeLabel(opp.mode)}
       crumbs={[{ label: "Bid Hub", href: "/bids" }, { label: opp.name }]}
-      actions={<StatusBadge status={opp.stage} />}
+      actions={(
+        <div className="flex items-center gap-2">
+          <StatusBadge status={opp.stage} />
+          {awarded ? (
+            <form action={`/api/opportunities/${opp.id}/convert`} method="post">
+              <button className="btn-primary text-xs">Create project from this award →</button>
+            </form>
+          ) : null}
+        </div>
+      )}
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Estimated value" value={formatCurrency(opp.estimatedValue)} />

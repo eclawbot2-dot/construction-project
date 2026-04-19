@@ -1096,6 +1096,8 @@ model Vendor {
   prequalScore    Int?
   prequalExpires  DateTime?
   bondingCapacity Float?
+  defaultCostCode String?
+  defaultAccountCode String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 

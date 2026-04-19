@@ -15,6 +15,7 @@ const navItems = [
   { href: "/commercial", label: "Commercial Controls", icon: Gauge },
   { href: "/finance", label: "CFO · Finance", icon: Coins },
   { href: "/finance/inbox", label: "Invoice inbox", icon: Mail },
+  { href: "/permits", label: "Permits watch", icon: ShieldCheck },
   { href: "/safety", label: "Safety Dashboard", icon: ShieldAlert },
   { href: "/crm", label: "CRM & Shared Services", icon: BriefcaseBusiness },
   { href: "/people", label: "People & Roles", icon: Users },

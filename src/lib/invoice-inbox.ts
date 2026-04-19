@@ -57,6 +57,10 @@ export async function pollInvoiceInbox(tenantId: string): Promise<{ ok: boolean;
     const existing = await prisma.invoiceInboxMessage.findUnique({ where: { externalMessageId: msg.externalMessageId } });
     if (existing) continue;
     const guess = suggestProjectAllocation(`${msg.subject} ${msg.body ?? ""}`, msg.vendorGuess, projects);
+    const vendor = msg.vendorGuess ? await prisma.vendor.findFirst({ where: { tenantId, name: msg.vendorGuess } }) : null;
+    const accountCode = vendor?.defaultAccountCode ?? "5020";
+    const accountName = accountCode === "5030" ? "Subcontracted Costs" : accountCode === "5040" ? "Equipment Rental" : accountCode === "5050" ? "Permits & Fees" : "Direct Materials";
+    const costCode = vendor?.defaultCostCode ?? (guess.projectId ? (projects.find((p) => p.id === guess.projectId)?.mode === "HEAVY_CIVIL" ? "P-014" : "033000") : null);
     const autoLink = guess.confidence >= 70;
     let journalRowId: string | null = null;
     if (autoLink && guess.projectId && msg.amountGuess != null) {
@@ -65,12 +69,13 @@ export async function pollInvoiceInbox(tenantId: string): Promise<{ ok: boolean;
           tenantId,
           entryDate: msg.receivedAt,
           memo: msg.subject,
-          accountCode: "5020",
-          accountName: "Direct Materials",
+          accountCode,
+          accountName,
           entryType: JournalEntryType.COST_OF_GOODS,
           amount: -Math.abs(msg.amountGuess),
           vendorName: msg.vendorGuess ?? null,
           projectId: guess.projectId,
+          costCode,
           reconciliationStatus: CostReconciliationStatus.SUGGESTED,
           allocationConfidence: guess.confidence,
           source: "email-inbox",
