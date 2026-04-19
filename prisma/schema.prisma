@@ -246,6 +246,86 @@ enum WarrantyStatus {
   ESCALATED
 }
 
+enum PermitStatus {
+  PLANNED
+  APPLIED
+  UNDER_REVIEW
+  ISSUED
+  EXPIRED
+  FINALED
+  REJECTED
+}
+
+enum InspectionLookupStatus {
+  NEVER
+  FETCHED
+  STALE
+  ERROR
+}
+
+enum InspectionItemStatus {
+  PENDING
+  PASS
+  FAIL
+  NA
+}
+
+enum RfpSourceStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+enum RfpListingStatus {
+  NEW
+  TRIAGED
+  QUALIFIED
+  PURSUING
+  SUBMITTED
+  WON
+  LOST
+  DECLINED
+}
+
+enum BidDraftStatus {
+  DRAFT
+  UNDER_REVIEW
+  FINAL
+  SUBMITTED
+}
+
+enum ComplianceOutcome {
+  PENDING
+  PASS
+  FAIL
+  WAIVED
+  NOT_APPLICABLE
+}
+
+enum XeroConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  EXPIRED
+  ERROR
+}
+
+enum JournalEntryType {
+  REVENUE
+  COST_OF_GOODS
+  OPERATING_EXPENSE
+  INDIRECT_COST
+  OTHER_INCOME
+  OTHER_EXPENSE
+}
+
+enum CostReconciliationStatus {
+  UNREVIEWED
+  SUGGESTED
+  CONFIRMED
+  NEEDS_INPUT
+  REJECTED
+}
+
 enum DailyLogType {
   GENERAL
   AREA
@@ -275,6 +355,15 @@ model Tenant {
   historicalEstimates HistoricalEstimate[]
   opportunities     Opportunity[]
   vendors           Vendor[]
+  rfpSources        RfpSource[]
+  rfpListings       RfpListing[]
+  bidDrafts         BidDraft[]
+  xeroConnection    XeroConnection?
+  chartOfAccounts   ChartOfAccount[]
+  financialStatements FinancialStatement[]
+  journalEntries    JournalEntryRow[]
+  invoiceInbox      InvoiceInboxConnection?
+  invoiceInboxMessages InvoiceInboxMessage[]
 }
 
 model BusinessUnit {
@@ -407,6 +496,10 @@ model Project {
   subInvoices         SubInvoice[]
   warrantyItems       WarrantyItem[]
   purchaseOrders      PurchaseOrder[]
+  permits             Permit[]
+  journalEntries      JournalEntryRow[]
+  pnlSnapshot         ProjectPnlSnapshot?
+  invoiceInboxMessages InvoiceInboxMessage[]
 
   @@unique([tenantId, code])
 }
@@ -941,6 +1034,8 @@ model Inspection {
   id              String             @id @default(cuid())
   projectId       String
   project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  permitId        String?
+  permit          Permit?            @relation("PermitInspections", fields: [permitId], references: [id], onDelete: SetNull)
   kind            InspectionKind
   title           String
   scheduledAt     DateTime?
@@ -951,8 +1046,14 @@ model Inspection {
   followUpNeeded  Boolean            @default(false)
   followUpNotes   String?
   checklistJson   String             @default("[]")
+  externalId      String?
+  sourceSystem    String?
+  syncedAt        DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+
+  checklistItems  InspectionChecklistItem[]
+  attachments     InspectionAttachment[]
 }
 
 model Opportunity {
@@ -974,6 +1075,9 @@ model Opportunity {
   mode            ProjectMode        @default(VERTICAL)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+
+  rfpListings     RfpListing[]
+  bidDrafts       BidDraft[]
 }
 
 model Vendor {
@@ -1128,4 +1232,342 @@ model WarrantyItem {
   warrantyExpires DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+}
+
+// Permits + per-item inspection checklists + attachments
+
+model Permit {
+  id                String        @id @default(cuid())
+  projectId         String
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  permitType        String
+  permitNumber      String
+  jurisdiction      String
+  jurisdictionUrl   String?
+  portalId          String?
+  status            PermitStatus  @default(PLANNED)
+  appliedAt         DateTime?
+  issuedAt          DateTime?
+  expiresAt         DateTime?
+  finaledAt         DateTime?
+  holder            String?
+  contractor        String?
+  scopeDescription  String?
+  fee               Float         @default(0)
+  autoLookupEnabled Boolean       @default(false)
+  lastLookupAt      DateTime?
+  lastLookupStatus  InspectionLookupStatus @default(NEVER)
+  lastLookupNote    String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  inspections       Inspection[]  @relation("PermitInspections")
+
+  @@unique([projectId, permitNumber])
+}
+
+model InspectionChecklistItem {
+  id             String                @id @default(cuid())
+  inspectionId   String
+  inspection     Inspection            @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  position       Int
+  title          String
+  codeReference  String?
+  status         InspectionItemStatus  @default(PENDING)
+  notes          String?
+  photoUrl       String?
+  resolvedAt     DateTime?
+  createdAt      DateTime              @default(now())
+}
+
+model InspectionAttachment {
+  id            String      @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  label         String
+  url           String
+  contentType   String?
+  createdAt     DateTime    @default(now())
+}
+
+// RFP / bid automation CRM
+
+model RfpSource {
+  id              String           @id @default(cuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label           String
+  url             String
+  agencyHint      String?
+  cadence         String           @default("DAILY")
+  naicsFilter     String?
+  keywordsJson    String           @default("[]")
+  setAsideFilter  String?
+  status          RfpSourceStatus  @default(ACTIVE)
+  geoScope        String?
+  geoCity         String?
+  geoState        String?
+  geoCountry      String?          @default("US")
+  authType        String           @default("NONE")
+  authUsername    String?
+  authPasswordEnc String?
+  authApiKeyEnc   String?
+  authCookieJar   String?
+  authNotes       String?
+  autoLogin       Boolean          @default(false)
+  lastAuthAt      DateTime?
+  lastCheckedAt   DateTime?
+  lastCheckNote   String?
+  lastResultCount Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  listings        RfpListing[]
+}
+
+model SolicitationPortalCatalog {
+  id              String          @id @default(cuid())
+  name            String
+  url             String          @unique
+  category        String
+  geoScope        String
+  geoCity         String?
+  geoState        String?
+  geoCountry      String          @default("US")
+  authType        String          @default("NONE")
+  signupUrl       String?
+  description     String?
+  naicsFocus      String?
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+}
+
+model RfpListing {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sourceId           String?
+  source             RfpSource?         @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  title              String
+  agency             String
+  solicitationNo     String?
+  url                String?
+  summary            String?
+  estimatedValue     Float?
+  dueAt              DateTime?
+  postedAt           DateTime?
+  setAside           String?
+  naicsCode          String?
+  placeOfPerformance String?
+  matched            Boolean            @default(false)
+  status             RfpListingStatus   @default(NEW)
+  opportunityId      String?
+  opportunity        Opportunity?       @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  ownerName          String?
+  discoveredAt       DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  bidDrafts          BidDraft[]
+}
+
+model BidDraft {
+  id              String            @id @default(cuid())
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfpListingId    String?
+  rfpListing      RfpListing?       @relation(fields: [rfpListingId], references: [id], onDelete: SetNull)
+  opportunityId   String?
+  opportunity     Opportunity?      @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  title           String
+  status          BidDraftStatus    @default(DRAFT)
+  totalValue      Float             @default(0)
+  winThemes       String?
+  keyDifferentiators String?
+  modelUsed       String            @default("stub-v1")
+  authorName      String?
+  submittedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  sections        BidDraftSection[]
+  complianceRuns  ComplianceCheck[]
+}
+
+model BidDraftSection {
+  id            String      @id @default(cuid())
+  draftId       String
+  draft         BidDraft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  position      Int
+  heading       String
+  body          String
+  wordCount     Int         @default(0)
+  status        String      @default("DRAFT")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model ComplianceCheck {
+  id            String              @id @default(cuid())
+  draftId       String
+  draft         BidDraft            @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  runAt         DateTime            @default(now())
+  overall       ComplianceOutcome   @default(PENDING)
+  summary       String?
+
+  items         ComplianceItem[]
+}
+
+model ComplianceItem {
+  id            String              @id @default(cuid())
+  runId         String
+  run           ComplianceCheck     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  category      String
+  requirement   String
+  outcome       ComplianceOutcome   @default(PENDING)
+  evidence      String?
+  source        String?
+}
+
+// Xero / financial analytics / project P&L
+
+model XeroConnection {
+  id               String                @id @default(cuid())
+  tenantId         String                @unique
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  xeroTenantId     String?
+  organizationName String?
+  status           XeroConnectionStatus  @default(DISCONNECTED)
+  accessToken      String?
+  refreshToken     String?
+  expiresAt        DateTime?
+  scopes           String                @default("")
+  connectedAt      DateTime?
+  lastSyncedAt     DateTime?
+  lastSyncNote     String?
+}
+
+model ChartOfAccount {
+  id               String           @id @default(cuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  externalId       String?
+  code             String
+  name             String
+  accountType      String
+  journalEntryType JournalEntryType @default(OPERATING_EXPENSE)
+  active           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+
+  @@unique([tenantId, code])
+}
+
+model FinancialStatement {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  statementType   String
+  periodStart     DateTime
+  periodEnd       DateTime
+  revenue         Float         @default(0)
+  cogs            Float         @default(0)
+  grossProfit     Float         @default(0)
+  opex            Float         @default(0)
+  ebitda          Float         @default(0)
+  netIncome       Float         @default(0)
+  source          String        @default("manual")
+  sourceRef       String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([tenantId, statementType, periodStart, periodEnd])
+}
+
+model JournalEntryRow {
+  id                    String                    @id @default(cuid())
+  tenantId              String
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entryDate             DateTime
+  xeroId                String?                   @unique
+  reference             String?
+  memo                  String
+  accountCode           String
+  accountName           String
+  entryType             JournalEntryType          @default(OPERATING_EXPENSE)
+  amount                Float
+  vendorName            String?
+  projectId             String?
+  project               Project?                  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  costCode              String?
+  allocationConfidence  Int?
+  reconciliationStatus  CostReconciliationStatus  @default(UNREVIEWED)
+  reconciledBy          String?
+  reconciledAt          DateTime?
+  source                String                    @default("xero-sync")
+  emailMessageId        String?
+  attachmentUrl         String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+}
+
+model ProjectPnlSnapshot {
+  id                  String      @id @default(cuid())
+  projectId           String      @unique
+  project             Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  asOf                DateTime    @default(now())
+  contractValue       Float       @default(0)
+  approvedCOValue     Float       @default(0)
+  totalContractValue  Float       @default(0)
+  billedToDate        Float       @default(0)
+  costsToDate         Float       @default(0)
+  committedCost       Float       @default(0)
+  forecastFinalCost   Float       @default(0)
+  forecastGrossMargin Float       @default(0)
+  percentComplete     Float       @default(0)
+  wipOverUnder        Float       @default(0)
+  cashOnHand          Float       @default(0)
+  lastReconciledAt    DateTime?
+  notes               String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+model InvoiceInboxConnection {
+  id              String        @id @default(cuid())
+  tenantId        String        @unique
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  provider        String        @default("google-workspace")
+  mailbox         String
+  labelFilter     String        @default("Invoices")
+  senderAllowlist String        @default("[]")
+  status          String        @default("DISCONNECTED")
+  accessToken     String?
+  refreshToken    String?
+  expiresAt       DateTime?
+  lastPolledAt    DateTime?
+  lastPollStatus  String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model InvoiceInboxMessage {
+  id                 String      @id @default(cuid())
+  tenantId           String
+  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  externalMessageId  String      @unique
+  subject            String
+  fromAddress        String
+  receivedAt         DateTime
+  vendorGuess        String?
+  amountGuess        Float?
+  projectGuessId     String?
+  projectGuess       Project?    @relation(fields: [projectGuessId], references: [id], onDelete: SetNull)
+  costCodeGuess      String?
+  confidence         Int         @default(0)
+  status             String      @default("UNMATCHED")
+  attachmentUrl      String?
+  journalRowId       String?
+  notes              String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 }

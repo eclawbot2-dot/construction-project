@@ -418,6 +418,8 @@ async function main() {
 
     await seedFinancialsAndSchedule(project, { pmId: pm.id, superintendentId: superintendent.id });
     await seedLifecycle(project, tenant.id);
+    await seedPermitsForProject(project);
+    await seedRfpSourcesForTenant(tenant.id, "SC");
 
     await prisma.auditEvent.create({
       data: {
@@ -597,6 +599,8 @@ async function seedExtraTenant(spec: ExtraTenantSpec) {
 
     await seedFinancialsAndSchedule({ ...project, contractValue: p.contractValue }, { pmId: spec.userForPm.id, superintendentId: spec.userForSuper.id });
     await seedLifecycle({ ...project, contractValue: p.contractValue }, tenant.id);
+    await seedPermitsForProject(project);
+    await seedRfpSourcesForTenant(tenant.id, "SC");
 
     await prisma.auditEvent.create({
       data: {
@@ -1002,6 +1006,61 @@ async function seedLifecycle(project: { id: string; name: string; code: string; 
       { projectId: project.id, title: "HVAC balancing follow-up", description: "South zone under-conditioned.", reportedBy: "Facilities", severity: "LOW", status: WarrantyStatus.IN_PROGRESS, warrantyExpires: new Date("2027-09-30") },
     ],
   });
+}
+
+async function seedRfpSourcesForTenant(tenantId: string, geoState: string) {
+  const existing = await prisma.rfpSource.count({ where: { tenantId } });
+  if (existing > 0) return;
+  const defaults = [
+    { label: "SAM.gov — Construction 236220", url: "https://sam.gov/search/?index=opp", agencyHint: "SAM.gov", cadence: "DAILY", naicsFilter: "236220", keywordsJson: JSON.stringify(["construction", "renovation"]), setAsideFilter: null, geoScope: "federal", geoState: null, geoCity: null, authType: "FREE_ACCOUNT" },
+    { label: `${geoState} DOT Bid Lettings`, url: geoState === "SC" ? "https://www.scdot.org/business/business-letting.aspx" : "https://www.dot.state.xx.us/business", agencyHint: `${geoState}DOT`, cadence: "WEEKLY", naicsFilter: "237310", keywordsJson: JSON.stringify(["roadway", "bridge", "utility"]), setAsideFilter: null, geoScope: "state", geoState, geoCity: null, authType: "NONE" },
+    { label: "PlanHub Construction Opportunities", url: "https://planhub.com", agencyHint: "PlanHub", cadence: "DAILY", naicsFilter: null, keywordsJson: JSON.stringify(["subcontractor", "invitation-to-bid"]), setAsideFilter: null, geoScope: "federal", geoState: null, geoCity: null, authType: "FREE_ACCOUNT" },
+  ];
+  for (const d of defaults) {
+    await prisma.rfpSource.create({ data: { tenantId, ...d } });
+  }
+}
+
+async function seedPermitsForProject(project: { id: string; code: string; mode: ProjectMode }) {
+  const existing = await prisma.permit.count({ where: { projectId: project.id } });
+  if (existing > 0) return;
+
+  const specs: Array<{ type: string; jurisdiction: string; url: string; scope: string }> =
+    project.mode === ProjectMode.HEAVY_CIVIL ? [
+      { type: "Encroachment", jurisdiction: "SCDOT", url: "https://www.scdot.org/business/encroachment-permits.aspx", scope: "Right-of-way utility crossings" },
+      { type: "Water Main Tap", jurisdiction: "Charleston Water System", url: "https://www.charlestonwater.com/171/Tap-Permits", scope: "12in water main tie-ins" },
+      { type: "Erosion Control", jurisdiction: "SCDHEC", url: "https://scdhec.gov/environment/stormwater", scope: "NPDES stormwater compliance" },
+    ] : project.mode === ProjectMode.VERTICAL ? [
+      { type: "Building Permit", jurisdiction: "City of Charleston", url: "https://www.charleston-sc.gov/171/Building-Permits", scope: "New construction — Levels 1-4" },
+      { type: "Plumbing Permit", jurisdiction: "City of Charleston", url: "https://www.charleston-sc.gov/171/Building-Permits", scope: "Rough + finish plumbing" },
+      { type: "Electrical Permit", jurisdiction: "City of Charleston", url: "https://www.charleston-sc.gov/171/Building-Permits", scope: "Service entrance + rough" },
+      { type: "Mechanical Permit", jurisdiction: "City of Charleston", url: "https://www.charleston-sc.gov/171/Building-Permits", scope: "HVAC rough + test" },
+    ] : [
+      { type: "Residential Alteration", jurisdiction: "Charleston County", url: "https://www.charlestoncounty.org/departments/building-services/", scope: "Kitchen remodel" },
+      { type: "Plumbing Permit", jurisdiction: "Charleston County", url: "https://www.charlestoncounty.org/departments/building-services/", scope: "Plumbing reroute" },
+    ];
+
+  for (let i = 0; i < specs.length; i++) {
+    const s = specs[i];
+    await prisma.permit.create({
+      data: {
+        projectId: project.id,
+        permitType: s.type,
+        permitNumber: `${project.code}-${s.type.replace(/\s+/g, "").slice(0, 6).toUpperCase()}-${(2600 + i).toString()}`,
+        jurisdiction: s.jurisdiction,
+        jurisdictionUrl: s.url,
+        scopeDescription: s.scope,
+        appliedAt: new Date(Date.now() - (60 + i * 10) * 24 * 60 * 60 * 1000),
+        issuedAt: new Date(Date.now() - (45 + i * 10) * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        status: "ISSUED",
+        holder: "General Contractor",
+        contractor: "General Contractor",
+        fee: 400 + i * 150,
+        autoLookupEnabled: true,
+      },
+    });
+  }
 }
 
 main()

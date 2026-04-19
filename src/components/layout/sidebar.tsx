@@ -1,23 +1,25 @@
 import Link from "next/link";
-import { Building2, BriefcaseBusiness, ClipboardList, Coins, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, ShieldAlert, ShieldCheck, Timer, Truck, Users } from "lucide-react";
+import { Building2, BriefcaseBusiness, ClipboardList, Coins, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Users } from "lucide-react";
 import { getDashboardData } from "@/lib/dashboard";
 
 const navItems = [
   { href: "/", label: "Executive Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: Building2 },
   { href: "/bids", label: "Bid Hub", icon: Gavel },
+  { href: "/bids/discover", label: "Discover RFP sources", icon: Search },
   { href: "/vendors", label: "Vendors & Prequal", icon: Truck },
   { href: "/workflows", label: "Workflow Center", icon: ClipboardList },
   { href: "/timesheets", label: "Timesheets", icon: Timer },
   { href: "/documents", label: "Documents", icon: FileStack },
   { href: "/operations", label: "Operations", icon: HardHat },
   { href: "/commercial", label: "Commercial Controls", icon: Gauge },
+  { href: "/finance", label: "CFO · Finance", icon: Coins },
+  { href: "/finance/inbox", label: "Invoice inbox", icon: Mail },
   { href: "/safety", label: "Safety Dashboard", icon: ShieldAlert },
   { href: "/crm", label: "CRM & Shared Services", icon: BriefcaseBusiness },
   { href: "/people", label: "People & Roles", icon: Users },
   { href: "/audit", label: "Audit Trail", icon: ShieldCheck },
 ];
-void Coins;
 
 export async function Sidebar() {
   const data = await getDashboardData();
