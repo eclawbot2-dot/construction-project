@@ -29,6 +29,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
       actions={(
         <div className="flex items-center gap-2">
           <StatusBadge status={opp.stage} />
+          <Link href={`/opportunities/${opp.id}/win`} className="btn-outline text-xs">AI · Win model</Link>
           {awarded ? (
             <form action={`/api/opportunities/${opp.id}/convert`} method="post">
               <button className="btn-primary text-xs">Create project from this award →</button>

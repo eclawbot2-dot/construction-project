@@ -68,6 +68,7 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
                     <td className="table-cell text-xs text-slate-400">{l.bidDrafts.length}</td>
                     <td className="table-cell">
                       <div className="flex flex-wrap gap-1">
+                        <Link href={`/bids/listings/${l.id}/score`} className="btn-outline text-xs" title="Go/no-go AI scorer">Score</Link>
                         <form action={`/api/rfp/listings/${l.id}/draft`} method="post">
                           <button className="btn-outline text-xs">Draft bid</button>
                         </form>

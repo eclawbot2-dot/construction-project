@@ -49,6 +49,10 @@ export default async function BidPackageDetailPage({ params }: { params: Promise
           <DetailField label="Estimated value">{formatCurrency(pkg.estimatedValue)}</DetailField>
           <DetailField label="Scope summary">{pkg.scopeSummary ?? "—"}</DetailField>
         </DetailGrid>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href={`/projects/${projectId}/bids/${pkg.id}/outreach`} className="btn-outline text-xs">AI · Draft ITB email</Link>
+          <Link href={`/projects/${projectId}/bids/${pkg.id}/leveling`} className="btn-primary text-xs">AI · Level sub bids</Link>
+        </div>
       </section>
 
       <section className="card p-0 overflow-hidden">

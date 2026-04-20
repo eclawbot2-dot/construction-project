@@ -47,6 +47,7 @@ export default async function FinanceHubPage() {
           <StatTile label="Overbilled / underbilled" value={`${formatCurrency(overbilled)} / ${formatCurrency(underbilled)}`} tone="warn" href="/finance/ap-aging" />
         </section>
         <section className="flex flex-wrap gap-3">
+          <Link href="/finance/ai" className="btn-primary text-xs">AI toolkit →</Link>
           <Link href="/finance/ap-aging" className="btn-outline text-xs">Open AP aging →</Link>
           <Link href="/finance/journal" className="btn-outline text-xs">Journal</Link>
           <Link href="/finance/inbox" className="btn-outline text-xs">Invoice inbox</Link>

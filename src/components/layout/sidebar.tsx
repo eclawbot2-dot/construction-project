@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Bell, Building2, BriefcaseBusiness, ClipboardList, Coins, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Users } from "lucide-react";
+import { Bell, Bot, Building2, BriefcaseBusiness, ClipboardList, Coins, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Upload, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getDashboardData } from "@/lib/dashboard";
 import { requireTenant } from "@/lib/tenant";
 
 const navItems = [
   { href: "/", label: "Executive Dashboard", icon: LayoutDashboard },
+  { href: "/assistant", label: "AI Assistant", icon: Bot },
   { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/search", label: "Search", icon: Search },
   { href: "/projects", label: "Projects", icon: Building2 },
@@ -15,14 +16,19 @@ const navItems = [
   { href: "/workflows", label: "Workflow Center", icon: ClipboardList },
   { href: "/timesheets", label: "Timesheets", icon: Timer },
   { href: "/documents", label: "Documents", icon: FileStack },
+  { href: "/imports", label: "Historical imports", icon: Upload },
   { href: "/operations", label: "Operations", icon: HardHat },
   { href: "/commercial", label: "Commercial Controls", icon: Gauge },
   { href: "/finance", label: "CFO · Finance", icon: Coins },
+  { href: "/finance/ai", label: "Finance AI", icon: Bot },
   { href: "/finance/inbox", label: "Invoice inbox", icon: Mail },
   { href: "/permits", label: "Permits watch", icon: ShieldCheck },
   { href: "/safety", label: "Safety Dashboard", icon: ShieldAlert },
+  { href: "/risk", label: "Risk & Compliance", icon: ShieldAlert },
   { href: "/crm", label: "CRM & Shared Services", icon: BriefcaseBusiness },
+  { href: "/portal", label: "Owner Portal", icon: Users },
   { href: "/people", label: "People & Roles", icon: Users },
+  { href: "/operations/ai", label: "Ops AI", icon: Bot },
   { href: "/audit", label: "Audit Trail", icon: ShieldCheck },
 ];
 

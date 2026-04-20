@@ -22,6 +22,9 @@ export default async function SafetyPage({ params }: { params: Promise<{ project
     <AppLayout eyebrow={`${project.code} · Safety`} title={project.name} description="Incident reports, near-misses, OSHA tracking.">
       <div className="grid gap-6">
         <ProjectTabs projectId={project.id} active="safety" mode={project.mode} />
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/projects/${project.id}/safety/draft`} className="btn-primary text-xs">AI · Draft OSHA 301 report</Link>
+        </div>
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Total incidents" value={project.safetyIncidents.length} />
           <Stat label="Minor" value={bySeverity.minor ?? bySeverity.MINOR ?? 0} />

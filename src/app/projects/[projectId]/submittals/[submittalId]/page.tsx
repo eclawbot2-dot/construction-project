@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DetailShell, DetailGrid, DetailField } from "@/components/layout/detail-shell";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -21,7 +22,7 @@ export default async function SubmittalDetailPage({ params }: { params: Promise<
       title={`${sub.number} — ${sub.title}`}
       subtitle={sub.specSection ? `Spec section ${sub.specSection}` : undefined}
       crumbs={[{ label: "Projects", href: "/projects" }, { label: sub.project.code, href: `/projects/${sub.project.id}` }, { label: "Submittals", href: `/projects/${sub.project.id}/submittals` }, { label: sub.number }]}
-      actions={<StatusBadge status={sub.status} />}
+      actions={<div className="flex gap-2 items-center"><StatusBadge status={sub.status} /><Link href={`/projects/${projectId}/submittals/${submittalId}/review`} className="btn-outline text-xs">AI · Review</Link></div>}
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Status" value={sub.status.replaceAll("_", " ")} />

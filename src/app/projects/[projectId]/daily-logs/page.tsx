@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
 import { prisma } from "@/lib/prisma";
@@ -20,6 +21,9 @@ export default async function DailyLogsPage({ params }: { params: Promise<{ proj
     <AppLayout eyebrow={`${project.code} · Daily logs`} title={project.name} description="Field superintendent daily reports — manpower, weather, delays, work performed.">
       <div className="grid gap-6">
         <ProjectTabs projectId={project.id} active="daily-logs" mode={project.mode} />
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/projects/${project.id}/daily-logs/weekly-report`} className="btn-primary text-xs">AI · Generate weekly owner report</Link>
+        </div>
         <section className="grid gap-4 md:grid-cols-3">
           <Stat label="Total reports" value={project.dailyLogs.length} />
           <Stat label="Logged manpower" value={manpower.toLocaleString()} />

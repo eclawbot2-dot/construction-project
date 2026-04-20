@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
 import { prisma } from "@/lib/prisma";
@@ -36,6 +37,9 @@ export default async function SchedulePage({ params }: { params: Promise<{ proje
     <AppLayout eyebrow={`${project.code} · Schedule`} title={project.name} description="Gantt-style project schedule with critical path, milestones, and baseline tracking.">
       <div className="grid gap-6">
         <ProjectTabs projectId={project.id} active="schedule" mode={project.mode} />
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/projects/${project.id}/schedule/risk`} className="btn-primary text-xs">AI · Schedule risk scan</Link>
+        </div>
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Total tasks" value={tasks.length} />

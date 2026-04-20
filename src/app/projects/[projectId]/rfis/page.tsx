@@ -23,6 +23,9 @@ export default async function RfisPage({ params }: { params: Promise<{ projectId
     <AppLayout eyebrow={`${project.code} · RFIs`} title={project.name} description="Requests for information — ball-in-court, aging, cost & schedule impact.">
       <div className="grid gap-6">
         <ProjectTabs projectId={project.id} active="rfis" mode={project.mode} />
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/projects/${project.id}/rfis/draft`} className="btn-primary text-xs">AI · Draft RFI from observation</Link>
+        </div>
         <section className="grid gap-4 md:grid-cols-4">
           <Stat label="Total RFIs" value={project.rfis.length} />
           <Stat label="Open" value={open} tone="warn" />

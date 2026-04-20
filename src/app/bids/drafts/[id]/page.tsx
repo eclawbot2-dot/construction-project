@@ -64,6 +64,14 @@ export default async function BidDraftDetailPage({ params }: { params: Promise<{
           <form action={`/api/bid-drafts/${draft.id}/compliance`} method="post">
             <button className="btn-outline">Run compliance check</button>
           </form>
+          <form action={`/api/bid-drafts/${draft.id}/tailor`} method="post">
+            <button className="btn-outline" title="Regenerate win themes + differentiators">AI · Tailor themes</button>
+          </form>
+          <Link href={`/bids/drafts/${draft.id}/pricing`} className="btn-outline">AI · Pricing advisor</Link>
+          <Link href={`/bids/drafts/${draft.id}/deep-compliance`} className="btn-outline">AI · Deep compliance</Link>
+          <Link href={`/bids/drafts/${draft.id}/takeoff`} className="btn-outline">AI · SOW takeoff</Link>
+          <Link href={`/bids/drafts/${draft.id}/gaps`} className="btn-outline">AI · Scope gaps</Link>
+          <Link href={`/bids/drafts/${draft.id}/value-engineering`} className="btn-outline">AI · VE ideas</Link>
         </div>
       </section>
 
