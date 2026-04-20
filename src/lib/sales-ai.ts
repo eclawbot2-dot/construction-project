@@ -74,16 +74,72 @@ export async function tailorProposalThemes(draftId: string): Promise<TailoredPro
   const draft = await prisma.bidDraft.findUnique({ where: { id: draftId }, include: { rfpListing: true } });
   if (!draft) throw new Error("draft not found");
 
+  // Pull real past-performance references from the tenant's completed projects + awarded opportunities.
+  const pastProjects = await prisma.project.findMany({
+    where: {
+      tenantId: draft.tenantId,
+      stage: { in: ["CLOSEOUT", "WARRANTY"] },
+      contractValue: { not: null },
+      ...(draft.rfpListing?.placeOfPerformance ? {} : {}),
+    },
+    select: { name: true, contractValue: true, mode: true, ownerName: true, code: true },
+    orderBy: { contractValue: "desc" },
+    take: 5,
+  });
+  const wonOpps = await prisma.opportunity.findMany({
+    where: { tenantId: draft.tenantId, stage: "AWARDED" },
+    select: { name: true, clientName: true, estimatedValue: true, mode: true },
+    orderBy: { estimatedValue: "desc" },
+    take: 5,
+  });
+
   return aiCall<TailoredProposal>({
     kind: "proposal-tone",
     prompt: `Tailor proposal themes for bid ${draft.title}`,
     fallback: () => {
       const agency = draft.rfpListing?.agency ?? "the owner";
       const title = draft.title;
+      const listingMode = draft.rfpListing?.placeOfPerformance ?? "";
+      const naics = draft.rfpListing?.naicsCode;
+
+      // Pick the top 3 most-relevant past projects for past-performance references.
+      const relevant = pastProjects
+        .map((p) => ({ ...p, score: (draft.opportunityId && p.ownerName === draft.rfpListing?.agency ? 50 : 0) + (p.contractValue ?? 0) / 1_000_000 }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+      const pastPerfBlock = relevant.length > 0
+        ? relevant.map((p) => `  • ${p.code} — ${p.name} (${p.ownerName ?? "private owner"}, $${(p.contractValue ?? 0).toLocaleString()})`).join("\n")
+        : "  • [Attach past-performance matrix to final proposal]";
+
+      const repeatClient = relevant.some((p) => p.ownerName && draft.rfpListing?.agency && p.ownerName.toLowerCase().includes(draft.rfpListing.agency.toLowerCase().slice(0, 12)));
+
       return {
-        winThemes: `1. Proven delivery of ${agency} projects on schedule and within budget.\n2. Deep bench of field-tested superintendents who own quality.\n3. Transparent cost controls and weekly owner reporting cadence.\n4. Local subcontractor network reduces mobilization risk and cost.`,
-        differentiators: `• Self-performed trades for ${(draft.rfpListing?.naicsCode ? `NAICS ${draft.rfpListing.naicsCode}` : "critical scope")}\n• ISO 9001-style QA/QC playbook adapted to ${agency} specs\n• Zero-harm safety program (current TRIR under industry avg)\n• Weekly 4D schedule reviews with owner & design team`,
-        coverLetter: `Dear Contracting Officer,\n\nWe are pleased to submit this proposal for ${title}. Our team brings directly relevant experience on similar ${agency} engagements, along with the financial strength, safety record, and project-management discipline needed to deliver on time and on budget.\n\nWe view this pursuit as the start of a long-term partnership. We look forward to your review and to the opportunity to present in person.\n\nRespectfully,\nProject Executive`,
+        winThemes: [
+          `1. ${repeatClient ? `Continued partnership with ${agency} — proven on ${relevant.filter((r) => r.ownerName === agency).length} prior engagements.` : `Proven delivery on projects similar to ${title} in scope, value, and complexity.`}`,
+          `2. Deep bench of field-tested superintendents with direct ${naics ? `NAICS ${naics} ` : ""}experience — we put our best on this job.`,
+          `3. Transparent cost controls: weekly owner reporting, committed-cost tracking, and early warning on any variance over 2%.`,
+          `4. Local subcontractor network ${listingMode ? `in ${listingMode} ` : ""}reduces mobilization risk and escalation exposure.`,
+          `5. Self-perform capability means fewer seams and faster recovery when schedule risks emerge.`,
+        ].join("\n"),
+        differentiators: [
+          `• Past performance (${wonOpps.length + pastProjects.length} completed engagements on file):`,
+          pastPerfBlock,
+          `• Self-performed trades for ${naics ? `NAICS ${naics}` : "critical scope"} — no layered markup on foundational work.`,
+          `• ISO 9001-style QA/QC playbook adapted to ${agency} specifications.`,
+          `• Safety record: target TRIR below 1.5 (industry average ~3.2); weekly stretch-and-flex + pre-task plans on every project.`,
+          `• Weekly 4D schedule coordination with owner and design team — risks surface before they impact critical path.`,
+          `• Dedicated Project Executive assigned for the life of the contract.`,
+        ].join("\n"),
+        coverLetter: `Dear Contracting Officer,
+
+We are pleased to submit this proposal for ${title}. Our team brings directly relevant experience${relevant.length > 0 ? `, including ${relevant[0].name}${relevant.length > 1 ? ` and ${relevant[1].name}` : ""}` : ""}, along with the financial strength, safety record, and project-management discipline needed to deliver on time and on budget.
+
+${repeatClient ? `We appreciate the opportunity to continue our working relationship with ${agency}. Past performance is the strongest indicator of future success, and we have earned your trust on prior engagements.` : `We view this pursuit as the start of a long-term partnership with ${agency}.`}
+
+Our proposal is structured to demonstrate compliance with every requirement of the solicitation, price the scope transparently, and present the team that will actually deliver the project. We welcome the opportunity to present in person and answer any questions.
+
+Respectfully,
+Project Executive`,
       };
     },
   });
@@ -100,15 +156,54 @@ export async function draftSubOutreach(params: {
   estimatedValue?: number;
   dueDate?: Date;
   projectName: string;
+  tenantId?: string;
+  vendorId?: string;
 }): Promise<SubOutreachEmail> {
-  const { trade, scope, estimatedValue, dueDate, projectName } = params;
+  const { trade, scope, estimatedValue, dueDate, projectName, tenantId, vendorId } = params;
+
+  // If we have a specific vendor, personalize with their name + trade-match.
+  const vendor = vendorId && tenantId
+    ? await prisma.vendor.findFirst({ where: { id: vendorId, tenantId }, include: { insuranceCerts: true } })
+    : null;
+  const priorWorked = vendorId && tenantId
+    ? await prisma.subInvoice.count({ where: { vendorId, project: { tenantId } } })
+    : 0;
+
   return aiCall<SubOutreachEmail>({
     kind: "sub-outreach",
     prompt: `Draft ITB email for ${trade} on ${projectName}`,
-    fallback: () => ({
-      subject: `Invitation to Bid — ${trade} — ${projectName}`,
-      body: `Hello,\n\nWe are preparing our bid response for ${projectName} and would like to invite you to quote the ${trade} scope outlined below.\n\nScope summary:\n${scope}\n\n${estimatedValue ? `Budget range: ~$${estimatedValue.toLocaleString()}.\n` : ""}${dueDate ? `Please return pricing by ${dueDate.toLocaleDateString()}.\n` : "Please return pricing as soon as practical.\n"}\nProvide:\n  • Lump-sum + unit prices for all visible scope\n  • Explicit inclusions/exclusions\n  • Insurance limits and bonding capacity\n  • Lead times for long-lead items\n  • Two recent references of similar scope\n\nThis is a competitive ITB; we will issue a Notice of Award within 10 business days of bid close.\n\nThank you —\nEstimating Team`,
-    }),
+    fallback: () => {
+      const vendorGreeting = vendor ? `${vendor.name} team` : "team";
+      const relationship = priorWorked > 0
+        ? `As you know from our ${priorWorked} prior engagement${priorWorked === 1 ? "" : "s"}, we value partners who deliver on schedule and within budget.`
+        : `We are actively building our trade-partner bench and view this as a first step toward a longer-term relationship.`;
+      const coiReminder = vendor && vendor.insuranceCerts.some((c) => c.expirationDate < new Date(Date.now() + 30 * 86_400_000))
+        ? `\nNote: our records show one or more of your insurance certificates expires in the next 30 days. Please include updated COI with your proposal.`
+        : "";
+      return {
+        subject: `Invitation to Bid — ${trade} — ${projectName}`,
+        body: `Hello ${vendorGreeting},
+
+We are preparing our bid response for ${projectName} and would like to invite you to quote the ${trade} scope outlined below. ${relationship}
+
+Scope summary:
+${scope}
+
+${estimatedValue ? `Estimated range: ~$${estimatedValue.toLocaleString()}.\n` : ""}${dueDate ? `Please return pricing by ${dueDate.toLocaleDateString()}.\n` : "Please return pricing as soon as practical.\n"}
+With your proposal, please include:
+  • Lump-sum base bid plus unit prices for visible scope
+  • Explicit inclusions and exclusions
+  • Insurance limits (CGL, auto, workers comp, umbrella) and bonding capacity
+  • Lead times for long-lead items
+  • Two recent project references of similar scope and dollar value
+  • Confirmation of your safety program (TRIR, EMR)${coiReminder}
+
+This is a competitive ITB. We will issue a Notice of Award within 10 business days of bid close. Please direct questions to estimating@company.com.
+
+Thank you —
+Estimating Team`,
+      };
+    },
   });
 }
 
@@ -122,36 +217,83 @@ export type PricingAdvice = {
 };
 
 export async function pricingAdvisor(draftId: string): Promise<PricingAdvice> {
-  const draft = await prisma.bidDraft.findUnique({ where: { id: draftId } });
+  const draft = await prisma.bidDraft.findUnique({ where: { id: draftId }, include: { rfpListing: true, opportunity: true } });
   if (!draft) throw new Error("draft not found");
-
-  const wonOpps = await prisma.opportunity.count({ where: { tenantId: draft.tenantId, stage: "AWARDED" } });
-  const lostOpps = await prisma.opportunity.count({ where: { tenantId: draft.tenantId, stage: "LOST" } });
-  const totalDecided = wonOpps + lostOpps;
-  const baseWinRate = totalDecided > 0 ? (wonOpps / totalDecided) * 100 : 30;
   const current = draft.overheadPct + draft.profitPct;
+
+  // Gather per-mode and per-client win rates. We use a Bayesian prior so tiny
+  // sample sizes don't produce wild estimates — a 2-of-3 "win rate" shouldn't
+  // be weighted the same as 40-of-80.
+  const [tenantWon, tenantLost, mode, client] = await Promise.all([
+    prisma.opportunity.count({ where: { tenantId: draft.tenantId, stage: "AWARDED" } }),
+    prisma.opportunity.count({ where: { tenantId: draft.tenantId, stage: "LOST" } }),
+    draft.opportunity?.mode ?? draft.rfpListing?.title ? prisma.opportunity.groupBy({
+      by: ["stage"],
+      where: { tenantId: draft.tenantId, mode: draft.opportunity?.mode ?? "VERTICAL" },
+      _count: { _all: true },
+    }) : Promise.resolve([] as Array<{ stage: string; _count: { _all: number } }>),
+    draft.rfpListing?.agency ? prisma.opportunity.groupBy({
+      by: ["stage"],
+      where: { tenantId: draft.tenantId, clientName: draft.rfpListing.agency },
+      _count: { _all: true },
+    }) : Promise.resolve([] as Array<{ stage: string; _count: { _all: number } }>),
+  ]);
 
   return aiCall<PricingAdvice>({
     kind: "pricing-advisor",
     prompt: `Pricing advice for draft ${draft.title} at current margin ${current}%`,
     fallback: () => {
-      const hash = stableHash(draft.id);
+      // Bayesian-smoothed win rate: prior = 30% with n=10, update with observed.
+      function smooth(won: number, total: number): number {
+        const priorWon = 3; // 30% of 10
+        const priorN = 10;
+        return ((priorWon + won) / (priorN + total)) * 100;
+      }
+      const totalDecided = tenantWon + tenantLost;
+      const tenantWinRate = smooth(tenantWon, totalDecided);
+
+      const modeWon = (mode as Array<{ stage: string; _count: { _all: number } }>).find((m) => m.stage === "AWARDED")?._count._all ?? 0;
+      const modeLost = (mode as Array<{ stage: string; _count: { _all: number } }>).find((m) => m.stage === "LOST")?._count._all ?? 0;
+      const modeWinRate = smooth(modeWon, modeWon + modeLost);
+
+      const clientWon = (client as Array<{ stage: string; _count: { _all: number } }>).find((c) => c.stage === "AWARDED")?._count._all ?? 0;
+      const clientLost = (client as Array<{ stage: string; _count: { _all: number } }>).find((c) => c.stage === "LOST")?._count._all ?? 0;
+      const clientDecided = clientWon + clientLost;
+      const clientWinRate = smooth(clientWon, clientDecided);
+
+      // Blend: weight client signal heavily when we have enough data, else fall back on mode, then tenant.
+      const clientWeight = Math.min(1, clientDecided / 5);
+      const modeWeight = Math.min(1, (modeWon + modeLost) / 10) * (1 - clientWeight);
+      const tenantWeight = 1 - clientWeight - modeWeight;
+      const blended = clientWeight * clientWinRate + modeWeight * modeWinRate + tenantWeight * tenantWinRate;
+
+      // Margin elasticity model: each point above the "zone" (~18%) costs ~3 pts of win rate;
+      // each point below adds ~2 pts but eats margin.
+      const ZONE = 18;
+      function projectedWinRate(margin: number): number {
+        const delta = margin - ZONE;
+        const elasticity = delta > 0 ? -3 : -2; // win rate falls faster above zone
+        return Math.max(5, Math.min(90, blended + elasticity * delta));
+      }
+
       let direction: PricingAdvice["direction"] = "HOLD";
       let suggested = current;
-      if (current > 22) {
-        direction = "LOWER";
-        suggested = current - 4;
-      } else if (current < 14) {
-        direction = "RAISE";
-        suggested = current + 3;
-      }
-      const currentWin = Math.max(5, Math.min(75, baseWinRate - (current - 18) * 2 + (hash % 10)));
-      const suggestedWin = Math.max(5, Math.min(80, baseWinRate - (suggested - 18) * 2 + (hash % 10)));
+      if (current > 22) { direction = "LOWER"; suggested = 19; }
+      else if (current < 14) { direction = "RAISE"; suggested = 17; }
+      else if (clientDecided >= 5 && clientWinRate > 50 && current < 20) { direction = "RAISE"; suggested = Math.min(22, current + 2); }
+
+      const currentWin = projectedWinRate(current);
+      const suggestedWin = projectedWinRate(suggested);
+
       const rationaleParts: string[] = [];
-      if (direction === "LOWER") rationaleParts.push(`Current margin ${current.toFixed(1)}% is above the 18% mean that historically wins in this tenant's portfolio.`);
-      if (direction === "RAISE") rationaleParts.push(`Current margin ${current.toFixed(1)}% is thin; similar historical bids sustained margin at ${suggested.toFixed(1)}% without impacting win rate.`);
-      if (direction === "HOLD") rationaleParts.push(`Margin ${current.toFixed(1)}% is within the zone where tenant historically wins ~${currentWin.toFixed(0)}% of bids.`);
-      rationaleParts.push(`Projected win rate: ${currentWin.toFixed(0)}% at current vs ${suggestedWin.toFixed(0)}% at suggested.`);
+      rationaleParts.push(`Tenant blended win rate ${blended.toFixed(0)}% (client signal ${clientWinRate.toFixed(0)}% from ${clientDecided} bids, mode ${modeWinRate.toFixed(0)}%, tenant overall ${tenantWinRate.toFixed(0)}%).`);
+      if (direction === "LOWER") rationaleParts.push(`Margin ${current.toFixed(1)}% is above the ~${ZONE}% zone where similar bids convert. Lowering to ${suggested.toFixed(1)}% trades ~${(current - suggested).toFixed(1)} points of margin for a projected ${Math.round(suggestedWin - currentWin)}-point lift in win rate.`);
+      if (direction === "RAISE") {
+        if (clientDecided >= 5 && clientWinRate > 50) rationaleParts.push(`Historical win rate with this client is strong (${clientWinRate.toFixed(0)}%) — safe to raise margin to ${suggested.toFixed(1)}% without materially hurting win probability.`);
+        else rationaleParts.push(`Margin ${current.toFixed(1)}% is thin; similar historical bids held margin at ${suggested.toFixed(1)}% with acceptable win rate.`);
+      }
+      if (direction === "HOLD") rationaleParts.push(`Margin ${current.toFixed(1)}% is inside the zone where tenant wins ~${Math.round(currentWin)}% of bids. No change recommended.`);
+
       return {
         suggestedMargin: suggested,
         currentMargin: current,

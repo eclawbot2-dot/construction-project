@@ -392,6 +392,7 @@ model Tenant {
   alertRules        AlertRule[]
   alertEvents       AlertEvent[]
   historicalImports HistoricalImport[]
+  aiRuns            AiRunLog[]
 }
 
 model BusinessUnit {
@@ -1733,4 +1734,24 @@ model HistoricalImportRow {
   issuesJson     String            @default("[]")
   accepted       Boolean           @default(false)
   createdAt      DateTime          @default(now())
+}
+
+model AiRunLog {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind          String
+  inputHash     String
+  entityType    String?
+  entityId      String?
+  outputJson    String
+  confidence    Int?
+  source        String    @default("heuristic")
+  userFeedback  String?
+  feedbackNote  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId, kind, inputHash])
+  @@index([tenantId, entityType, entityId])
 }

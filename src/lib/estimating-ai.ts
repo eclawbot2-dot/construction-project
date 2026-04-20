@@ -178,14 +178,57 @@ export async function valueEngineeringIdeas(draftId: string): Promise<VeIdea[]> 
     kind: "ve-ideas",
     prompt: `VE ideas for ${draft.title}`,
     fallback: () => {
-      const base: VeIdea[] = [
-        { title: "Substitute standard-grade concrete", description: "Use 4000 psi standard mix instead of specified 5000 psi on interior slabs. Maintain 5000 psi at exterior and loaded-slab locations.", savings: Math.round(total * 0.014), riskLevel: "LOW" },
-        { title: "Phase MEP rough-in", description: "Break mechanical / electrical / plumbing rough-in into two phases to reduce peak labor and crane time.", savings: Math.round(total * 0.022), riskLevel: "LOW" },
-        { title: "Value-engineered finishes", description: "Swap specified stone tile for LVT in back-of-house corridors; preserve stone in public areas.", savings: Math.round(total * 0.008), riskLevel: "MEDIUM" },
-        { title: "Alternate structural system", description: "Substitute light-gauge metal framing for select load-bearing walls where engineering allows.", savings: Math.round(total * 0.031), riskLevel: "MEDIUM" },
-        { title: "Early long-lead procurement", description: "Lock switchgear and chiller lead-time with owner-direct purchase to avoid escalation + expedite fees.", savings: Math.round(total * 0.006), riskLevel: "LOW" },
-      ];
-      return base;
+      const ideas: VeIdea[] = [];
+      const codes = new Set(draft.lineItems.map((l) => l.costCode ?? ""));
+      const biggestLine = [...draft.lineItems].sort((a, b) => b.amount - a.amount)[0];
+
+      // Ideas that fire only when the relevant cost code is actually in the estimate.
+      if (codes.has("03-30-00")) {
+        const concreteLine = draft.lineItems.find((l) => l.costCode === "03-30-00");
+        const target = (concreteLine?.amount ?? total * 0.08) * 0.15;
+        ideas.push({ title: "Reduce concrete mix strength in non-loaded locations", description: `Use 4000 psi standard mix instead of 5000 psi on interior slabs-on-grade (non-loaded). Maintain 5000 psi at exterior, foundations, and loaded slabs. Coordinate with structural engineer.`, savings: Math.round(target), riskLevel: "LOW" });
+      }
+      if (codes.has("05-12-00")) {
+        const steelLine = draft.lineItems.find((l) => l.costCode === "05-12-00");
+        const target = (steelLine?.amount ?? total * 0.06) * 0.08;
+        ideas.push({ title: "Optimize steel tonnage via value-engineered connections", description: `Replace moment-frame connections with simpler bolted connections where drift limits allow. Potential tonnage reduction of 5-10%.`, savings: Math.round(target), riskLevel: "MEDIUM" });
+      }
+      if (codes.has("07-50-00")) {
+        const roofLine = draft.lineItems.find((l) => l.costCode === "07-50-00");
+        ideas.push({ title: "Substitute TPO for specified PVC roofing", description: "TPO single-ply membrane achieves similar warranty at lower cost than PVC on warm roofs. Coordinate insulation R-value with energy code.", savings: Math.round((roofLine?.amount ?? total * 0.05) * 0.12), riskLevel: "LOW" });
+      }
+      if (codes.has("22-00-00") && codes.has("23-00-00") && codes.has("26-00-00")) {
+        ideas.push({ title: "Phase MEP rough-in", description: "Break mechanical / electrical / plumbing rough-in into two phases to reduce peak labor and crane time. Coordinate with schedule to preserve critical-path.", savings: Math.round(total * 0.022), riskLevel: "LOW" });
+      }
+      if (codes.has("09-29-00") || codes.has("09-91-00")) {
+        ideas.push({ title: "Value-engineered finishes in back-of-house", description: "Swap specified stone tile for LVT in BOH corridors, mechanical rooms, and storage; preserve specified stone in public/owner-facing areas.", savings: Math.round(total * 0.008), riskLevel: "MEDIUM" });
+      }
+      if (codes.has("23-00-00")) {
+        ideas.push({ title: "VRF instead of chiller+AHU for compatible zones", description: "Where program supports it, VRF system reduces ductwork, mechanical space, and chiller plant cost while meeting commercial zone-load. Confirm acoustic fit.", savings: Math.round(total * 0.015), riskLevel: "MEDIUM" });
+      }
+      if (codes.has("31-20-00")) {
+        ideas.push({ title: "Balance cut/fill on site", description: "Revise grading to balance cut and fill, eliminating import/export. Coordinate with civil engineer.", savings: Math.round(total * 0.009), riskLevel: "LOW" });
+      }
+      if (codes.has("05-31-00") || codes.has("07-50-00")) {
+        ideas.push({ title: "Alternate structural deck span", description: "Substitute 1-1/2 inch composite deck for specified 3-inch deck on shorter spans; reduces material cost and speeds pour.", savings: Math.round(total * 0.005), riskLevel: "LOW" });
+      }
+
+      // Always-available strategic VE options.
+      ideas.push({ title: "Owner-direct long-lead procurement", description: "Lock switchgear, chillers, and generators via owner-direct purchase (tax-exempt where applicable) to avoid escalation + expedite fees.", savings: Math.round(total * 0.006), riskLevel: "LOW" });
+      ideas.push({ title: "Pre-purchase & storage of volatile-price items", description: "Lock steel, copper, and PVC prices at award to hedge against index escalation during construction.", savings: Math.round(total * 0.011), riskLevel: "LOW" });
+      ideas.push({ title: "Alternative delivery (DBB → CM@R conversion)", description: "If owner agrees to GMP + shared-savings structure, contractor can surface VE during precon that traditional DBB misses.", savings: Math.round(total * 0.025), riskLevel: "MEDIUM" });
+
+      // If biggest line is very large, add a targeted suggestion.
+      if (biggestLine && biggestLine.amount > total * 0.2) {
+        ideas.push({
+          title: `Deep-dive cost review: ${biggestLine.description}`,
+          description: `This single line represents ${((biggestLine.amount / total) * 100).toFixed(0)}% of direct cost. Recommend detailed buyout with 3+ subs + take-off verification. Even a 5% reduction here drops total price materially.`,
+          savings: Math.round(biggestLine.amount * 0.05),
+          riskLevel: "LOW",
+        });
+      }
+
+      return ideas.sort((a, b) => b.savings - a.savings).slice(0, 8);
     },
   });
 }

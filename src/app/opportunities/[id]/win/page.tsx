@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DetailShell } from "@/components/layout/detail-shell";
 import { StatTile } from "@/components/ui/stat-tile";
-import { winProbability } from "@/lib/client-ai";
+import { winProbabilityLogged } from "@/lib/ai-cached";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 
@@ -11,7 +11,7 @@ export default async function WinProbabilityPage({ params }: { params: Promise<{
   const tenant = await requireTenant();
   const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: tenant.id } });
   if (!opp) notFound();
-  const result = await winProbability(id, tenant.id);
+  const { result, runId } = await winProbabilityLogged(tenant.id, id);
 
   return (
     <DetailShell
@@ -37,7 +37,12 @@ export default async function WinProbabilityPage({ params }: { params: Promise<{
           {result.risks.length > 0 ? result.risks.map((r, i) => <li key={i}>{r}</li>) : <li className="text-slate-500 list-none">No material risks flagged.</li>}
         </ul>
       </section>
-      <Link href={`/opportunities/${id}`} className="btn-outline text-xs">← back to opportunity</Link>
+      <div className="flex gap-2 items-center">
+        <Link href={`/opportunities/${id}`} className="btn-outline text-xs">← back to opportunity</Link>
+        <span className="text-xs text-slate-500 ml-4">Useful?</span>
+        <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="ACCEPTED" /><button className="btn-outline text-xs">✓</button></form>
+        <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="REJECTED" /><button className="btn-outline text-xs">✗</button></form>
+      </div>
     </DetailShell>
   );
 }

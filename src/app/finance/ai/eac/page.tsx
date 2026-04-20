@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatTile } from "@/components/ui/stat-tile";
-import { eacForecast } from "@/lib/finance-ai";
+import { eacForecastLogged } from "@/lib/ai-cached";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency } from "@/lib/utils";
@@ -10,7 +10,9 @@ export default async function EacPage({ searchParams }: { searchParams: Promise<
   const tenant = await requireTenant();
   const sp = await searchParams;
   const projects = await prisma.project.findMany({ where: { tenantId: tenant.id }, select: { id: true, code: true, name: true } });
-  const forecast = sp.projectId ? await eacForecast(sp.projectId, tenant.id) : null;
+  const logged = sp.projectId ? await eacForecastLogged(tenant.id, sp.projectId) : null;
+  const forecast = logged?.result ?? null;
+  const runId = logged?.runId ?? null;
 
   return (
     <AppLayout eyebrow="Finance AI" title="EAC forecaster" description="AI projects Estimate-at-Completion cost, revenue, and margin based on commitments + burn rate.">
@@ -35,6 +37,13 @@ export default async function EacPage({ searchParams }: { searchParams: Promise<
             <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Variance vs plan</div>
             <div className={"mt-2 text-3xl font-semibold " + (forecast.variance > 0 ? "text-rose-200" : "text-emerald-200")}>{formatCurrency(forecast.variance)}</div>
             <p className="mt-3 text-sm text-slate-200 leading-6">{forecast.narrative}</p>
+            {runId ? (
+              <div className="mt-4 flex gap-2 items-center">
+                <span className="text-xs text-slate-500">Useful?</span>
+                <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="ACCEPTED" /><button className="btn-outline text-xs">✓ Accepted</button></form>
+                <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="REJECTED" /><button className="btn-outline text-xs">✗ Rejected</button></form>
+              </div>
+            ) : null}
           </section>
         </>
       ) : null}

@@ -4,14 +4,14 @@ import { DetailShell } from "@/components/layout/detail-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
-import { pricingAdvisor } from "@/lib/sales-ai";
+import { pricingAdvisorLogged } from "@/lib/ai-cached";
 
 export default async function PricingAdvisorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const tenant = await requireTenant();
   const draft = await prisma.bidDraft.findFirst({ where: { id, tenantId: tenant.id } });
   if (!draft) notFound();
-  const advice = await pricingAdvisor(id);
+  const { result: advice, runId } = await pricingAdvisorLogged(tenant.id, id);
   const tone = advice.direction === "LOWER" ? "bad" : advice.direction === "RAISE" ? "warn" : "good";
 
   return (
@@ -32,7 +32,12 @@ export default async function PricingAdvisorPage({ params }: { params: Promise<{
         <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Recommendation</div>
         <div className="mt-2 text-2xl font-semibold text-white">{advice.direction}</div>
         <p className="mt-3 text-sm leading-6 text-slate-200">{advice.rationale}</p>
-        <p className="mt-3 text-xs text-slate-500">Advisor is deterministic today; flip <span className="font-mono">ENABLE_LLM_CALLS=true</span> to route through Claude.</p>
+        <p className="mt-3 text-xs text-slate-500">Heuristic today (Bayesian-smoothed win rate by client · mode · tenant). Flip <span className="font-mono">ENABLE_LLM_CALLS=true</span> to route through Claude.</p>
+        <div className="mt-4 flex gap-2 items-center">
+          <span className="text-xs text-slate-500">Useful?</span>
+          <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="ACCEPTED" /><button className="btn-outline text-xs">✓ Accepted</button></form>
+          <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="REJECTED" /><button className="btn-outline text-xs">✗ Rejected</button></form>
+        </div>
       </section>
     </DetailShell>
   );

@@ -5,14 +5,14 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
-import { scoreRfpListing } from "@/lib/sales-ai";
+import { scoreRfpListingLogged } from "@/lib/ai-cached";
 
 export default async function ListingScorePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const tenant = await requireTenant();
   const listing = await prisma.rfpListing.findFirst({ where: { id, tenantId: tenant.id } });
   if (!listing) notFound();
-  const score = await scoreRfpListing(tenant.id, id);
+  const { result: score, runId } = await scoreRfpListingLogged(tenant.id, id);
   const tone = score.recommendation === "BID" ? "good" : score.recommendation === "CONDITIONAL" ? "warn" : "bad";
 
   return (
@@ -40,13 +40,16 @@ export default async function ListingScorePage({ params }: { params: Promise<{ i
           {score.risks.length > 0 ? score.risks.map((r, i) => <li key={i}>{r}</li>) : <li className="text-slate-500">No material risks flagged.</li>}
         </ul>
       </section>
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center flex-wrap">
         <Link href="/bids/listings" className="btn-outline text-xs">← back to listings</Link>
         {score.recommendation !== "NO_BID" ? (
           <form action={`/api/rfp/listings/${id}/autopilot`} method="post">
             <button className="btn-primary text-xs">Autopilot this RFP</button>
           </form>
         ) : null}
+        <span className="text-xs text-slate-500 ml-4">Useful?</span>
+        <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="ACCEPTED" /><button className="btn-outline text-xs">✓</button></form>
+        <form action="/api/ai/feedback" method="post"><input type="hidden" name="runId" value={runId} /><input type="hidden" name="feedback" value="REJECTED" /><button className="btn-outline text-xs">✗</button></form>
       </div>
     </DetailShell>
   );

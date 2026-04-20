@@ -4,10 +4,23 @@ import { tenantAskAnything } from "@/lib/copilot-ai";
 import { requireTenant } from "@/lib/tenant";
 
 const EXAMPLES = [
-  "What's my pipeline by mode?",
-  "Which projects are over budget?",
-  "Top 10 vendors by spend",
-  "Show me active projects",
+  "Pipeline by mode",
+  "Pipeline by stage",
+  "What's my win rate?",
+  "Projects over budget",
+  "Current backlog",
+  "WIP over/under billings",
+  "Trailing 12 month revenue",
+  "Top vendors by spend",
+  "Vendor prequal status",
+  "Expiring COIs",
+  "Active projects",
+  "Upcoming deadlines",
+  "Open RFIs",
+  "Safety incidents this year",
+  "Unreconciled journal entries",
+  "Head count by role",
+  "Late schedule tasks",
 ];
 
 export default async function AssistantPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
