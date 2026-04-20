@@ -41,7 +41,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ v
       title={vendor.name}
       subtitle={`${vendor.trade ?? "—"} · ${vendor.legalName ?? vendor.name}`}
       crumbs={[{ label: "Vendors", href: "/vendors" }, { label: vendor.name }]}
-      actions={<StatusBadge status={vendor.prequalStatus} />}
+      actions={<div className="flex items-center gap-2"><StatusBadge status={vendor.prequalStatus} /><Link href={`/risk/prequal?vendorId=${vendor.id}`} className="btn-outline text-xs">AI · Prequal fill</Link></div>}
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Prequal score" value={vendor.prequalScore ?? "—"} sub={vendor.prequalExpires ? `expires ${formatDate(vendor.prequalExpires)}` : undefined} tone={(vendor.prequalScore ?? 0) >= 85 ? "good" : (vendor.prequalScore ?? 0) >= 70 ? "warn" : "bad"} />

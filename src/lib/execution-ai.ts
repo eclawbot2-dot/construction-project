@@ -36,8 +36,8 @@ export async function weeklyOwnerReport(projectId: string, tenantId: string): Pr
         const summary = (log.summary ?? "").slice(0, 180);
         const notes = (log.notes ?? "").slice(0, 180);
         if (summary) progress.push(`${log.logDate.toISOString().slice(0, 10)} — ${summary}`);
-        if (/delay|slip|stop|wait/i.test(log.weather ?? "") || /delay/i.test(notes)) delays.push(`${log.logDate.toISOString().slice(0, 10)} — ${log.weather ?? notes}`);
-        if (/rain|wind|storm|freez/i.test(log.weather ?? "")) risks.push(`${log.logDate.toISOString().slice(0, 10)} — weather impact: ${log.weather}`);
+        if (/delay|slip|stop|wait/i.test(summary) || /delay|slip|stop/i.test(notes)) delays.push(`${log.logDate.toISOString().slice(0, 10)} — ${summary || notes}`);
+        if (/rain|wind|storm|freez|snow/i.test(log.weather ?? "")) risks.push(`${log.logDate.toISOString().slice(0, 10)} — weather impact: ${log.weather}`);
       }
       upcoming.push("Continue current work per baseline schedule.");
       upcoming.push("Coordinate long-lead procurement and submittal turnarounds.");

@@ -57,21 +57,31 @@ export default async function BidDraftDetailPage({ params }: { params: Promise<{
           <DetailField label="Linked listing">{draft.rfpListing ? <Link href={`/bids/listings?status=${draft.rfpListing.status}`} className="text-cyan-300 hover:underline">{draft.rfpListing.title}</Link> : "—"}</DetailField>
           <DetailField label="Linked opportunity">{draft.opportunity ? <Link href={`/opportunities/${draft.opportunity.id}`} className="text-cyan-300 hover:underline">{draft.opportunity.name}</Link> : "—"}</DetailField>
         </DetailGrid>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <form action={`/api/bid-drafts/${draft.id}/estimate`} method="post">
-            <button className="btn-primary">{draft.lineItems.length > 0 ? "Regenerate estimate" : "Build line-item estimate"}</button>
-          </form>
-          <form action={`/api/bid-drafts/${draft.id}/compliance`} method="post">
-            <button className="btn-outline">Run compliance check</button>
-          </form>
-          <form action={`/api/bid-drafts/${draft.id}/tailor`} method="post">
-            <button className="btn-outline" title="Regenerate win themes + differentiators">AI · Tailor themes</button>
-          </form>
-          <Link href={`/bids/drafts/${draft.id}/pricing`} className="btn-outline">AI · Pricing advisor</Link>
-          <Link href={`/bids/drafts/${draft.id}/deep-compliance`} className="btn-outline">AI · Deep compliance</Link>
-          <Link href={`/bids/drafts/${draft.id}/takeoff`} className="btn-outline">AI · SOW takeoff</Link>
-          <Link href={`/bids/drafts/${draft.id}/gaps`} className="btn-outline">AI · Scope gaps</Link>
-          <Link href={`/bids/drafts/${draft.id}/value-engineering`} className="btn-outline">AI · VE ideas</Link>
+        <div className="mt-4 space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Core actions</div>
+            <div className="flex flex-wrap gap-2">
+              <form action={`/api/bid-drafts/${draft.id}/estimate`} method="post">
+                <button className="btn-primary text-xs">{draft.lineItems.length > 0 ? "Regenerate estimate" : "Build line-item estimate"}</button>
+              </form>
+              <form action={`/api/bid-drafts/${draft.id}/compliance`} method="post">
+                <button className="btn-outline text-xs">Run compliance check</button>
+              </form>
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300 mb-1">AI helpers</div>
+            <div className="flex flex-wrap gap-2">
+              <form action={`/api/bid-drafts/${draft.id}/tailor`} method="post">
+                <button className="btn-outline text-xs" title="Regenerate win themes + differentiators">Tailor themes</button>
+              </form>
+              <Link href={`/bids/drafts/${draft.id}/pricing`} className="btn-outline text-xs">Pricing advisor</Link>
+              <Link href={`/bids/drafts/${draft.id}/deep-compliance`} className="btn-outline text-xs">Deep compliance</Link>
+              <Link href={`/bids/drafts/${draft.id}/takeoff`} className="btn-outline text-xs">SOW takeoff</Link>
+              <Link href={`/bids/drafts/${draft.id}/gaps`} className="btn-outline text-xs">Scope gaps</Link>
+              <Link href={`/bids/drafts/${draft.id}/value-engineering`} className="btn-outline text-xs">VE ideas</Link>
+            </div>
+          </div>
         </div>
       </section>
 

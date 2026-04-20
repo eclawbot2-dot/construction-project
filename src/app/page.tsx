@@ -22,6 +22,22 @@ export default async function Home() {
       description="One codebase supporting simple contractors, vertical building teams, and heavy civil operations with shared identity, finance, workflow, and audit layers."
     >
       <div className="grid gap-6">
+        <section className="card p-6 border-cyan-500/30 bg-gradient-to-br from-cyan-950/50 to-slate-950">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">AI assistant</div>
+              <div className="mt-2 text-lg font-semibold text-white">Ask anything about your business</div>
+              <p className="mt-1 text-sm text-slate-300">Pipeline by mode · Projects over budget · Top vendors · 45+ AI helpers across bids, finance, risk, ops.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/assistant" className="btn-primary text-xs">Open assistant →</Link>
+              <Link href="/finance/ai" className="btn-outline text-xs">Finance AI</Link>
+              <Link href="/risk" className="btn-outline text-xs">Risk AI</Link>
+              <Link href="/operations/ai" className="btn-outline text-xs">Ops AI</Link>
+              <Link href="/ai/meta" className="btn-outline text-xs">LLM status</Link>
+            </div>
+          </div>
+        </section>
         <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
           <div className="card p-6">
             <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">Tenant controls</div>
