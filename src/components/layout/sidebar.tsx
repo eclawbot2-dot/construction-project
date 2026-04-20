@@ -77,13 +77,12 @@ export async function Sidebar() {
         <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">Construction OS</div>
         <div className="mt-2 text-xl font-semibold" style={{ color: "var(--heading)" }}>{data?.tenant.name ?? "Platform"}</div>
         <div className="mt-1 text-sm" style={{ color: "var(--faint)" }}>Multi-tenant OS for Simple, Vertical, and Heavy Civil workflows.</div>
-        <div className="mt-4"><ThemeToggle className="w-full justify-center" /></div>
       </div>
 
       <nav className="px-3 py-3 space-y-4">
         {navGroups.map((group) => (
           <div key={group.title}>
-            <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--faint)" }}>{group.title}</div>
+            <div className="px-3 pb-1 pt-1 text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--heading)" }}>{group.title}</div>
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
@@ -110,6 +109,7 @@ export async function Sidebar() {
         <div>Primary mode: <span className="font-medium" style={{ color: "var(--heading)" }}>{data?.tenant.primaryMode.replaceAll("_", " ")}</span></div>
         <div className="mt-2">Feature packs: <span className="font-medium" style={{ color: "var(--heading)" }}>{data?.tenant.featurePacks.length ?? 0}</span></div>
         <div className="mt-2">Business units: <span className="font-medium" style={{ color: "var(--heading)" }}>{data?.tenant.businessUnits.length ?? 0}</span></div>
+        <div className="mt-4"><ThemeToggle className="w-full justify-center" /></div>
       </div>
     </aside>
   );
