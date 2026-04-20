@@ -45,11 +45,12 @@ export default async function ProjectsPage() {
                 <div className="text-xs uppercase tracking-[0.16em] text-slate-400">Upcoming tasks</div>
                 <div className="mt-3 space-y-3">
                   {project.upcomingTasks.map((task) => (
-                    <div key={task.id} className="rounded-xl border border-white/5 bg-white/5 p-3">
+                    <Link key={task.id} href={`/projects/${project.id}/tasks`} className="block rounded-xl border border-white/5 bg-white/5 p-3 transition hover:border-cyan-500/40 hover:bg-white/10">
                       <div className="font-medium text-white">{task.title}</div>
                       <div className="mt-1 text-xs text-slate-400">{task.priority} · {task.status.replaceAll("_", " ")}</div>
-                    </div>
+                    </Link>
                   ))}
+                  {project.upcomingTasks.length === 0 ? <div className="text-xs text-slate-500">No upcoming tasks.</div> : null}
                 </div>
               </div>
               <div className="panel p-4">
