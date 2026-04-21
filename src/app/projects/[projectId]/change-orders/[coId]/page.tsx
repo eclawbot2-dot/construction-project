@@ -2,23 +2,35 @@ import { notFound } from "next/navigation";
 import { DetailShell, DetailGrid, DetailField } from "@/components/layout/detail-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ApprovalSection, ActivityTrail } from "@/components/approval-section";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { currentActor } from "@/lib/permissions";
+import { listComments } from "@/lib/approvals";
 import { changeOrderKindLabel, formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function ChangeOrderDetailPage({ params }: { params: Promise<{ projectId: string; coId: string }> }) {
   const { projectId, coId } = await params;
   const tenant = await requireTenant();
+  const actor = await currentActor(tenant.id);
   const co = await prisma.changeOrder.findFirst({
     where: { id: coId, project: { id: projectId, tenantId: tenant.id } },
     include: { project: true, lines: { orderBy: { createdAt: "asc" } } },
   });
   if (!co) notFound();
+  const comments = await listComments(tenant.id, "ChangeOrder", co.id);
 
   const subtotal = co.lines.reduce((s, l) => s + l.amount, 0);
   const markup = subtotal * (co.markupPct / 100);
   const calculated = subtotal + markup;
   const byCategory = co.lines.reduce<Record<string, number>>((acc, l) => { acc[l.category] = (acc[l.category] ?? 0) + l.amount; return acc; }, {});
+
+  const actions: Array<{ name: string; label: string; tone: "primary" | "outline" | "danger"; requireReason?: boolean; formAction: string }> = [];
+  if ((co.status === "DRAFT" || co.status === "REJECTED") && actor.canEdit) actions.push({ name: "submit", label: "Submit for approval", tone: "primary", formAction: `/api/change-orders/${co.id}/submit` });
+  if (co.status === "PENDING" && actor.isManager) {
+    actions.push({ name: "approve", label: "Approve", tone: "primary", formAction: `/api/change-orders/${co.id}/approve` });
+    actions.push({ name: "reject", label: "Reject", tone: "danger", requireReason: true, formAction: `/api/change-orders/${co.id}/reject` });
+  }
 
   return (
     <DetailShell
@@ -50,13 +62,41 @@ export default async function ChangeOrderDetailPage({ params }: { params: Promis
           <DetailField label="CO number">{co.coNumber}</DetailField>
           <DetailField label="Kind">{changeOrderKindLabel(co.kind)}</DetailField>
           <DetailField label="Reason">{co.reason ?? "—"}</DetailField>
-          <DetailField label="Requested">{formatDate(co.requestedAt)}</DetailField>
-          <DetailField label="Approved">{formatDate(co.approvedAt)}</DetailField>
+          <DetailField label="Submitted">{formatDate(co.requestedAt)}{co.submittedBy ? ` by ${co.submittedBy}` : ""}</DetailField>
+          <DetailField label="Approved">{formatDate(co.approvedAt)}{co.approvedBy ? ` by ${co.approvedBy}` : ""}</DetailField>
+          <DetailField label="Rejected">{formatDate(co.rejectedAt)}{co.rejectedBy ? ` by ${co.rejectedBy}` : ""}</DetailField>
           <DetailField label="Executed">{formatDate(co.executedAt)}</DetailField>
           <DetailField label="Linked RFI">{co.linkedRfiId ?? "—"}</DetailField>
           <DetailField label="Linked submittal">{co.linkedSubmittalId ?? "—"}</DetailField>
+          {co.approvalNote ? <DetailField label="Approval note">{co.approvalNote}</DetailField> : null}
+          {co.rejectionReason ? <DetailField label="Rejection reason"><span className="text-rose-200">{co.rejectionReason}</span></DetailField> : null}
         </DetailGrid>
       </section>
+
+      <ApprovalSection
+        title="Actions"
+        status={co.status}
+        actions={actions}
+        actorName={actor.userName}
+        actorRole={actor.role}
+        isManager={actor.isManager}
+      />
+
+      {actor.canEdit && (co.status === "DRAFT" || co.status === "REJECTED" || actor.isManager) ? (
+        <section className="card p-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit change order</div>
+          {(co.status === "APPROVED" || co.status === "EXECUTED") ? <div className="mt-2 text-xs text-amber-300">Editing an {co.status.toLowerCase()} CO reverts it to PENDING for re-approval.</div> : null}
+          <form action={`/api/change-orders/${co.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
+            <div><label className="form-label">Title</label><input name="title" defaultValue={co.title} className="form-input" /></div>
+            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={co.amount} className="form-input" /></div>
+            <div><label className="form-label">Schedule impact (days)</label><input name="scheduleImpactDays" type="number" defaultValue={co.scheduleImpactDays} className="form-input" /></div>
+            <div><label className="form-label">Markup %</label><input name="markupPct" type="number" step="0.01" defaultValue={co.markupPct} className="form-input" /></div>
+            <div className="md:col-span-2"><label className="form-label">Reason</label><input name="reason" defaultValue={co.reason ?? ""} className="form-input" /></div>
+            <div className="md:col-span-3"><label className="form-label">Description</label><textarea name="description" defaultValue={co.description ?? ""} rows={2} className="form-textarea" /></div>
+            <div className="md:col-span-3"><button className="btn-primary">Save changes</button></div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="card p-6">
         <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Cost breakdown</div>
@@ -109,6 +149,8 @@ export default async function ChangeOrderDetailPage({ params }: { params: Promis
           </table>
         </div>
       </section>
+
+      <ActivityTrail comments={comments} commentAction={`/api/records/ChangeOrder/${co.id}/comment`} />
     </DetailShell>
   );
 }

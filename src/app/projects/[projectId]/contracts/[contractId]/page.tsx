@@ -3,22 +3,35 @@ import Link from "next/link";
 import { DetailShell, DetailGrid, DetailField } from "@/components/layout/detail-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ApprovalSection, ActivityTrail } from "@/components/approval-section";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { currentActor } from "@/lib/permissions";
+import { listComments } from "@/lib/approvals";
 import { contractTypeLabel, formatCurrency, formatDate, formatPercent } from "@/lib/utils";
 
 export default async function ContractDetailPage({ params }: { params: Promise<{ projectId: string; contractId: string }> }) {
   const { projectId, contractId } = await params;
   const tenant = await requireTenant();
+  const actor = await currentActor(tenant.id);
   const contract = await prisma.contract.findFirst({
     where: { id: contractId, project: { id: projectId, tenantId: tenant.id } },
     include: { project: true, commitments: true, payApplications: { orderBy: { periodNumber: "asc" } }, lienWaivers: { orderBy: { createdAt: "desc" } } },
   });
   if (!contract) notFound();
+  const comments = await listComments(tenant.id, "Contract", contract.id);
 
   const committed = contract.commitments.reduce((s, c) => s + c.committedAmount, 0);
   const invoiced = contract.commitments.reduce((s, c) => s + c.invoicedToDate, 0);
   const paid = contract.commitments.reduce((s, c) => s + c.paidToDate, 0);
+  const startIso = contract.startDate ? new Date(contract.startDate).toISOString().slice(0, 10) : "";
+  const endIso = contract.endDate ? new Date(contract.endDate).toISOString().slice(0, 10) : "";
+
+  const actions: Array<{ name: string; label: string; tone: "primary" | "outline" | "danger"; requireReason?: boolean; formAction: string }> = [];
+  if ((contract.status === "DRAFT" || contract.status === "NEGOTIATING") && actor.isManager) {
+    actions.push({ name: "execute", label: "Execute contract", tone: "primary", formAction: `/api/contracts/${contract.id}/execute` });
+    actions.push({ name: "reject", label: "Terminate", tone: "danger", requireReason: true, formAction: `/api/contracts/${contract.id}/reject` });
+  }
 
   return (
     <DetailShell
@@ -49,10 +62,31 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
           <DetailField label="Counterparty">{contract.counterparty}</DetailField>
           <DetailField label="Start">{formatDate(contract.startDate)}</DetailField>
           <DetailField label="End">{formatDate(contract.endDate)}</DetailField>
-          <DetailField label="Executed">{formatDate(contract.executedAt)}</DetailField>
+          <DetailField label="Executed">{formatDate(contract.executedAt)}{contract.executedBy ? ` by ${contract.executedBy}` : ""}</DetailField>
+          <DetailField label="Approved">{formatDate(contract.approvedAt)}{contract.approvedBy ? ` by ${contract.approvedBy}` : ""}</DetailField>
+          <DetailField label="Terminated">{formatDate(contract.rejectedAt)}{contract.rejectedBy ? ` by ${contract.rejectedBy}` : ""}</DetailField>
           <DetailField label="Notes">{contract.notes ?? "—"}</DetailField>
+          {contract.approvalNote ? <DetailField label="Execute note">{contract.approvalNote}</DetailField> : null}
+          {contract.rejectionReason ? <DetailField label="Termination reason"><span className="text-rose-200">{contract.rejectionReason}</span></DetailField> : null}
         </DetailGrid>
       </section>
+
+      <ApprovalSection title="Actions" status={contract.status} actions={actions} actorName={actor.userName} actorRole={actor.role} isManager={actor.isManager} />
+
+      {actor.canEdit && contract.status !== "TERMINATED" && contract.status !== "COMPLETED" ? (
+        <section className="card p-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit contract</div>
+          <form action={`/api/contracts/${contract.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="md:col-span-2"><label className="form-label">Title</label><input name="title" defaultValue={contract.title} className="form-input" /></div>
+            <div><label className="form-label">Current value ($)</label><input name="currentValue" type="number" step="0.01" defaultValue={contract.currentValue} className="form-input" /></div>
+            <div><label className="form-label">Retainage %</label><input name="retainagePct" type="number" step="0.01" defaultValue={contract.retainagePct} className="form-input" /></div>
+            <div><label className="form-label">Start</label><input name="startDate" type="date" defaultValue={startIso} className="form-input" /></div>
+            <div><label className="form-label">End</label><input name="endDate" type="date" defaultValue={endIso} className="form-input" /></div>
+            <div className="md:col-span-3"><label className="form-label">Notes</label><textarea name="notes" defaultValue={contract.notes ?? ""} rows={2} className="form-textarea" /></div>
+            <div className="md:col-span-3"><button className="btn-primary">Save</button></div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="card p-0 overflow-hidden">
         <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Commitments</div>
@@ -144,6 +178,8 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
           </table>
         </div>
       </section>
+
+      <ActivityTrail comments={comments} commentAction={`/api/records/Contract/${contract.id}/comment`} />
     </DetailShell>
   );
 }

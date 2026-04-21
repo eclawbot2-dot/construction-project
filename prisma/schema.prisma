@@ -393,6 +393,7 @@ model Tenant {
   alertEvents       AlertEvent[]
   historicalImports HistoricalImport[]
   aiRuns            AiRunLog[]
+  recordComments    RecordComment[]
 }
 
 model BusinessUnit {
@@ -706,9 +707,21 @@ model RFI {
   project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   number        String
   subject       String
+  question      String?
+  response      String?
   status        WorkflowStatus  @default(DRAFT)
   dueDate       DateTime?
   ballInCourt   String?
+  submittedAt   DateTime?
+  submittedBy   String?
+  respondedAt   DateTime?
+  respondedBy   String?
+  approvedAt    DateTime?
+  approvedBy    String?
+  rejectedAt    DateTime?
+  rejectedBy    String?
+  rejectionReason String?
+  approvalNote  String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -724,6 +737,15 @@ model Submittal {
   specSection   String?
   status        WorkflowStatus  @default(DRAFT)
   longLead      Boolean         @default(false)
+  submittedAt   DateTime?
+  submittedBy   String?
+  approvedAt    DateTime?
+  approvedBy    String?
+  rejectedAt    DateTime?
+  rejectedBy    String?
+  rejectionReason String?
+  approvalNote  String?
+  notes         String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -833,9 +855,20 @@ model SafetyIncident {
   project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title         String
   severity      String
+  description   String?
   status        WorkflowStatus  @default(DRAFT)
   occurredAt    DateTime
+  submittedAt   DateTime?
+  submittedBy   String?
+  approvedAt    DateTime?
+  approvedBy    String?
+  rejectedAt    DateTime?
+  rejectedBy    String?
+  rejectionReason String?
+  approvalNote  String?
+  correctiveActions String?
   createdAt     DateTime        @default(now())
+  updatedAt     DateTime?       @updatedAt
 }
 
 model PunchItem {
@@ -844,9 +877,23 @@ model PunchItem {
   project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title         String
   area          String?
+  description   String?
+  trade         String?
+  assignedTo    String?
   status        WorkflowStatus  @default(DRAFT)
   dueDate       DateTime?
+  closedAt      DateTime?
+  closedBy      String?
+  submittedAt   DateTime?
+  submittedBy   String?
+  approvedAt    DateTime?
+  approvedBy    String?
+  rejectedAt    DateTime?
+  rejectedBy    String?
+  rejectionReason String?
+  approvalNote  String?
   createdAt     DateTime        @default(now())
+  updatedAt     DateTime?       @updatedAt
 }
 
 model Approval {
@@ -891,6 +938,12 @@ model ChangeOrder {
   approvedById  String?
   requestedAt   DateTime?
   approvedAt    DateTime?
+  submittedBy   String?
+  approvedBy    String?
+  rejectedAt    DateTime?
+  rejectedBy    String?
+  rejectionReason String?
+  approvalNote  String?
   executedAt    DateTime?
   linkedRfiId   String?
   linkedSubmittalId String?
@@ -971,6 +1024,13 @@ model Contract {
   startDate       DateTime?
   endDate         DateTime?
   executedAt      DateTime?
+  executedBy      String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
+  approvalNote    String?
   notes           String?
   commitments     ContractCommitment[]
   payApplications PayApplication[]
@@ -1014,8 +1074,15 @@ model PayApplication {
   lessPreviousPayments Float              @default(0)
   currentPaymentDue Float                 @default(0)
   submittedAt       DateTime?
+  submittedBy       String?
   approvedAt        DateTime?
+  approvedBy        String?
+  rejectedAt        DateTime?
+  rejectedBy        String?
+  rejectionReason   String?
+  approvalNote      String?
   paidAt            DateTime?
+  paidBy            String?
   notes             String?
   lines             PayApplicationLine[]
   createdAt         DateTime              @default(now())
@@ -1056,6 +1123,13 @@ model LienWaiver {
   amount          Float            @default(0)
   status          LienWaiverStatus @default(PENDING)
   receivedAt      DateTime?
+  receivedBy      String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
+  approvalNote    String?
   documentUrl     String?
   notes           String?
   createdAt       DateTime         @default(now())
@@ -1202,10 +1276,31 @@ model TimeEntry {
   costCode        String?
   status          TimeEntryStatus   @default(DRAFT)
   submittedAt     DateTime?
+  submittedBy     String?
   approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
+  approvalNote    String?
   notes           String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+
+  comments        TimeEntryComment[]
+}
+
+model TimeEntryComment {
+  id            String      @id @default(cuid())
+  entryId       String
+  entry         TimeEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  authorId      String?
+  authorName    String
+  kind          String      @default("COMMENT")
+  body          String
+  createdAt     DateTime    @default(now())
+
+  @@index([entryId, createdAt])
 }
 
 model SubInvoice {
@@ -1222,9 +1317,18 @@ model SubInvoice {
   status          SubInvoiceStatus    @default(RECEIVED)
   invoiceDate     DateTime
   dueDate         DateTime?
+  submittedAt     DateTime?
+  submittedBy     String?
   approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
+  approvalNote    String?
   paidAt          DateTime?
+  paidBy          String?
   waiverReceived  Boolean             @default(false)
+  notes           String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -1243,7 +1347,17 @@ model PurchaseOrder {
   invoicedToDate  Float               @default(0)
   status          String              @default("OPEN")
   issuedAt        DateTime            @default(now())
+  issuedBy        String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
+  approvalNote    String?
+  closedAt        DateTime?
+  closedBy        String?
   expectedDelivery DateTime?
+  notes           String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -1754,4 +1868,19 @@ model AiRunLog {
 
   @@index([tenantId, kind, inputHash])
   @@index([tenantId, entityType, entityId])
+}
+
+model RecordComment {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType    String
+  entityId      String
+  authorId      String?
+  authorName    String
+  kind          String    @default("COMMENT")
+  body          String
+  createdAt     DateTime  @default(now())
+
+  @@index([tenantId, entityType, entityId, createdAt])
 }

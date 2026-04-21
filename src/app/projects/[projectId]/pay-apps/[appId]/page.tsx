@@ -3,22 +3,35 @@ import { DetailShell, DetailGrid, DetailField } from "@/components/layout/detail
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PrintButton } from "@/components/ui/print-button";
+import { ApprovalSection, ActivityTrail } from "@/components/approval-section";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { currentActor } from "@/lib/permissions";
+import { listComments } from "@/lib/approvals";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/utils";
 
 export default async function PayAppDetailPage({ params }: { params: Promise<{ projectId: string; appId: string }> }) {
   const { projectId, appId } = await params;
   const tenant = await requireTenant();
+  const actor = await currentActor(tenant.id);
   const app = await prisma.payApplication.findFirst({
     where: { id: appId, project: { id: projectId, tenantId: tenant.id } },
     include: { project: true, contract: true, lines: { orderBy: { lineNumber: "asc" } } },
   });
   if (!app) notFound();
+  const comments = await listComments(tenant.id, "PayApplication", app.id);
 
   const totalScheduled = app.lines.reduce((s, l) => s + l.scheduledValue, 0);
   const totalCompleted = app.lines.reduce((s, l) => s + l.totalCompleted, 0);
   const overallPct = totalScheduled > 0 ? (totalCompleted / totalScheduled) * 100 : 0;
+
+  const actions: Array<{ name: string; label: string; tone: "primary" | "outline" | "danger"; requireReason?: boolean; formAction: string }> = [];
+  if ((app.status === "DRAFT" || app.status === "REJECTED") && actor.canEdit) actions.push({ name: "submit", label: "Submit for approval", tone: "primary", formAction: `/api/pay-apps/${app.id}/submit` });
+  if ((app.status === "SUBMITTED" || app.status === "PENDING_APPROVAL") && actor.isManager) {
+    actions.push({ name: "approve", label: "Approve", tone: "primary", formAction: `/api/pay-apps/${app.id}/approve` });
+    actions.push({ name: "reject", label: "Reject", tone: "danger", requireReason: true, formAction: `/api/pay-apps/${app.id}/reject` });
+  }
+  if (app.status === "APPROVED" && actor.isManager) actions.push({ name: "pay", label: "Mark paid", tone: "primary", formAction: `/api/pay-apps/${app.id}/pay` });
 
   return (
     <DetailShell
@@ -52,13 +65,33 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
         <DetailGrid>
           <DetailField label="Period">{formatDate(app.periodFrom)} → {formatDate(app.periodTo)}</DetailField>
           <DetailField label="Contract">{app.contract?.contractNumber ?? "—"}</DetailField>
-          <DetailField label="Submitted">{formatDate(app.submittedAt)}</DetailField>
-          <DetailField label="Approved">{formatDate(app.approvedAt)}</DetailField>
-          <DetailField label="Paid">{formatDate(app.paidAt)}</DetailField>
+          <DetailField label="Submitted">{formatDate(app.submittedAt)}{app.submittedBy ? ` by ${app.submittedBy}` : ""}</DetailField>
+          <DetailField label="Approved">{formatDate(app.approvedAt)}{app.approvedBy ? ` by ${app.approvedBy}` : ""}</DetailField>
+          <DetailField label="Rejected">{formatDate(app.rejectedAt)}{app.rejectedBy ? ` by ${app.rejectedBy}` : ""}</DetailField>
+          <DetailField label="Paid">{formatDate(app.paidAt)}{app.paidBy ? ` by ${app.paidBy}` : ""}</DetailField>
           <DetailField label="Less previous payments">{formatCurrency(app.lessPreviousPayments)}</DetailField>
           <DetailField label="Notes">{app.notes ?? "—"}</DetailField>
+          {app.approvalNote ? <DetailField label="Approval note">{app.approvalNote}</DetailField> : null}
+          {app.rejectionReason ? <DetailField label="Rejection reason"><span className="text-rose-200">{app.rejectionReason}</span></DetailField> : null}
         </DetailGrid>
       </section>
+
+      <ApprovalSection title="Actions" status={app.status} actions={actions} actorName={actor.userName} actorRole={actor.role} isManager={actor.isManager} />
+
+      {actor.canEdit && (app.status === "DRAFT" || app.status === "REJECTED" || actor.isManager) ? (
+        <section className="card p-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit application</div>
+          {(app.status === "APPROVED" || app.status === "PAID") ? <div className="mt-2 text-xs text-amber-300">Editing an {app.status.toLowerCase()} application reverts status to SUBMITTED.</div> : null}
+          <form action={`/api/pay-apps/${app.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
+            <div><label className="form-label">Work completed to date ($)</label><input name="workCompletedToDate" type="number" step="0.01" defaultValue={app.workCompletedToDate} className="form-input" /></div>
+            <div><label className="form-label">Materials stored ($)</label><input name="materialsStoredToDate" type="number" step="0.01" defaultValue={app.materialsStoredToDate} className="form-input" /></div>
+            <div><label className="form-label">Retainage held ($)</label><input name="retainageHeld" type="number" step="0.01" defaultValue={app.retainageHeld} className="form-input" /></div>
+            <div><label className="form-label">Current payment due ($)</label><input name="currentPaymentDue" type="number" step="0.01" defaultValue={app.currentPaymentDue} className="form-input" /></div>
+            <div className="md:col-span-2"><label className="form-label">Notes</label><input name="notes" defaultValue={app.notes ?? ""} className="form-input" /></div>
+            <div className="md:col-span-3"><button className="btn-primary">Save changes</button></div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="card p-0 overflow-hidden">
         <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Schedule of values (G703)</div>
@@ -108,6 +141,8 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
           </table>
         </div>
       </section>
+
+      <ActivityTrail comments={comments} commentAction={`/api/records/PayApplication/${app.id}/comment`} />
     </DetailShell>
   );
 }

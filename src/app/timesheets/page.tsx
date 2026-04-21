@@ -4,25 +4,114 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { currentActor } from "@/lib/permissions";
+import { loadedLabor } from "@/lib/timesheets";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import type { TimeEntryStatus } from "@prisma/client";
 
-export default async function TimesheetsRollupPage() {
+const STATUS_OPTIONS: Array<TimeEntryStatus | "ALL"> = ["ALL", "DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "PAID"];
+
+export default async function TimesheetsRollupPage({ searchParams }: { searchParams: Promise<{ status?: string; projectId?: string; employee?: string }> }) {
   const tenant = await requireTenant();
-  const entries = await prisma.timeEntry.findMany({ where: { project: { tenantId: tenant.id } }, include: { project: true }, orderBy: [{ weekEnding: "desc" }, { employeeName: "asc" }], take: 500 });
+  const sp = await searchParams;
+  const actor = await currentActor(tenant.id);
+
+  const where: Record<string, unknown> = { project: { tenantId: tenant.id } };
+  if (sp.status && sp.status !== "ALL") where.status = sp.status;
+  if (sp.projectId) where.projectId = sp.projectId;
+  if (sp.employee) where.employeeName = { contains: sp.employee };
+
+  const [entries, projects, statusCounts] = await Promise.all([
+    prisma.timeEntry.findMany({
+      where,
+      include: { project: true },
+      orderBy: [{ weekEnding: "desc" }, { employeeName: "asc" }],
+      take: 500,
+    }),
+    prisma.project.findMany({ where: { tenantId: tenant.id }, select: { id: true, code: true, name: true } }),
+    prisma.timeEntry.groupBy({
+      by: ["status"],
+      where: { project: { tenantId: tenant.id } },
+      _count: { _all: true },
+    }),
+  ]);
+  const statusMap = Object.fromEntries(statusCounts.map((s) => [s.status, s._count._all]));
+
   const totalHours = entries.reduce((s, t) => s + t.regularHours + t.overtimeHours + t.doubleTimeHours, 0);
-  const totalCost = entries.reduce((s, t) => s + (t.regularHours * t.rate + t.overtimeHours * t.rate * 1.5 + t.doubleTimeHours * t.rate * 2), 0);
-  const pending = entries.filter((t) => t.status === "SUBMITTED" || t.status === "DRAFT").length;
+  const totalCost = entries.reduce((s, t) => s + loadedLabor(t), 0);
+  const pending = entries.filter((t) => t.status === "SUBMITTED").length;
+  const rejected = entries.filter((t) => t.status === "REJECTED").length;
+
+  const thisWeekIso = new Date(Date.now() + ((5 - new Date().getDay()) * 86_400_000)).toISOString().slice(0, 10);
 
   return (
-    <AppLayout eyebrow="Labor" title="Timesheets — portfolio" description="Weekly time cards across every project with loaded labor cost rollup.">
+    <AppLayout eyebrow="Labor" title="Timesheets — portfolio" description="Weekly time cards across every project. Click any row to review, edit, approve, or reject.">
       <div className="grid gap-6">
-        <section className="grid gap-4 md:grid-cols-4">
-          <StatTile label="Entries (500 most recent)" value={entries.length} />
+        <section className="grid gap-4 md:grid-cols-5">
+          <StatTile label="Entries shown" value={entries.length} />
           <StatTile label="Logged hours" value={totalHours.toLocaleString()} />
           <StatTile label="Loaded labor" value={formatCurrency(totalCost)} />
-          <StatTile label="Pending approval" value={pending} tone={pending > 0 ? "warn" : "good"} />
+          <StatTile label="Pending approval" value={pending} tone={pending > 0 ? "warn" : "good"} href="/timesheets?status=SUBMITTED" />
+          <StatTile label="Rejected" value={rejected} tone={rejected > 0 ? "bad" : "good"} href="/timesheets?status=REJECTED" />
         </section>
+
+        <section className="card p-5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Filters</div>
+            <div className="text-xs text-slate-500">Acting as <span className="text-white font-semibold">{actor.userName}</span> · <span className="font-mono text-cyan-200">{actor.role ?? "—"}</span>{actor.isManager ? " · can approve" : " · read-only for approvals"}</div>
+          </div>
+          <form method="get" className="mt-4 grid gap-3 md:grid-cols-5">
+            <div>
+              <label className="form-label">Status</label>
+              <select name="status" defaultValue={sp.status ?? "ALL"} className="form-select">
+                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}{s !== "ALL" && statusMap[s] !== undefined ? ` (${statusMap[s]})` : ""}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Project</label>
+              <select name="projectId" defaultValue={sp.projectId ?? ""} className="form-select">
+                <option value="">All projects</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Employee</label>
+              <input name="employee" defaultValue={sp.employee ?? ""} placeholder="name contains…" className="form-input" />
+            </div>
+            <div className="flex items-end">
+              <button className="btn-primary w-full">Apply</button>
+            </div>
+            <div className="flex items-end">
+              <Link href="/timesheets" className="btn-outline w-full">Clear</Link>
+            </div>
+          </form>
+        </section>
+
+        <section className="card p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">New time entry</div>
+          <form action="/api/timesheets/create" method="post" className="mt-4 grid gap-3 md:grid-cols-4">
+            <div className="md:col-span-1">
+              <label className="form-label">Project</label>
+              <select name="projectId" required className="form-select">
+                <option value="">— select —</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}
+              </select>
+            </div>
+            <div><label className="form-label">Employee</label><input name="employeeName" required className="form-input" /></div>
+            <div><label className="form-label">Trade</label><input name="trade" className="form-input" /></div>
+            <div><label className="form-label">Week ending</label><input name="weekEnding" type="date" defaultValue={thisWeekIso} required className="form-input" /></div>
+            <div><label className="form-label">Reg hrs</label><input name="regularHours" type="number" step="0.25" defaultValue={40} className="form-input" /></div>
+            <div><label className="form-label">OT hrs</label><input name="overtimeHours" type="number" step="0.25" defaultValue={0} className="form-input" /></div>
+            <div><label className="form-label">DT hrs</label><input name="doubleTimeHours" type="number" step="0.25" defaultValue={0} className="form-input" /></div>
+            <div><label className="form-label">Rate ($/h)</label><input name="rate" type="number" step="0.01" defaultValue={45} className="form-input" /></div>
+            <div className="md:col-span-2"><label className="form-label">Cost code</label><input name="costCode" className="form-input" /></div>
+            <div className="md:col-span-2"><label className="form-label">Notes</label><input name="notes" className="form-input" /></div>
+            <div className="md:col-span-4"><button className="btn-primary">Create draft entry</button></div>
+          </form>
+        </section>
+
         <section className="card p-0 overflow-hidden">
+          <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Entries · {entries.length}</div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-white/10">
               <thead className="bg-white/5">
@@ -30,29 +119,29 @@ export default async function TimesheetsRollupPage() {
                   <th className="table-header">Project</th>
                   <th className="table-header">Employee</th>
                   <th className="table-header">Week ending</th>
-                  <th className="table-header">Reg</th>
-                  <th className="table-header">OT</th>
-                  <th className="table-header">DT</th>
+                  <th className="table-header">Hours</th>
                   <th className="table-header">Loaded</th>
+                  <th className="table-header">Cost code</th>
                   <th className="table-header">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {entries.map((t) => {
-                  const loaded = t.regularHours * t.rate + t.overtimeHours * t.rate * 1.5 + t.doubleTimeHours * t.rate * 2;
+                  const loaded = loadedLabor(t);
+                  const hours = t.regularHours + t.overtimeHours + t.doubleTimeHours;
                   return (
-                    <tr key={t.id}>
-                      <td className="table-cell"><Link href={`/projects/${t.project.id}/timesheets`} className="text-cyan-300 hover:underline">{t.project.code}</Link></td>
-                      <td className="table-cell font-medium text-white">{t.employeeName}</td>
-                      <td className="table-cell text-slate-400">{formatDate(t.weekEnding)}</td>
-                      <td className="table-cell">{t.regularHours}</td>
-                      <td className="table-cell">{t.overtimeHours}</td>
-                      <td className="table-cell">{t.doubleTimeHours}</td>
-                      <td className="table-cell">{formatCurrency(loaded)}</td>
-                      <td className="table-cell"><StatusBadge status={t.status} /></td>
+                    <tr key={t.id} className="cursor-pointer transition hover:bg-white/5">
+                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block text-cyan-300 hover:underline">{t.project.code}</Link></td>
+                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block font-medium text-white">{t.employeeName}</Link></td>
+                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block text-slate-400">{formatDate(t.weekEnding)}</Link></td>
+                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block">{hours} <span className="text-xs text-slate-500">({t.regularHours}/{t.overtimeHours}/{t.doubleTimeHours})</span></Link></td>
+                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block">{formatCurrency(loaded)}</Link></td>
+                      <td className="table-cell font-mono text-xs"><Link href={`/timesheets/${t.id}`} className="block">{t.costCode ?? "—"}</Link></td>
+                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block"><StatusBadge status={t.status} /></Link></td>
                     </tr>
                   );
                 })}
+                {entries.length === 0 ? <tr><td colSpan={7} className="table-cell text-center text-slate-500">No entries matching filters.</td></tr> : null}
               </tbody>
             </table>
           </div>

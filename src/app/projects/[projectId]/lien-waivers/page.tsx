@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ProjectTabs } from "@/components/layout/project-tabs";
@@ -51,10 +52,12 @@ export default async function LienWaiversPage({ params }: { params: Promise<{ pr
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {project.lienWaivers.map((w) => (
-                  <tr key={w.id}>
+                  <tr key={w.id} className="cursor-pointer transition hover:bg-white/5">
                     <td className="table-cell">
-                      <div className="font-medium text-white">{w.partyName}</div>
-                      {w.notes ? <div className="text-xs text-slate-500">{w.notes}</div> : null}
+                      <Link href={`/projects/${project.id}/lien-waivers/${w.id}`} className="block">
+                        <div className="font-medium text-white hover:text-cyan-200">{w.partyName}</div>
+                        {w.notes ? <div className="text-xs text-slate-500">{w.notes}</div> : null}
+                      </Link>
                     </td>
                     <td className="table-cell">{lienWaiverTypeLabel(w.waiverType)}</td>
                     <td className="table-cell text-slate-400">{formatDate(w.throughDate)}</td>
