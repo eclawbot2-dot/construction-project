@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Bell, Bot, Building2, BriefcaseBusiness, ClipboardList, Coins, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Upload, Users } from "lucide-react";
+import { Bell, Bot, Building2, BriefcaseBusiness, ClipboardList, Coins, Crown, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Upload, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getDashboardData } from "@/lib/dashboard";
 import { requireTenant } from "@/lib/tenant";
+import { currentSuperAdmin } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -70,6 +71,7 @@ export async function Sidebar() {
   const data = await getDashboardData();
   const tenant = await requireTenant().catch(() => null);
   const alertCount = tenant ? await prisma.alertEvent.count({ where: { tenantId: tenant.id, acknowledgedAt: null } }) : 0;
+  const superAdmin = await currentSuperAdmin();
 
   return (
     <aside className="w-full border-r lg:w-72 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto" style={{ borderColor: "var(--border)", background: "var(--sidebar-bg)" }}>
@@ -78,6 +80,13 @@ export async function Sidebar() {
         <div className="mt-2 text-xl font-semibold" style={{ color: "var(--heading)" }}>{data?.tenant.name ?? "Platform"}</div>
         <div className="mt-1 text-sm" style={{ color: "var(--faint)" }}>Multi-tenant OS for Simple, Vertical, and Heavy Civil workflows.</div>
       </div>
+
+      {superAdmin ? (
+        <Link href="/admin" className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/20">
+          <Crown className="h-4 w-4" />
+          <span className="flex-1">Super Admin</span>
+        </Link>
+      ) : null}
 
       <nav className="px-3 py-3 space-y-4">
         {navGroups.map((group) => (

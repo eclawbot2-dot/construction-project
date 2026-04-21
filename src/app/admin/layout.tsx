@@ -1,0 +1,35 @@
+import Link from "next/link";
+import { AppLayout } from "@/components/layout/app-layout";
+import { currentSuperAdmin } from "@/lib/permissions";
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const admin = await currentSuperAdmin();
+  if (!admin) {
+    return (
+      <AppLayout eyebrow="Restricted" title="Super-admin required" description="This area is for platform-wide administrators.">
+        <div className="card p-8">
+          <div className="text-xs uppercase tracking-[0.2em] text-rose-300">Access denied</div>
+          <p className="mt-3 text-sm text-slate-300">You must be a super admin to view this area. Contact your platform owner to get promoted, or set the <span className="font-mono">cx.superAdmin</span> cookie to a super-admin user&apos;s id.</p>
+          <Link href="/" className="btn-outline text-xs mt-4 inline-flex">← back home</Link>
+        </div>
+      </AppLayout>
+    );
+  }
+  return (
+    <>
+      <div className="w-full border-b border-white/10 bg-rose-500/5 px-6 py-2 text-xs text-rose-200">
+        <div className="flex items-center justify-between gap-4">
+          <div><span className="font-semibold uppercase tracking-[0.2em]">Super admin</span> · logged in as <span className="font-mono">{admin.email ?? admin.name}</span> · changes in this area affect all tenants</div>
+          <div className="flex gap-3">
+            <Link href="/admin" className="hover:underline">Admin home</Link>
+            <Link href="/admin/tenants" className="hover:underline">Tenants</Link>
+            <Link href="/admin/users" className="hover:underline">Users</Link>
+            <Link href="/admin/audit" className="hover:underline">Audit</Link>
+            <Link href="/" className="hover:underline">← exit admin</Link>
+          </div>
+        </div>
+      </div>
+      {children}
+    </>
+  );
+}

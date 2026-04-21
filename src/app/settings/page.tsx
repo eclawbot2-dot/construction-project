@@ -132,7 +132,7 @@ export default async function SettingsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Team + role management</div>
-              <p className="mt-1 text-sm text-slate-400">Invite teammates into this tenant and assign role templates. Existing users get their membership updated.</p>
+              <p className="mt-1 text-sm text-slate-400">Invite teammates into this tenant and assign role templates. Only users with <span className="font-mono text-cyan-200">ADMIN</span> role in this tenant (or a platform super admin) can invite. Granting <span className="font-mono text-cyan-200">ADMIN</span> itself is super-admin-only.</p>
             </div>
             <Link href="/people" className="btn-outline text-xs">Open people directory</Link>
           </div>

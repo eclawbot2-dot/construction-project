@@ -3,6 +3,23 @@ import { prisma } from "@/lib/prisma";
 import type { UserRoleTemplate } from "@prisma/client";
 
 const ACTOR_COOKIE = "cx.actor";
+const SUPER_ADMIN_COOKIE = "cx.superAdmin";
+
+export async function currentSuperAdmin(): Promise<{ userId: string; name: string; email: string | null } | null> {
+  const store = await cookies().catch(() => null);
+  const slug = store?.get(SUPER_ADMIN_COOKIE)?.value ?? store?.get(ACTOR_COOKIE)?.value ?? null;
+  let user: { id: string; name: string; email: string | null; superAdmin: boolean } | null = null;
+  if (slug) user = await prisma.user.findFirst({ where: { OR: [{ id: slug }, { email: slug }] } });
+  if (!user) user = await prisma.user.findFirst({ where: { superAdmin: true } });
+  if (!user || !user.superAdmin) return null;
+  return { userId: user.id, name: user.name, email: user.email };
+}
+
+export async function requireSuperAdmin() {
+  const admin = await currentSuperAdmin();
+  if (!admin) throw new Error("Super-admin privileges required.");
+  return admin;
+}
 
 /**
  * Role tiers used across approval flows.
