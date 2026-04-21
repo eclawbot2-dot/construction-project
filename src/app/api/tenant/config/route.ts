@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { currentTenantSlug } from "@/lib/tenant";
 import { ProjectMode } from "@prisma/client";
+import { publicRedirect } from "@/lib/redirect";
 
 const VALID_MODES = new Set(Object.values(ProjectMode));
 
@@ -40,5 +41,5 @@ export async function POST(req: Request) {
   });
 
   const redirectTo = String(form.get("redirect") ?? "/settings") || "/settings";
-  return NextResponse.redirect(new URL(redirectTo, req.url), { status: 303 });
+  return publicRedirect(req, redirectTo, 303);
 }

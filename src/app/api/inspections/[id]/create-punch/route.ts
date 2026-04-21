@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { WorkflowStatus } from "@prisma/client";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -51,5 +52,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   });
 
   const redirect = String(form.get("redirect") ?? `/projects/${inspection.projectId}/punch-list/${punch.id}`);
-  return NextResponse.redirect(new URL(redirect, req.url), { status: 303 });
+  return publicRedirect(req, redirect, 303);
 }

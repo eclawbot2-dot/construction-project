@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ingestSpreadsheet } from "@/lib/historical-import";
 import { requireTenant } from "@/lib/tenant";
 import { HistoricalImportKind } from "@prisma/client";
+import { publicRedirect } from "@/lib/redirect";
 
 const VALID_KINDS: HistoricalImportKind[] = ["PROJECT_ACTUALS", "BID_HISTORY", "INCOME_STATEMENT", "BUDGET_TEMPLATE", "SCHEDULE_OF_VALUES", "VENDOR_LIST"];
 
@@ -25,5 +26,5 @@ export async function POST(req: Request) {
     fileSize: file.size,
     csv,
   });
-  return NextResponse.redirect(new URL(`/imports/${imp.id}`, req.url), { status: 303 });
+  return publicRedirect(req, `/imports/${imp.id}`, 303);
 }

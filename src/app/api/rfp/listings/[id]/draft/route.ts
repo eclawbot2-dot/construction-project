@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { draftBidFromListing } from "@/lib/bid-author";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -14,5 +15,5 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     companyName: tenant.name,
     authorName: "AI Assistant (bcon-author-v1)",
   });
-  return NextResponse.redirect(new URL(`/bids/drafts/${draft.id}`, _req.url), { status: 303 });
+  return publicRedirect(_req, `/bids/drafts/${draft.id}`, 303);
 }

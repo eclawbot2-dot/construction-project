@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { ProjectStage } from "@prisma/client";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const tenant = await requireTenant();
   const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: tenant.id } });
   if (!opp) return NextResponse.json({ error: "opportunity not found" }, { status: 404 });
-  if (opp.projectId) return NextResponse.redirect(new URL(`/projects/${opp.projectId}`, req.url), { status: 303 });
+  if (opp.projectId) return publicRedirect(req, `/projects/${opp.projectId}`, 303);
 
   const form = await req.formData();
   const code = String(form.get("code") ?? "").trim() || (opp.name.split(" ").slice(0, 2).join("-").toUpperCase().replace(/[^A-Z0-9-]/g, "") + "-001");
@@ -42,5 +43,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       source: "opportunities/convert",
     },
   });
-  return NextResponse.redirect(new URL(`/projects/${project.id}`, req.url), { status: 303 });
+  return publicRedirect(req, `/projects/${project.id}`, 303);
 }

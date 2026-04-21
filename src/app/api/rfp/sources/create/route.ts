@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { encryptSecret } from "@/lib/rfp-geo";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request) {
   const tenant = await requireTenant();
@@ -33,5 +34,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.redirect(new URL("/bids/sources", req.url), { status: 303 });
+  return publicRedirect(req, "/bids/sources", 303);
 }

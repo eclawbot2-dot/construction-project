@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { tailorProposalThemes } from "@/lib/sales-ai";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -16,5 +17,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       keyDifferentiators: tailored.differentiators,
     },
   });
-  return NextResponse.redirect(new URL(`/bids/drafts/${id}`, req.url), { status: 303 });
+  return publicRedirect(req, `/bids/drafts/${id}`, 303);
 }

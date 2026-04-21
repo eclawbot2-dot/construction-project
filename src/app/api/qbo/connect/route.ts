@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { connectQboDemo, disconnectQbo, syncFromQbo } from "@/lib/qbo-sync";
 import { requireTenant } from "@/lib/tenant";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request) {
   const tenant = await requireTenant();
@@ -14,5 +14,5 @@ export async function POST(req: Request) {
     await connectQboDemo(tenant.id);
   }
   const redirect = String(form.get("redirect") ?? "/finance");
-  return NextResponse.redirect(new URL(redirect, req.url), { status: 303 });
+  return publicRedirect(req, redirect, 303);
 }

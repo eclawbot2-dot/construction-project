@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { ProjectStage, WarrantyStatus } from "@prisma/client";
+import { publicRedirect } from "@/lib/redirect";
 
 const ORDER: ProjectStage[] = [ProjectStage.PRECONSTRUCTION, ProjectStage.ACTIVE, ProjectStage.CLOSEOUT, ProjectStage.WARRANTY];
 
@@ -64,5 +65,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     },
   });
 
-  return NextResponse.redirect(new URL(`/projects/${project.id}`, req.url), { status: 303 });
+  return publicRedirect(req, `/projects/${project.id}`, 303);
 }

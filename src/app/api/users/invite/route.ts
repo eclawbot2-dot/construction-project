@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { UserRoleTemplate } from "@prisma/client";
+import { publicRedirect } from "@/lib/redirect";
 
 const VALID: UserRoleTemplate[] = [
   "ADMIN", "EXECUTIVE", "MANAGER", "RECRUITER", "COORDINATOR", "CAPTURE_MANAGER",
@@ -41,5 +42,5 @@ export async function POST(req: Request) {
       source: "users/invite",
     },
   });
-  return NextResponse.redirect(new URL("/settings", req.url), { status: 303 });
+  return publicRedirect(req, "/settings", 303);
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { awardSubBid } from "@/lib/subcontract-award";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request, ctx: { params: Promise<{ packageId: string; subBidId: string }> }) {
   const { packageId, subBidId } = await ctx.params;
@@ -10,5 +11,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ packageId: str
   if (!pkg) return NextResponse.json({ error: "bid package not found" }, { status: 404 });
   const result = await awardSubBid(subBidId, tenant.id);
   if (!result.ok) return NextResponse.json({ error: result.note }, { status: 400 });
-  return NextResponse.redirect(new URL(`/projects/${pkg.projectId}/contracts/${result.contractId}`, req.url), { status: 303 });
+  return publicRedirect(req, `/projects/${pkg.projectId}/contracts/${result.contractId}`, 303);
 }

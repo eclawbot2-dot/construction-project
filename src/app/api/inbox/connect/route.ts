@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { connectInvoiceInbox, disconnectInvoiceInbox, pollInvoiceInbox } from "@/lib/invoice-inbox";
 import { requireTenant } from "@/lib/tenant";
+import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request) {
   const tenant = await requireTenant();
@@ -17,5 +17,5 @@ export async function POST(req: Request) {
     await connectInvoiceInbox(tenant.id, mailbox, labelFilter, allowlist);
   }
   const redirect = String(form.get("redirect") ?? "/finance/inbox");
-  return NextResponse.redirect(new URL(redirect, req.url), { status: 303 });
+  return publicRedirect(req, redirect, 303);
 }
