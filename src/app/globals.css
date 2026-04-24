@@ -176,6 +176,45 @@ html[data-theme="light"] .border-white\/5, html[data-theme="light"] .border-whit
 html[data-theme="light"] .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border) !important; }
 html[data-theme="light"] .hover\:bg-white\/5:hover, html[data-theme="light"] .hover\:bg-white\/10:hover { background-color: var(--hover-bg) !important; }
 
+/* Super-admin surfaces — legible rose in both themes */
+.super-admin-pill {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 12px 0; padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  background: rgba(244, 63, 94, 0.14);
+  color: #fecdd3;
+  font-size: 12px; font-weight: 600;
+  text-decoration: none; transition: background-color .15s;
+}
+.super-admin-pill:hover { background: rgba(244, 63, 94, 0.24); }
+html[data-theme="light"] .super-admin-pill {
+  border-color: #be123c;
+  background: #fee2e2;
+  color: #9f1239;
+}
+html[data-theme="light"] .super-admin-pill:hover { background: #fecaca; }
+
+.super-admin-bar {
+  width: 100%;
+  border-bottom: 1px solid rgba(244, 63, 94, 0.25);
+  background: rgba(244, 63, 94, 0.12);
+  color: #fecdd3;
+  font-size: 12px;
+  padding: 10px 24px;
+}
+.super-admin-bar a { color: #fecdd3; }
+.super-admin-bar a:hover { color: #fff; text-decoration: underline; }
+.super-admin-bar .label { color: #fda4af; }
+html[data-theme="light"] .super-admin-bar {
+  border-color: rgba(190, 18, 60, 0.25);
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+html[data-theme="light"] .super-admin-bar a { color: #9f1239; }
+html[data-theme="light"] .super-admin-bar a:hover { color: #7f1d1d; }
+html[data-theme="light"] .super-admin-bar .label { color: #b91c1c; }
+
 @media print {
   aside, .no-print { display: none !important; }
   body, .card, .panel { background: white !important; color: black !important; border-color: #ccc !important; }

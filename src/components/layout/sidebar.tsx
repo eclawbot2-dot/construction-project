@@ -82,7 +82,7 @@ export async function Sidebar() {
       </div>
 
       {superAdmin ? (
-        <Link href="/admin" className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/20">
+        <Link href="/admin" className="super-admin-pill">
           <Crown className="h-4 w-4" />
           <span className="flex-1">Super Admin</span>
         </Link>
