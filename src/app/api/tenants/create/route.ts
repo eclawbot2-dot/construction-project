@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
   if (switchTo) {
     const res = publicRedirect(req, `/settings`, 303);
-    res.cookies.set("cx.tenant", result.slug, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
+    res.cookies.set("cx.tenant", result.slug, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
     return res;
   }
   return publicRedirect(req, `/settings`, 303);

@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   const res = publicRedirect(req, `/admin/tenants/${result.tenantId}`, 303);
   if (form.get("switchTo") === "on") {
-    res.cookies.set("cx.tenant", result.slug, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
+    res.cookies.set("cx.tenant", result.slug, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   }
   return res;
 }

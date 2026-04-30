@@ -19,6 +19,6 @@ export async function POST(req: Request) {
   const location = new URL(redirectTo, base).toString();
 
   const res = NextResponse.redirect(location, { status: 303 });
-  res.cookies.set("cx.tenant", slug, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
+  res.cookies.set("cx.tenant", slug, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   return res;
 }
