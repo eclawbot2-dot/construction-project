@@ -1970,6 +1970,8 @@ model HistoricalImport {
   label            String
   filename         String
   fileSize         Int                    @default(0)
+  fileUrl          String?
+  fileKey          String?
   uploadedBy       String?
   status           HistoricalImportStatus @default(UPLOADED)
   aiModel          String                 @default("bcon-reviewer-v1")

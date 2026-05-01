@@ -85,6 +85,8 @@ export async function ingestSpreadsheet(params: {
   fileSize: number;
   csv: string;
   uploadedBy?: string | null;
+  fileUrl?: string | null;
+  fileKey?: string | null;
 }) {
   const table = parseCsv(params.csv);
   if (table.length === 0) throw new Error("CSV is empty");
@@ -111,6 +113,8 @@ export async function ingestSpreadsheet(params: {
       label: params.label,
       filename: params.filename,
       fileSize: params.fileSize,
+      fileUrl: params.fileUrl ?? null,
+      fileKey: params.fileKey ?? null,
       uploadedBy: params.uploadedBy,
       status: HistoricalImportStatus.PARSED,
       rowsDetected: rawRows.length,

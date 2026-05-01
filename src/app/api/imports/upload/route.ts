@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ingestSpreadsheet } from "@/lib/historical-import";
 import { requireTenant } from "@/lib/tenant";
 import { requireEditor } from "@/lib/permissions";
+import { getStorage } from "@/lib/storage";
 import { HistoricalImportKind } from "@prisma/client";
 import { publicRedirect } from "@/lib/redirect";
 
@@ -9,7 +10,7 @@ const VALID_KINDS: HistoricalImportKind[] = ["PROJECT_ACTUALS", "BID_HISTORY", "
 
 export async function POST(req: Request) {
   const tenant = await requireTenant();
-  await requireEditor(tenant.id);
+  const actor = await requireEditor(tenant.id);
   const form = await req.formData();
   const file = form.get("file");
   const kindRaw = String(form.get("kind") ?? "PROJECT_ACTUALS");
@@ -19,6 +20,23 @@ export async function POST(req: Request) {
 
   if (!(file instanceof File)) return NextResponse.json({ error: "file is required (multipart/form-data)" }, { status: 400 });
   const csv = await file.text();
+
+  // Persist the raw upload via the storage adapter so the original artifact
+  // survives the parse step. Failures here are non-fatal: the parse-and-
+  // ingest path still works, just without the file URL on the row.
+  let stored: { url: string; key: string } | null = null;
+  try {
+    const result = await getStorage().put({
+      tenantId: tenant.id,
+      body: csv,
+      filename: file.name,
+      contentType: "text/csv",
+    });
+    stored = { url: result.url, key: result.key };
+  } catch (err) {
+    console.error("[imports/upload] storage.put failed; continuing without artifact", err);
+  }
+
   const imp = await ingestSpreadsheet({
     tenantId: tenant.id,
     projectId,
@@ -27,6 +45,9 @@ export async function POST(req: Request) {
     filename: file.name,
     fileSize: file.size,
     csv,
+    uploadedBy: actor.userName,
+    fileUrl: stored?.url ?? null,
+    fileKey: stored?.key ?? null,
   });
   return publicRedirect(req, `/imports/${imp.id}`, 303);
 }
