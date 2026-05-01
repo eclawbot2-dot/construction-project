@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { createTenant } from "@/lib/tenant-admin";
+import { requireSuperAdmin } from "@/lib/permissions";
 import { publicRedirect } from "@/lib/redirect";
 import type { ProjectMode } from "@prisma/client";
 
 const VALID_MODES: ProjectMode[] = ["SIMPLE", "VERTICAL", "HEAVY_CIVIL"];
 
 export async function POST(req: Request) {
+  await requireSuperAdmin();
   const form = await req.formData();
   const name = String(form.get("name") ?? "");
   const slug = String(form.get("slug") ?? "");

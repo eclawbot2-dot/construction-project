@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { requireManager } from "@/lib/permissions";
 import { ProjectStage, WarrantyStatus } from "@prisma/client";
 import { publicRedirect } from "@/lib/redirect";
 
@@ -9,6 +10,7 @@ const ORDER: ProjectStage[] = [ProjectStage.PRECONSTRUCTION, ProjectStage.ACTIVE
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const tenant = await requireTenant();
+  const actor = await requireManager(tenant.id);
   const project = await prisma.project.findFirst({ where: { id, tenantId: tenant.id } });
   if (!project) return NextResponse.json({ error: "project not found" }, { status: 404 });
 
@@ -56,11 +58,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   await prisma.auditEvent.create({
     data: {
       tenantId: tenant.id,
+      actorId: actor.userId,
       entityType: "Project",
       entityId: project.id,
       action: `STAGE_ADVANCED_TO_${next}`,
       beforeJson: JSON.stringify({ stage: project.stage }),
-      afterJson: JSON.stringify({ stage: next }),
+      afterJson: JSON.stringify({ stage: next, actor: actor.userName }),
       source: "projects/stage",
     },
   });

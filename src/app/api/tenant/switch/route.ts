@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function POST(req: Request) {
+  const session = await auth();
+  if (!session?.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const form = await req.formData();
   const slug = String(form.get("slug") ?? "").trim();
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
-  const tenant = await prisma.tenant.findUnique({ where: { slug } });
+
+  // Super-admins may switch to any tenant; everyone else must be a member.
+  const tenant = session.superAdmin
+    ? await prisma.tenant.findUnique({ where: { slug } })
+    : await prisma.tenant.findFirst({
+        where: { slug, memberships: { some: { userId: session.userId } } },
+      });
   if (!tenant) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const redirectTo = String(form.get("redirect") ?? "/") || "/";

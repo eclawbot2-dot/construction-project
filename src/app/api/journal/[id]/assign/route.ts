@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { requireManager } from "@/lib/permissions";
 import { CostReconciliationStatus } from "@prisma/client";
 import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const tenant = await requireTenant();
+  await requireManager(tenant.id);
   const row = await prisma.journalEntryRow.findFirst({ where: { id, tenantId: tenant.id } });
   if (!row) return NextResponse.json({ error: "journal row not found" }, { status: 404 });
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ingestSpreadsheet } from "@/lib/historical-import";
 import { requireTenant } from "@/lib/tenant";
+import { requireEditor } from "@/lib/permissions";
 import { HistoricalImportKind } from "@prisma/client";
 import { publicRedirect } from "@/lib/redirect";
 
@@ -8,6 +9,7 @@ const VALID_KINDS: HistoricalImportKind[] = ["PROJECT_ACTUALS", "BID_HISTORY", "
 
 export async function POST(req: Request) {
   const tenant = await requireTenant();
+  await requireEditor(tenant.id);
   const form = await req.formData();
   const file = form.get("file");
   const kindRaw = String(form.get("kind") ?? "PROJECT_ACTUALS");

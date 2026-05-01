@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { requireEditor } from "@/lib/permissions";
 import { WorkflowStatus } from "@prisma/client";
 import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const tenant = await requireTenant();
+  const actor = await requireEditor(tenant.id);
   const inspection = await prisma.inspection.findFirst({
     where: { id, project: { tenantId: tenant.id } },
     include: { project: true, checklistItems: true },
@@ -43,10 +45,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   await prisma.auditEvent.create({
     data: {
       tenantId: tenant.id,
+      actorId: actor.userId,
       entityType: "PunchItem",
       entityId: punch.id,
       action: "CREATED_FROM_INSPECTION",
-      afterJson: JSON.stringify({ inspectionId: inspection.id, checklistItemId: item?.id ?? null }),
+      afterJson: JSON.stringify({ inspectionId: inspection.id, checklistItemId: item?.id ?? null, actor: actor.userName }),
       source: "inspections/create-punch",
     },
   });

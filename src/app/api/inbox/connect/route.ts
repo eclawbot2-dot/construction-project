@@ -1,9 +1,11 @@
 import { connectInvoiceInbox, disconnectInvoiceInbox, pollInvoiceInbox } from "@/lib/invoice-inbox";
 import { requireTenant } from "@/lib/tenant";
+import { requireManager } from "@/lib/permissions";
 import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request) {
   const tenant = await requireTenant();
+  await requireManager(tenant.id);
   const form = await req.formData();
   const action = String(form.get("action") ?? "connect");
   if (action === "disconnect") {

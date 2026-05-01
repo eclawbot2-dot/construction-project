@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { requireManager } from "@/lib/permissions";
 import { ProjectStage } from "@prisma/client";
 import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const tenant = await requireTenant();
+  const actor = await requireManager(tenant.id);
   const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: tenant.id } });
   if (!opp) return NextResponse.json({ error: "opportunity not found" }, { status: 404 });
   if (opp.projectId) return publicRedirect(req, `/projects/${opp.projectId}`, 303);
@@ -36,10 +38,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   await prisma.auditEvent.create({
     data: {
       tenantId: tenant.id,
+      actorId: actor.userId,
       entityType: "Project",
       entityId: project.id,
       action: "CREATED_FROM_OPPORTUNITY",
-      afterJson: JSON.stringify({ opportunityId: opp.id }),
+      afterJson: JSON.stringify({ opportunityId: opp.id, actor: actor.userName }),
       source: "opportunities/convert",
     },
   });

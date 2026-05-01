@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { requireManager } from "@/lib/permissions";
 import { encryptSecret } from "@/lib/rfp-geo";
 import { publicRedirect } from "@/lib/redirect";
 
 export async function POST(req: Request) {
   const tenant = await requireTenant();
+  await requireManager(tenant.id);
   const form = await req.formData();
   const label = String(form.get("label") ?? "").trim();
   const url = String(form.get("url") ?? "").trim();
