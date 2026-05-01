@@ -1,17 +1,19 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import type { UserRoleTemplate } from "@prisma/client";
 
 const ACTOR_COOKIE = "cx.actor";
-const SUPER_ADMIN_COOKIE = "cx.superAdmin";
 
 export async function currentSuperAdmin(): Promise<{ userId: string; name: string; email: string | null } | null> {
-  const store = await cookies().catch(() => null);
-  const slug = store?.get(SUPER_ADMIN_COOKIE)?.value ?? store?.get(ACTOR_COOKIE)?.value ?? null;
-  let user: { id: string; name: string; email: string | null; superAdmin: boolean } | null = null;
-  if (slug) user = await prisma.user.findFirst({ where: { OR: [{ id: slug }, { email: slug }] } });
-  if (!user) user = await prisma.user.findFirst({ where: { superAdmin: true } });
-  if (!user || !user.superAdmin) return null;
+  const session = await auth();
+  if (!session?.userId || !session.superAdmin) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, name: true, email: true, superAdmin: true, active: true },
+  });
+  if (!user || !user.active || !user.superAdmin) return null;
   return { userId: user.id, name: user.name, email: user.email };
 }
 
@@ -56,49 +58,83 @@ export type CurrentActor = {
   canEdit: boolean;
 };
 
+const ANONYMOUS_ACTOR: CurrentActor = {
+  userId: null,
+  userName: "Unknown user",
+  email: null,
+  role: null,
+  isManager: false,
+  canEdit: false,
+};
+
 /**
- * Resolve the current acting user for the active tenant. Falls back to the
- * first Admin membership if no `cx.actor` cookie is set (useful for local
- * dev and single-operator tenants).
+ * Resolve the current acting user for the active tenant.
+ *
+ * Identity comes from the authenticated NextAuth session — there is no
+ * fallback for unauthenticated callers. Super-admins may impersonate any
+ * user in any tenant by setting the `cx.actor` cookie to the target user's
+ * id or email; for non-super-admin callers the cookie is ignored.
+ *
+ * Returns the empty `ANONYMOUS_ACTOR` (role=null, isManager=false,
+ * canEdit=false) when the caller is unauthenticated or has no membership in
+ * the requested tenant. Callers that mutate state must check `isManager` /
+ * `canEdit` and reject anonymous actors explicitly.
  */
 export async function currentActor(tenantId: string): Promise<CurrentActor> {
-  const store = await cookies().catch(() => null);
-  const actorSlug = store?.get(ACTOR_COOKIE)?.value ?? null;
+  const session = await auth();
+  if (!session?.userId) return ANONYMOUS_ACTOR;
 
-  let membership: { id: string; userId: string; roleTemplate: UserRoleTemplate; user: { id: string; name: string; email: string | null } } | null = null;
+  let actorUserId = session.userId;
 
-  if (actorSlug) {
-    const m = await prisma.membership.findFirst({
-      where: { tenantId, OR: [{ userId: actorSlug }, { user: { email: actorSlug } }] },
-      include: { user: true },
+  if (session.superAdmin) {
+    const store = await cookies().catch(() => null);
+    const impersonate = store?.get(ACTOR_COOKIE)?.value ?? null;
+    if (impersonate) {
+      const target = await prisma.user.findFirst({
+        where: { active: true, OR: [{ id: impersonate }, { email: impersonate }] },
+        select: { id: true },
+      });
+      if (target) actorUserId = target.id;
+    }
+  }
+
+  const membership = await prisma.membership.findFirst({
+    where: { tenantId, userId: actorUserId },
+    include: { user: { select: { id: true, name: true, email: true, active: true } } },
+  });
+
+  if (membership && membership.user.active) {
+    const role = membership.roleTemplate;
+    return {
+      userId: membership.user.id,
+      userName: membership.user.name,
+      email: membership.user.email,
+      role,
+      isManager: MANAGER_ROLES.includes(role),
+      canEdit: EDIT_ROLES.includes(role),
+    };
+  }
+
+  // Super-admins acting as themselves get implicit ADMIN-equivalent rights
+  // in any tenant, even without a membership row.
+  if (session.superAdmin && actorUserId === session.userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, name: true, email: true, active: true },
     });
-    if (m) membership = m;
-  }
-  if (!membership) {
-    // Prefer ADMIN → EXECUTIVE → MANAGER → first available membership.
-    for (const r of ["ADMIN", "EXECUTIVE", "MANAGER"] as const) {
-      const m = await prisma.membership.findFirst({ where: { tenantId, roleTemplate: r }, include: { user: true } });
-      if (m) { membership = m; break; }
-    }
-    if (!membership) {
-      const any = await prisma.membership.findFirst({ where: { tenantId }, include: { user: true } });
-      if (any) membership = any;
+    if (user?.active) {
+      return {
+        userId: user.id,
+        userName: user.name,
+        email: user.email,
+        role: "ADMIN",
+        isManager: true,
+        canEdit: true,
+      };
     }
   }
 
-  if (!membership) {
-    return { userId: null, userName: "Unknown user", email: null, role: null, isManager: false, canEdit: false };
-  }
-
-  const role = membership.roleTemplate;
-  return {
-    userId: membership.user.id,
-    userName: membership.user.name,
-    email: membership.user.email,
-    role,
-    isManager: MANAGER_ROLES.includes(role),
-    canEdit: EDIT_ROLES.includes(role),
-  };
+  return ANONYMOUS_ACTOR;
 }
 
 export function isManagerRole(role: UserRoleTemplate | null | undefined): boolean {
@@ -107,4 +143,35 @@ export function isManagerRole(role: UserRoleTemplate | null | undefined): boolea
 
 export function canEditRole(role: UserRoleTemplate | null | undefined): boolean {
   return !!role && EDIT_ROLES.includes(role);
+}
+
+/**
+ * Throw if the current actor cannot perform a manager-gated mutation.
+ * Use as a one-liner at the top of any POST/PATCH/DELETE handler that
+ * changes state requiring approval-class authority.
+ */
+export async function requireManager(tenantId: string): Promise<CurrentActor> {
+  const actor = await currentActor(tenantId);
+  if (!actor.isManager) throw new Error("Manager-level role required.");
+  return actor;
+}
+
+/**
+ * Throw if the current actor cannot edit records in this tenant.
+ */
+export async function requireEditor(tenantId: string): Promise<CurrentActor> {
+  const actor = await currentActor(tenantId);
+  if (!actor.canEdit) throw new Error("Editor-level role required.");
+  return actor;
+}
+
+/**
+ * Throw if there is no authenticated actor with a membership in this
+ * tenant. Use for any mutation that should be unavailable to anonymous
+ * callers regardless of role.
+ */
+export async function requireActor(tenantId: string): Promise<CurrentActor> {
+  const actor = await currentActor(tenantId);
+  if (!actor.userId) throw new Error("Authentication required.");
+  return actor;
 }

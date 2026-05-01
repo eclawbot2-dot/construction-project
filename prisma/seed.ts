@@ -95,7 +95,7 @@ async function main() {
   const password = await bcrypt.hash("demo1234", 10);
 
   const [admin, exec, pm, superintendent] = await Promise.all([
-    prisma.user.create({ data: { name: "Morgan Admin", email: "admin@construction.local", password } }),
+    prisma.user.create({ data: { name: "Morgan Admin", email: "admin@construction.local", password, superAdmin: true } }),
     prisma.user.create({ data: { name: "Elena Executive", email: "exec@construction.local", password } }),
     prisma.user.create({ data: { name: "Paula PM", email: "pm@construction.local", password } }),
     prisma.user.create({ data: { name: "Sam Superintendent", email: "super@construction.local", password } }),
