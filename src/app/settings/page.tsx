@@ -189,6 +189,40 @@ export default async function SettingsPage() {
           </div>
           <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-slate-500">SSO wiring is scaffolded but not live — contact support to enable for production.</p>
         </section>
+
+        <section className="card p-6">
+          <div className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--accent, #67e8f9)" }}>Backup status</div>
+          <p className="mt-2 text-sm" style={{ color: "var(--faint)" }}>
+            Read-only view of this tenant's nightly backup. Configuration (enabled flag, external directory, run-now) lives on the super-admin tenant page.
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 text-sm">
+            <div>
+              <span className="text-xs uppercase tracking-[0.16em]" style={{ color: "var(--faint)" }}>Last backup</span>
+              <div className="mt-1" style={{ color: "var(--heading)" }}>
+                {tenant.lastBackupAt ? formatDate(tenant.lastBackupAt) : "never"}
+                {tenant.lastBackupBytes ? <span className="ml-2 text-xs" style={{ color: "var(--faint)" }}>({Math.round(tenant.lastBackupBytes / 1024)} KB)</span> : null}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs uppercase tracking-[0.16em]" style={{ color: "var(--faint)" }}>Status</span>
+              <div className="mt-1">
+                {tenant.lastBackupError ? (
+                  <span className="rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-200">last error: {tenant.lastBackupError.slice(0, 80)}</span>
+                ) : tenant.backupEnabled ? (
+                  <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200">enabled</span>
+                ) : (
+                  <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200">disabled</span>
+                )}
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <span className="text-xs uppercase tracking-[0.16em]" style={{ color: "var(--faint)" }}>External directory</span>
+              <div className="mt-1 font-mono text-xs" style={{ color: tenant.backupDirectory ? "var(--heading)" : "var(--faint)" }}>
+                {tenant.backupDirectory ?? "(local only — ./uploads/backups/" + tenant.slug + "/)"}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </AppLayout>
   );

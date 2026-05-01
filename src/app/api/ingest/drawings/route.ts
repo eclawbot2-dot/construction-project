@@ -5,6 +5,7 @@ import { requireEditor } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
 import { extractSheets } from "@/lib/drawing-ingest";
 import { parseEnumField, parseStringField } from "@/lib/form-input";
+import { consumeRateLimit } from "@/lib/rate-limit";
 import { DrawingDiscipline } from "@prisma/client";
 
 const VALID_DISCIPLINES: DrawingDiscipline[] = [
@@ -31,6 +32,20 @@ const VALID_DISCIPLINES: DrawingDiscipline[] = [
 export async function POST(req: Request) {
   const tenant = await requireTenant();
   const actor = await requireEditor(tenant.id);
+
+  // Pass-10: cap LLM-bearing calls per (tenant, action) to keep one
+  // editor from running away with token spend on a configured LLM
+  // provider. 30 requests / hour per tenant — generous enough for
+  // legitimate batch ingest of a multi-volume drawing set, tight
+  // enough that a script-driven abuse stops within minutes.
+  const rl = consumeRateLimit(`ai-ingest:drawings:${tenant.id}`, { limit: 30, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "AI ingest rate limit reached for this tenant. Try again later.", retryAt: new Date(rl.resetAt).toISOString() },
+      { status: 429 },
+    );
+  }
+
   const form = await req.formData();
 
   const projectId = parseStringField(form.get("projectId"), null);
@@ -46,12 +61,14 @@ export async function POST(req: Request) {
   const action = String(form.get("action") ?? "preview");
   const discipline = parseEnumField(form.get("discipline"), VALID_DISCIPLINES, "OTHER" as DrawingDiscipline) ?? "OTHER";
 
-  const { sheets, source } = await extractSheets(text);
+  const { sheets, source, truncated, inputChars } = await extractSheets(text);
 
   if (action === "preview") {
     return NextResponse.json({
       ok: true,
       source,
+      truncated,
+      inputChars,
       proposed: sheets,
       stats: { count: sheets.length, byDiscipline: countBy(sheets.map((s) => s.discipline)) },
     });
@@ -65,7 +82,7 @@ export async function POST(req: Request) {
       discipline,
       revisionNumber: Number(form.get("revisionNumber") ?? 0) || 0,
       issuedDate: form.get("issuedDate") ? new Date(String(form.get("issuedDate"))) : null,
-      notes: `AI-ingested from ${source}; ${sheets.length} sheet${sheets.length === 1 ? "" : "s"} accepted.`,
+      notes: `AI-ingested from ${source}; ${sheets.length} sheet${sheets.length === 1 ? "" : "s"} accepted${truncated ? " (input was truncated at 10k chars; re-run with smaller chunks for the rest)" : ""}.`,
     },
   });
 

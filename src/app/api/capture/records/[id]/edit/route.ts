@@ -29,6 +29,28 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const setAside = parseEnumField(form.get("setAside"), VALID_SET_ASIDES, before.setAside);
   if (!setAside) return NextResponse.json({ error: "invalid setAside" }, { status: 400 });
 
+  // Pass-10: enforce a forward-only progression on capture stage. Once
+  // a pursuit is AWARDED or LOST, allow only the explicit terminal
+  // moves; otherwise advance through the natural stage order. This
+  // prevents an accidental "AWARDED → IDENTIFIED" reset that would
+  // wipe win-probability tracking and confuse downstream contracts.
+  // The two terminal escape hatches (LOST, WITHDRAWN) are reachable
+  // from anywhere.
+  const STAGE_ORDER: CaptureStage[] = ["IDENTIFIED", "QUALIFYING", "CAPTURE", "PROPOSAL", "EVALUATION", "AWARDED"];
+  const TERMINAL_FROM_ANY: CaptureStage[] = ["LOST", "WITHDRAWN"];
+  if (stage !== before.stage) {
+    const beforeIdx = STAGE_ORDER.indexOf(before.stage);
+    const targetIdx = STAGE_ORDER.indexOf(stage);
+    const isForwardProgress = beforeIdx >= 0 && targetIdx >= 0 && targetIdx >= beforeIdx;
+    const isTerminalEscape = TERMINAL_FROM_ANY.includes(stage);
+    if (!isForwardProgress && !isTerminalEscape) {
+      return NextResponse.json(
+        { error: `Cannot move capture from ${before.stage} to ${stage}. Stages advance forward; terminal moves to LOST or WITHDRAWN are allowed from anywhere.` },
+        { status: 400 },
+      );
+    }
+  }
+
   const pwinPercent = parseNumberField(form.get("pwinPercent"), before.pwinPercent, { min: 0, max: 100 });
 
   await prisma.captureRecord.update({

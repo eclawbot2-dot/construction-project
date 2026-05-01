@@ -89,20 +89,30 @@ Return strict JSON: {"sheets":[{"sheetNumber":"A0.1","title":"Cover Sheet","disc
 Allowed discipline values: ARCHITECTURAL, STRUCTURAL, MEP, MECHANICAL, ELECTRICAL, PLUMBING, CIVIL, LANDSCAPE, FIRE_PROTECTION, OTHER.
 If a line is not a sheet entry, skip it. Never invent sheets that aren't in the input.`;
 
+const MAX_INPUT_CHARS = 10_000;
+
 /**
  * Extract sheets via the LLM if available, falling back to the
  * heuristic. Returns at most 200 sheets per call (large drawing sets
  * should be chunked).
+ *
+ * The LLM prompt is capped at MAX_INPUT_CHARS chars; longer inputs are
+ * truncated and the result includes `truncated: true` so the caller can
+ * surface a warning to the user. The heuristic path is unaffected by
+ * the cap (regex runs on the full input).
  */
 export async function extractSheets(input: string): Promise<{
   sheets: IngestedSheet[];
   source: "llm" | "heuristic";
+  truncated: boolean;
+  inputChars: number;
 }> {
+  const truncated = input.length > MAX_INPUT_CHARS;
   const heuristicSheets = parseDrawingIndexHeuristic(input);
   const result = await aiCall<IngestedSheet[]>({
     kind: "drawing.index.extract",
     system: SYSTEM_PROMPT,
-    prompt: `Extract sheet entries from this drawing index. Input:\n\n${input.slice(0, 10000)}\n\nReturn JSON.`,
+    prompt: `Extract sheet entries from this drawing index. Input:\n\n${input.slice(0, MAX_INPUT_CHARS)}\n\nReturn JSON.`,
     maxTokens: 2048,
     fallback: () => heuristicSheets,
     parse: (raw: string) => {
@@ -111,7 +121,6 @@ export async function extractSheets(input: string): Promise<{
       if (jsonStart < 0 || jsonEnd < 0) throw new Error("no json in response");
       const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as { sheets?: IngestedSheet[] };
       const sheets = parsed.sheets ?? [];
-      // Validate + clamp.
       return sheets.slice(0, 200).map((s) => ({
         sheetNumber: String(s.sheetNumber ?? "").toUpperCase().slice(0, 32),
         title: String(s.title ?? "").slice(0, 200),
@@ -123,6 +132,8 @@ export async function extractSheets(input: string): Promise<{
   return {
     sheets: result,
     source: result === heuristicSheets ? "heuristic" : "llm",
+    truncated,
+    inputChars: input.length,
   };
 }
 
