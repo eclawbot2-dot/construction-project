@@ -4,6 +4,7 @@ import { requireTenant } from "@/lib/tenant";
 import { requireEditor } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
 import { publicRedirect } from "@/lib/redirect";
+import { parseDateField, parseEnumField, parseNumberField, parseStringField } from "@/lib/form-input";
 import { ColorTeamPhase } from "@prisma/client";
 
 const VALID_PHASES: ColorTeamPhase[] = ["PINK", "RED", "GOLD", "WHITE", "BLACK", "GREEN"];
@@ -17,24 +18,26 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!capture) return NextResponse.json({ error: "capture not found" }, { status: 404 });
 
   const form = await req.formData();
-  const phaseRaw = String(form.get("phase") ?? "");
-  if (!VALID_PHASES.includes(phaseRaw as ColorTeamPhase)) {
-    return NextResponse.json({ error: "invalid phase" }, { status: 400 });
-  }
-  const phase = phaseRaw as ColorTeamPhase;
-  const scheduledAt = String(form.get("scheduledAt") ?? "");
+  // The form provides a default phase, so empty submission is invalid
+  // (we never expect the field to be missing). parseEnumField returns
+  // null on a malformed-but-non-empty value; we reject those.
+  const phaseRaw = parseStringField(form.get("phase"), null);
+  const phase = phaseRaw && VALID_PHASES.includes(phaseRaw as ColorTeamPhase) ? (phaseRaw as ColorTeamPhase) : null;
+  if (!phase) return NextResponse.json({ error: "invalid phase" }, { status: 400 });
+
+  const scheduledAt = parseDateField(form.get("scheduledAt"), null);
   if (!scheduledAt) return NextResponse.json({ error: "scheduledAt required" }, { status: 400 });
 
   const review = await prisma.colorTeamReview.create({
     data: {
       captureId: id,
       phase,
-      scheduledAt: new Date(scheduledAt),
-      facilitator: form.get("facilitator") ? String(form.get("facilitator")) : null,
-      attendees: form.get("attendees") ? String(form.get("attendees")) : null,
-      scoreOverall: form.get("scoreOverall") ? Number(form.get("scoreOverall")) : null,
-      summaryUrl: form.get("summaryUrl") ? String(form.get("summaryUrl")) : null,
-      notes: form.get("notes") ? String(form.get("notes")) : null,
+      scheduledAt,
+      facilitator: parseStringField(form.get("facilitator"), null),
+      attendees: parseStringField(form.get("attendees"), null),
+      scoreOverall: parseNumberField(form.get("scoreOverall"), null, { min: 0, max: 100 }),
+      summaryUrl: parseStringField(form.get("summaryUrl"), null),
+      notes: parseStringField(form.get("notes"), null),
     },
   });
 

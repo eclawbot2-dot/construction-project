@@ -4,6 +4,7 @@ import { requireTenant } from "@/lib/tenant";
 import { requireEditor } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
 import { publicRedirect } from "@/lib/redirect";
+import { parseEnumField, parseNumberField, parseStringField } from "@/lib/form-input";
 import { CandidateStatus } from "@prisma/client";
 
 const VALID_STATUSES: CandidateStatus[] = [
@@ -19,25 +20,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!candidate) return NextResponse.json({ error: "candidate not found" }, { status: 404 });
 
   const form = await req.formData();
-  const statusRaw = String(form.get("status") ?? candidate.status);
-  const status = VALID_STATUSES.includes(statusRaw as CandidateStatus)
-    ? (statusRaw as CandidateStatus)
-    : candidate.status;
+  const status = parseEnumField(form.get("status"), VALID_STATUSES, candidate.status);
+  if (!status) return NextResponse.json({ error: "invalid status" }, { status: 400 });
 
-  const data: Record<string, unknown> = {
-    firstName: String(form.get("firstName") ?? candidate.firstName).trim() || candidate.firstName,
-    lastName: String(form.get("lastName") ?? candidate.lastName).trim() || candidate.lastName,
-    email: form.get("email") ? String(form.get("email")) : candidate.email,
-    phone: form.get("phone") ? String(form.get("phone")) : candidate.phone,
-    city: form.get("city") ? String(form.get("city")) : candidate.city,
-    state: form.get("state") ? String(form.get("state")) : candidate.state,
-    laborCategory: form.get("laborCategory") ? String(form.get("laborCategory")) : candidate.laborCategory,
-    primarySkill: form.get("primarySkill") ? String(form.get("primarySkill")) : candidate.primarySkill,
-    rateExpectation: form.get("rateExpectation") ? Number(form.get("rateExpectation")) : candidate.rateExpectation,
-    source: form.get("source") ? String(form.get("source")) : candidate.source,
-    resumeUrl: form.get("resumeUrl") ? String(form.get("resumeUrl")) : candidate.resumeUrl,
-    linkedInUrl: form.get("linkedInUrl") ? String(form.get("linkedInUrl")) : candidate.linkedInUrl,
-    notes: form.get("notes") ? String(form.get("notes")) : candidate.notes,
+  const data = {
+    firstName: parseStringField(form.get("firstName"), candidate.firstName) ?? candidate.firstName,
+    lastName: parseStringField(form.get("lastName"), candidate.lastName) ?? candidate.lastName,
+    email: parseStringField(form.get("email"), candidate.email),
+    phone: parseStringField(form.get("phone"), candidate.phone),
+    city: parseStringField(form.get("city"), candidate.city),
+    state: parseStringField(form.get("state"), candidate.state),
+    laborCategory: parseStringField(form.get("laborCategory"), candidate.laborCategory),
+    primarySkill: parseStringField(form.get("primarySkill"), candidate.primarySkill),
+    rateExpectation: parseNumberField(form.get("rateExpectation"), candidate.rateExpectation, { min: 0 }),
+    source: parseStringField(form.get("source"), candidate.source),
+    resumeUrl: parseStringField(form.get("resumeUrl"), candidate.resumeUrl),
+    linkedInUrl: parseStringField(form.get("linkedInUrl"), candidate.linkedInUrl),
+    notes: parseStringField(form.get("notes"), candidate.notes),
     status,
   };
 

@@ -27,20 +27,12 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
         orderBy: { submittedAt: "desc" },
       },
       placements: {
-        include: { },
+        include: { project: { select: { id: true, code: true } } },
         orderBy: { startDate: "desc" },
       },
     },
   });
   if (!candidate) notFound();
-
-  // Pull project codes for placements in a separate query — Placement has a
-  // nullable projectId that we need to translate to the project's code.
-  const projectIds = candidate.placements.map((p) => p.projectId).filter((id): id is string => !!id);
-  const projects = projectIds.length > 0
-    ? await prisma.project.findMany({ where: { id: { in: projectIds }, tenantId: tenant.id }, select: { id: true, code: true } })
-    : [];
-  const projectCodeById = new Map(projects.map((p) => [p.id, p.code]));
 
   const auditEvents = await prisma.auditEvent.findMany({
     where: { tenantId: tenant.id, entityType: "Candidate", entityId: candidate.id },
@@ -60,7 +52,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
 
   const placementRows: PlacementRow[] = candidate.placements.map((p) => ({
     id: p.id,
-    projectCode: p.projectId ? projectCodeById.get(p.projectId) ?? null : null,
+    projectCode: p.project?.code ?? null,
     contractRef: p.contractRef,
     startDate: p.startDate,
     endDate: p.endDate,

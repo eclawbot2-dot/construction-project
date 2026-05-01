@@ -4,6 +4,7 @@ import { requireTenant } from "@/lib/tenant";
 import { requireManager } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
 import { publicRedirect } from "@/lib/redirect";
+import { parseDateField, parseEnumField, parseNumberField, parseStringField } from "@/lib/form-input";
 import { CaptureStage, SetAsideCode } from "@prisma/client";
 
 const VALID_STAGES: CaptureStage[] = [
@@ -23,33 +24,35 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!before) return NextResponse.json({ error: "capture not found" }, { status: 404 });
 
   const form = await req.formData();
-  const stageRaw = String(form.get("stage") ?? before.stage);
-  const stage = VALID_STAGES.includes(stageRaw as CaptureStage) ? (stageRaw as CaptureStage) : before.stage;
-  const setAsideRaw = String(form.get("setAside") ?? before.setAside);
-  const setAside = VALID_SET_ASIDES.includes(setAsideRaw as SetAsideCode) ? (setAsideRaw as SetAsideCode) : before.setAside;
+  const stage = parseEnumField(form.get("stage"), VALID_STAGES, before.stage);
+  if (!stage) return NextResponse.json({ error: "invalid stage" }, { status: 400 });
+  const setAside = parseEnumField(form.get("setAside"), VALID_SET_ASIDES, before.setAside);
+  if (!setAside) return NextResponse.json({ error: "invalid setAside" }, { status: 400 });
+
+  const pwinPercent = parseNumberField(form.get("pwinPercent"), before.pwinPercent, { min: 0, max: 100 });
 
   await prisma.captureRecord.update({
     where: { id },
     data: {
-      title: String(form.get("title") ?? before.title).trim() || before.title,
-      agency: form.get("agency") ? String(form.get("agency")) : before.agency,
-      subAgency: form.get("subAgency") ? String(form.get("subAgency")) : before.subAgency,
-      contractVehicle: form.get("contractVehicle") ? String(form.get("contractVehicle")) : before.contractVehicle,
-      solicitationNumber: form.get("solicitationNumber") ? String(form.get("solicitationNumber")) : before.solicitationNumber,
-      naicsCode: form.get("naicsCode") ? String(form.get("naicsCode")) : before.naicsCode,
+      title: parseStringField(form.get("title"), before.title) ?? before.title,
+      agency: parseStringField(form.get("agency"), before.agency),
+      subAgency: parseStringField(form.get("subAgency"), before.subAgency),
+      contractVehicle: parseStringField(form.get("contractVehicle"), before.contractVehicle),
+      solicitationNumber: parseStringField(form.get("solicitationNumber"), before.solicitationNumber),
+      naicsCode: parseStringField(form.get("naicsCode"), before.naicsCode),
       setAside,
-      estimatedValue: form.get("estimatedValue") ? Number(form.get("estimatedValue")) : before.estimatedValue,
-      rfpReleaseDate: form.get("rfpReleaseDate") ? new Date(String(form.get("rfpReleaseDate"))) : before.rfpReleaseDate,
-      proposalDueDate: form.get("proposalDueDate") ? new Date(String(form.get("proposalDueDate"))) : before.proposalDueDate,
+      estimatedValue: parseNumberField(form.get("estimatedValue"), before.estimatedValue, { min: 0 }),
+      rfpReleaseDate: parseDateField(form.get("rfpReleaseDate"), before.rfpReleaseDate),
+      proposalDueDate: parseDateField(form.get("proposalDueDate"), before.proposalDueDate),
       stage,
-      captureLead: form.get("captureLead") ? String(form.get("captureLead")) : before.captureLead,
-      proposalLead: form.get("proposalLead") ? String(form.get("proposalLead")) : before.proposalLead,
-      pricingLead: form.get("pricingLead") ? String(form.get("pricingLead")) : before.pricingLead,
-      pwinPercent: form.get("pwinPercent") ? Number(form.get("pwinPercent")) : before.pwinPercent,
-      winStrategy: form.get("winStrategy") ? String(form.get("winStrategy")) : before.winStrategy,
-      discriminators: form.get("discriminators") ? String(form.get("discriminators")) : before.discriminators,
-      capturePlanUrl: form.get("capturePlanUrl") ? String(form.get("capturePlanUrl")) : before.capturePlanUrl,
-      notes: form.get("notes") ? String(form.get("notes")) : before.notes,
+      captureLead: parseStringField(form.get("captureLead"), before.captureLead),
+      proposalLead: parseStringField(form.get("proposalLead"), before.proposalLead),
+      pricingLead: parseStringField(form.get("pricingLead"), before.pricingLead),
+      pwinPercent,
+      winStrategy: parseStringField(form.get("winStrategy"), before.winStrategy),
+      discriminators: parseStringField(form.get("discriminators"), before.discriminators),
+      capturePlanUrl: parseStringField(form.get("capturePlanUrl"), before.capturePlanUrl),
+      notes: parseStringField(form.get("notes"), before.notes),
     },
   });
 
@@ -61,7 +64,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     entityId: id,
     action: "EDIT",
     before: { stage: before.stage, pwinPercent: before.pwinPercent },
-    after: { stage, pwinPercent: form.get("pwinPercent") ? Number(form.get("pwinPercent")) : before.pwinPercent },
+    after: { stage, pwinPercent },
     source: "capture/records/edit",
   });
 
