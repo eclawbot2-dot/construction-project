@@ -100,6 +100,28 @@ export default async function ProjectDrawingsPage({ params }: { params: Promise<
           </form>
         </section>
 
+        <section className="card p-5">
+          <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--heading)" }}>AI-assisted ingest</h2>
+          <p className="mb-3 text-xs" style={{ color: "var(--faint)" }}>
+            Paste a drawing-index page (sheet numbers + titles, one per line). The ingester extracts sheets via the LLM if configured (OPENAI_API_KEY or ANTHROPIC_API_KEY) and falls back to a regex parser otherwise. Submitting creates a new drawing set + sheet rows in one step.
+          </p>
+          <form action="/api/ingest/drawings" method="post" className="grid gap-3">
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="action" value="commit" />
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+              <input name="setName" required placeholder="Set name (e.g. Bid Set, Addendum 1)" aria-label="Set name" className="form-input" />
+              <select name="discipline" defaultValue="ARCHITECTURAL" aria-label="Default discipline if a sheet number doesn't reveal one" className="form-select">
+                {DISCIPLINES.map((d) => (
+                  <option key={d} value={d}>{d.replace("_", " ")}</option>
+                ))}
+              </select>
+              <input name="revisionNumber" type="number" min={0} defaultValue={0} placeholder="Rev" aria-label="Revision number" className="form-input w-20" />
+            </div>
+            <textarea name="text" required rows={6} placeholder={"A0.1   Cover Sheet\nA0.2   Code Analysis\nA1.1   Site Plan\nS2.1   Foundation Plan"} className="form-textarea font-mono text-xs" />
+            <button className="btn-primary justify-self-start">Ingest sheets</button>
+          </form>
+        </section>
+
         <div>
           <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--heading)" }}>Drawing sets</h2>
           {drawings.length === 0 ? (

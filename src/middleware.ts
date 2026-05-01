@@ -46,6 +46,6 @@ export const config = {
   //   /favicon.ico, /robots.txt, /sitemap.xml — public surface
   //   anything with a file extension — public/ assets like *.svg, *.png
   matcher: [
-    "/((?!login|api/auth|api/cron|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.[a-zA-Z0-9]+$).*)",
+    "/((?!login|api/auth|api/cron|api/health|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.[a-zA-Z0-9]+$).*)",
   ],
 };
