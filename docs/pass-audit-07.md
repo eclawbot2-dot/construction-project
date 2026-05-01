@@ -201,6 +201,51 @@ The Top 10 PR sequence below was implemented in the same session. Commits:
 
 Production build verified: `next build` compiles clean, 79 pages.
 
+### Follow-on PRs landed in the same session
+
+After PR #10 the user asked for autonomous continuation. The
+following landed against the same audit:
+
+| # | Commit | Notes |
+|---|--------|-------|
+| 11 | `Wire workflow runs into remaining 8 record-action modules` | RFI, Submittal, Safety, Punch, SubInvoice, PO, Contract, LienWaiver — all submit/approve/reject + terminal-close paths |
+| 12 | `Add ATS module: candidates, requisitions, submissions, placements (req §7.1A)` | Schema + 5 routes + /people/ats + /people/placements |
+| 13 | `Add shared DataTable component; refactor admin/users page onto it` | Component shipped, one proof refactor; ~19 other list pages can adopt incrementally |
+| 14 | `Add Drawing/Sheet/SpecSection register (req §7.7)` | DrawingDiscipline enum, sheet register w/ unique sheetNumber, CSI spec sections, /projects/[id]/drawings |
+| 15 | `Add storage + queue abstractions with working local defaults` | Storage (LocalDisk default, S3/R2 stubs) + Queue (InProcess default, BullMQ/Inngest stubs) |
+| 16 | (folded into #15) | Queue lib lives at src/lib/queue.ts |
+| 17 | `Wire imports/upload to persist raw CSV via the storage adapter` | First storage consumer; HistoricalImport gains fileUrl/fileKey |
+| 18 | `Wire notification dispatch through the queue` | First queue consumer; one job per recipient |
+| 19 | `Add Commissions module: rules, accruals, payouts (req §7.1A)` | CommissionRule, CommissionAccrual, lifecycle, /finance/commissions |
+| 20 | `Add Federal proposal capture module (req §7.1A)` | CaptureRecord, milestones, color-team reviews, go/no-go decisions, teaming partners; /bids/capture |
+| 21 | `Add Onboarding pipeline (req §7.1A — last back-office module)` | OnboardingPath + OnboardingStep with default-step seeding; /people/onboarding |
+| 22 | `Add CrewAssignment + geotagging on DailyLog/SafetyIncident/PunchItem` | Heavy-civil §7.12 + §7.24 closure; /projects/[id]/crew |
+
+Net: all five req §7.1A back-office gaps are now schema+UI complete
+(ATS / Commissions / Federal Capture / Onboarding / Drawing register).
+Heavy-civil depth gaps closed. Storage and queue abstractions exist
+with first concrete consumers wired. WorkflowRun materialization is
+universal across record-actions. DataTable shipped and demonstrated.
+
+Still deferred from the original audit (and explicitly NOT in this
+push):
+
+  * Float → Decimal mass conversion (~104 fields) — needs hosting
+    decision and is a multi-day code-and-data migration.
+  * Full Postgres adapter wiring (`@prisma/adapter-pg` install +
+    src/lib/prisma.ts swap). Build currently fails loudly if
+    DATABASE_URL points at Postgres while the SQLite adapter is
+    still active — see lib/prisma.ts header comment.
+  * Real Resend / SES / Postmark transport — Storage and Queue have
+    the same shape: replace one class.
+  * AI document-ingest pipeline (req §7.24A) — substantial work
+    requiring an LLM provider account and prompt-engineering effort.
+  * Object-level / per-project ABAC permission table (req §10.2).
+  * The remaining ~19 list pages still need DataTable refactor.
+  * Detail pages for the new modules (candidate/req/capture/path
+    detail views — list pages are sufficient to drive workflows for
+    now).
+
 ## 7b. Top 10 priorities (the original PR sequence)
 
 Ordered by leverage. Each row is sized for a single PR.
