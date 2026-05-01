@@ -560,6 +560,7 @@ model Project {
   drawings             Drawing[]
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
+  crewAssignments      CrewAssignment[]
 
   @@unique([tenantId, code])
 }
@@ -833,9 +834,17 @@ model DailyLog {
   summary   String
   manpower  Int          @default(0)
   notes     String?
+  // Geotagging (req §7.24): heavy-civil and field workflows need
+  // station/segment + lat/lon so daily logs can be plotted on a map
+  // and associated with utility runs / road segments.
+  segment   String?
+  station   String?
+  latitude  Float?
+  longitude Float?
   createdAt DateTime     @default(now())
 
   productionEntries ProductionEntry[]
+  crewAssignments   CrewAssignment[]
 
   @@index([projectId, createdAt])
 }
@@ -939,6 +948,12 @@ model SafetyIncident {
   rejectionReason   String?
   approvalNote      String?
   correctiveActions String?
+  // Geotagging (req §7.24): safety reporting often needs precise location
+  // for OSHA filings and trend mapping by area / station / utility run.
+  segment           String?
+  station           String?
+  latitude          Float?
+  longitude         Float?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime?      @updatedAt
 
@@ -966,6 +981,12 @@ model PunchItem {
   rejectedBy      String?
   rejectionReason String?
   approvalNote    String?
+  // Geotagging (req §7.24): punch items frequently reference a specific
+  // location on site; stored alongside `area` (which is a free-text label).
+  segment         String?
+  station         String?
+  latitude        Float?
+  longitude       Float?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime?      @updatedAt
 
@@ -2623,4 +2644,39 @@ model OnboardingStep {
 
   @@index([pathId, ordering])
   @@index([pathId, status])
+}
+
+/// Daily crew assignment (req §7.12). One row per (project, day, crew,
+/// cost code, activity). Captures planned vs actual headcount + hours.
+/// crewName is a free string today — when a Crew master model lands it
+/// becomes a FK without changing the assignment shape.
+model CrewAssignment {
+  id               String    @id @default(cuid())
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dailyLogId       String?
+  dailyLog         DailyLog? @relation(fields: [dailyLogId], references: [id], onDelete: SetNull)
+  assignedDate     DateTime
+  crewName         String
+  foreman          String?
+  costCode         String?
+  activity         String?
+  plannedHeadcount Int       @default(0)
+  actualHeadcount  Int       @default(0)
+  plannedHours     Float     @default(0)
+  actualHours      Float     @default(0)
+  shift            String?
+  notes            String?
+  // Same geotag pattern as DailyLog so a spread crew on a linear job can
+  // be plotted by station / segment / lat-lon.
+  segment          String?
+  station          String?
+  latitude         Float?
+  longitude        Float?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([projectId, assignedDate, crewName, costCode])
+  @@index([projectId, assignedDate])
+  @@index([dailyLogId])
 }
