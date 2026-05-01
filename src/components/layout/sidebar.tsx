@@ -43,6 +43,7 @@ const navGroups: NavGroup[] = [
     title: "Finance & Commercial",
     items: [
       { href: "/finance", label: "CFO · Finance", icon: Coins },
+      { href: "/finance/commissions", label: "Commissions", icon: Coins },
       { href: "/finance/ai", label: "Finance AI", icon: Bot },
       { href: "/finance/inbox", label: "Invoice inbox", icon: Mail },
       { href: "/commercial", label: "Commercial Controls", icon: Gauge },

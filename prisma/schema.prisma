@@ -406,6 +406,8 @@ model Tenant {
   recordComments       RecordComment[]
   candidates           Candidate[]
   jobRequisitions      JobRequisition[]
+  commissionRules      CommissionRule[]
+  commissionAccruals   CommissionAccrual[]
 }
 
 model BusinessUnit {
@@ -2291,4 +2293,89 @@ model Placement {
   @@index([tenantId, status])
   @@index([projectId])
   @@index([candidateId])
+}
+
+enum CommissionStatus {
+  ACCRUED
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  HELD
+  REVERSED
+}
+
+enum CommissionSourceType {
+  OPPORTUNITY
+  PROJECT
+  CONTRACT
+  PAY_APPLICATION
+  CHANGE_ORDER
+  MANUAL
+}
+
+/// Tenant-level commission rule. ratePct is the percentage applied to the
+/// `basis` of a CommissionAccrual; appliesTo scopes the rule to a single
+/// source-entity type (e.g. opportunity awards, contract executions). A
+/// rule with appliesTo = OPPORTUNITY and ratePct = 0.05 means "pay 5% of
+/// the basis amount when an opportunity is awarded." Rules can stack —
+/// multiple rules may produce accruals from the same source event, each
+/// going to a different recipient role.
+model CommissionRule {
+  id             String               @id @default(cuid())
+  tenantId       String
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  appliesTo      CommissionSourceType
+  recipientRole  UserRoleTemplate?
+  ratePct        Float                @default(0)
+  flatAmount     Float?
+  cap            Float?
+  active         Boolean              @default(true)
+  effectiveFrom  DateTime?
+  effectiveUntil DateTime?
+  notesJson      String               @default("{}")
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  accruals CommissionAccrual[]
+
+  @@index([tenantId, appliesTo])
+  @@index([tenantId, active])
+}
+
+/// One commission line for one recipient against one source event.
+/// `basis` is the dollar amount the rate is applied to; `amount` is the
+/// computed payable. Status moves through ACCRUED → PENDING_APPROVAL →
+/// APPROVED → PAID; HELD pauses payout (e.g. pending project close);
+/// REVERSED writes a corresponding negative entry.
+model CommissionAccrual {
+  id              String               @id @default(cuid())
+  tenantId        String
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ruleId          String?
+  rule            CommissionRule?      @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  recipientName   String
+  recipientRole   UserRoleTemplate?
+  recipientUserId String?
+  sourceType      CommissionSourceType
+  sourceId        String
+  sourceLabel     String?
+  basis           Float                @default(0)
+  ratePct         Float                @default(0)
+  amount          Float                @default(0)
+  status          CommissionStatus     @default(ACCRUED)
+  earnedAt        DateTime             @default(now())
+  approvedAt      DateTime?
+  approvedBy      String?
+  paidAt          DateTime?
+  paidBy          String?
+  reversedAt      DateTime?
+  reversedReason  String?
+  notes           String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, sourceType, sourceId])
+  @@index([tenantId, recipientUserId])
 }
