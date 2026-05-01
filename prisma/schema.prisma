@@ -404,6 +404,8 @@ model Tenant {
   historicalImports    HistoricalImport[]
   aiRuns               AiRunLog[]
   recordComments       RecordComment[]
+  candidates           Candidate[]
+  jobRequisitions      JobRequisition[]
 }
 
 model BusinessUnit {
@@ -553,6 +555,7 @@ model Project {
   historicalImports    HistoricalImport[]
   drawings             Drawing[]
   specSections         SpecSection[]
+  jobRequisitions      JobRequisition[]
 
   @@unique([tenantId, code])
 }
@@ -2114,4 +2117,176 @@ model SpecSection {
   @@unique([projectId, sectionCode])
   @@index([projectId])
   @@index([projectId, csiDivision])
+}
+
+enum CandidateStatus {
+  NEW
+  SCREENING
+  INTERVIEWING
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+  ARCHIVED
+}
+
+enum JobReqStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  FILLED
+  CANCELLED
+  CLOSED
+}
+
+enum SubmissionStage {
+  SUBMITTED
+  RECRUITER_SCREEN
+  TECH_SCREEN
+  CLIENT_INTERVIEW
+  REFERENCE_CHECK
+  OFFER_EXTENDED
+  OFFER_ACCEPTED
+  OFFER_DECLINED
+  PLACED
+  REJECTED
+  WITHDRAWN
+}
+
+enum PlacementStatus {
+  PENDING_START
+  ACTIVE
+  EXTENDED
+  ENDING_SOON
+  ENDED
+  TERMINATED
+  CONVERTED
+}
+
+/// ATS candidate. Tenant-scoped because recruiters work within a single
+/// company/agency tenant; cross-tenant candidate sharing is not in scope
+/// per req §7.1A. Resume URL points at the storage adapter (PR #15).
+model Candidate {
+  id              String          @id @default(cuid())
+  tenantId        String
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  city            String?
+  state           String?
+  country         String?         @default("US")
+  status          CandidateStatus @default(NEW)
+  laborCategory   String?
+  primarySkill    String?
+  skillsJson      String          @default("[]")
+  resumeUrl       String?
+  linkedInUrl     String?
+  rateExpectation Float?
+  source          String?
+  ownerUserId     String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  submissions Submission[]
+  placements  Placement[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, laborCategory])
+}
+
+/// Open job requisition under a tenant. Optional projectId binds the req
+/// to a construction project (e.g. a self-perform crew slot); reqs that
+/// don't tie to a project (corporate roles, recruiter pools) leave it null.
+model JobRequisition {
+  id              String       @id @default(cuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId       String?
+  project         Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  reqNumber       String
+  title           String
+  hiringManager   String?
+  laborCategory   String?
+  location        String?
+  remoteAllowed   Boolean      @default(false)
+  rateMin         Float?
+  rateMax         Float?
+  status          JobReqStatus @default(DRAFT)
+  openings        Int          @default(1)
+  filledCount     Int          @default(0)
+  description     String?
+  postedDate      DateTime?
+  targetStartDate DateTime?
+  closedAt        DateTime?
+  closedReason    String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  submissions Submission[]
+
+  @@unique([tenantId, reqNumber])
+  @@index([tenantId, status])
+  @@index([projectId])
+}
+
+/// Candidate × JobRequisition pipeline state. One row per submission
+/// attempt — a candidate withdrawn and re-submitted gets a new row so
+/// the activity history stays append-only.
+model Submission {
+  id            String          @id @default(cuid())
+  tenantId      String
+  candidateId   String
+  candidate     Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  reqId         String
+  req           JobRequisition  @relation(fields: [reqId], references: [id], onDelete: Cascade)
+  stage         SubmissionStage @default(SUBMITTED)
+  recruiterName String?
+  rateOffered   Float?
+  notes         String?
+  submittedAt   DateTime        @default(now())
+  decidedAt     DateTime?
+  rejectReason  String?
+
+  placement Placement?
+
+  @@unique([candidateId, reqId])
+  @@index([tenantId])
+  @@index([reqId, stage])
+  @@index([candidateId])
+}
+
+/// Active or completed placement of a candidate against a project /
+/// contract. Captures bill/pay rate split and the lifecycle dates that
+/// drive renewal alerts (req §7.1A placements). One submission can
+/// produce at most one placement; subsequent re-engagements create new
+/// placements pointing at fresh submissions.
+model Placement {
+  id              String          @id @default(cuid())
+  tenantId        String
+  candidateId     String
+  candidate       Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  submissionId    String?         @unique
+  submission      Submission?     @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  projectId       String?
+  contractRef     String?
+  laborCategory   String?
+  department      String?
+  startDate       DateTime
+  endDate         DateTime?
+  billRate        Float?
+  payRate         Float?
+  status          PlacementStatus @default(PENDING_START)
+  performanceNote String?
+  redeployable    Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([projectId])
+  @@index([candidateId])
 }

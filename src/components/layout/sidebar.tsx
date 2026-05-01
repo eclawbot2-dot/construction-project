@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, Bot, Building2, BriefcaseBusiness, ClipboardList, Coins, Crown, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Upload, Users } from "lucide-react";
+import { Bell, Bot, Briefcase, Building2, BriefcaseBusiness, ClipboardList, Coins, Crown, FileStack, Gauge, Gavel, HardHat, LayoutDashboard, Mail, Search, ShieldAlert, ShieldCheck, Timer, Truck, Upload, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getTenantContext } from "@/lib/dashboard";
@@ -53,6 +53,8 @@ const navGroups: NavGroup[] = [
     title: "Employees & Resources",
     items: [
       { href: "/people", label: "People & Roles", icon: Users },
+      { href: "/people/ats", label: "ATS · Candidates", icon: Users },
+      { href: "/people/placements", label: "Placements", icon: Briefcase },
       { href: "/timesheets", label: "Timesheets", icon: Timer },
       { href: "/vendors", label: "Vendors & Prequal", icon: Truck },
       { href: "/documents", label: "Documents", icon: FileStack },
