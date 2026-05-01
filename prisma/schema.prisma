@@ -367,16 +367,27 @@ enum DailyLogType {
 }
 
 model Tenant {
-  id            String      @id @default(cuid())
-  name          String
-  slug          String      @unique
-  primaryMode   ProjectMode
-  enabledModes  String      @default("[]")
-  featurePacks  String      @default("[]")
-  terminology   String      @default("{}")
-  brandingTheme String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id              String      @id @default(cuid())
+  name            String
+  slug            String      @unique
+  primaryMode     ProjectMode
+  enabledModes    String      @default("[]")
+  featurePacks    String      @default("[]")
+  terminology     String      @default("{}")
+  brandingTheme   String?
+  // Backup config (PR #29). When backupEnabled is true the nightly cron
+  // dumps this tenant's data graph to ./uploads/backups/<slug>/<date>.json
+  // AND, if backupDirectory is set, copies the same file there. The
+  // recommended setup is to point backupDirectory at a OneDrive or
+  // Google Drive sync folder so the host's desktop client uploads it
+  // off-machine automatically.
+  backupEnabled   Boolean     @default(true)
+  backupDirectory String?
+  lastBackupAt    DateTime?
+  lastBackupBytes Int?
+  lastBackupError String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   businessUnits        BusinessUnit[]
   memberships          Membership[]
