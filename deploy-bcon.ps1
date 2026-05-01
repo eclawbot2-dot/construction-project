@@ -47,8 +47,8 @@ $portOwners = @()
 try {
   $portOwners = Get-NetTCPConnection -LocalPort $localPort -State Listen -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess -Unique
 } catch {}
-foreach ($pid in $portOwners) {
-  try { Stop-Process -Id $pid -Force -ErrorAction Stop; Write-Host "  killed PID $pid (was bound to $localPort)" } catch {}
+foreach ($targetPid in $portOwners) {
+  try { Stop-Process -Id $targetPid -Force -ErrorAction Stop; Write-Host "  killed PID $targetPid (was bound to $localPort)" } catch {}
 }
 # Secondary: kill any other stray `next start` processes that might be
 # left over from a previous botched deploy.
