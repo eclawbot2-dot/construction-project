@@ -182,7 +182,26 @@ Net: schema breadth has expanded materially since Pass 6, but **runtime infrastr
 
 ---
 
-## 7. Top 10 priorities (recommended PR sequence)
+## 7a. Status (post-implementation pass, 2026-05-01)
+
+The Top 10 PR sequence below was implemented in the same session. Commits:
+
+| # | Commit | Status |
+|---|--------|--------|
+| 1 | `Wire NextAuth credentials provider; remove cookie auth fallbacks` | done |
+| 2 | `Add edge middleware that gates all non-public paths behind a session` | done |
+| 3 | `Add server-side role guards to high-impact mutation routes` | done — 13 routes; record-action delegators kept as-is (already gated via actorFor + isManager) |
+| 4 | `Emit AuditEvent for every state-bearing record-action` | done — chokepoint via `logComment` so 10+ modules now emit AuditEvent automatically |
+| 5 | `Document Postgres + Decimal migration; fail loudly on a Postgres URL` | partial — full Postgres adapter wiring + Float→Decimal conversion deferred (hosting decision pending) |
+| 6 | `Add 90 compound and FK indexes across 75 models` | done |
+| 7 | `Add lightweight tenant loader; bound dashboard includes; use _count for KPIs` | done — sidebar uses new `getTenantContext`; per-project lists capped with `take`; KPIs from `_count` |
+| 8 | `Materialize WorkflowRun + Approval rows on submit/approve/reject` | done — wired for change-orders + pay-apps as the demonstration; other modules are a one-line follow-up |
+| 9 | `Add notification dispatcher; wire alert engine to it` | done — pluggable Transport with ConsoleTransport default; Resend slot ready |
+| 10 | `Fix EmptyState + Modal theme; add label associations to ApprovalSection` | done — DataTable extraction explicitly deferred to its own PR |
+
+Production build verified: `next build` compiles clean, 79 pages.
+
+## 7b. Top 10 priorities (the original PR sequence)
 
 Ordered by leverage. Each row is sized for a single PR.
 
