@@ -326,7 +326,7 @@ async function collectTenantData(tenantId: string) {
     prisma.workflowRun.findMany({ where: projectScope }),
     prisma.watcher.findMany({ where: projectScope }),
     prisma.approvalRoute.findMany({ where: projectScope }),
-    prisma.approval.findMany({}),
+    prisma.approval.findMany({ where: { tenantId } }),
     prisma.equipmentRecord.findMany({ where: projectScope }),
     prisma.materialRecord.findMany({ where: projectScope }),
     prisma.scheduleTask.findMany({ where: projectScope }),

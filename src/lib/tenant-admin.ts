@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { ProjectMode } from "@prisma/client";
 
@@ -13,7 +14,26 @@ export type CreateTenantInput = {
   region?: string;
 };
 
-export type CreateTenantResult = { ok: true; tenantId: string; slug: string } | { ok: false; error: string };
+export type CreateTenantResult =
+  | {
+      ok: true;
+      tenantId: string;
+      slug: string;
+      adminEmail: string;
+      /**
+       * Plaintext password for the admin user, ONLY returned when the
+       * route just created a brand-new User record. Pre-existing users
+       * keep their existing password; in that case this is undefined.
+       *
+       * Pass-10: previously the function generated `setup-${random}`,
+       * hashed it, and returned nothing — leaving the customer's first
+       * admin unable to log in because no human ever knew the password.
+       * Now the temp password is surfaced so the operator can hand it
+       * off out-of-band (until a real email-reset flow exists).
+       */
+      adminTempPassword?: string;
+    }
+  | { ok: false; error: string };
 
 /**
  * Create a new tenant plus its starter scaffolding:
@@ -21,8 +41,9 @@ export type CreateTenantResult = { ok: true; tenantId: string; slug: string } | 
  *   - An admin User + Membership (defaults to a generic placeholder email)
  *
  * Safe to call against a fresh database or a live one. The tenant's slug
- * must be unique; the admin email gets a random password the user can
- * reset via the /settings page later.
+ * must be unique. If the admin email is new, a temp password is generated
+ * and returned in `adminTempPassword`; the operator must communicate it
+ * out-of-band (no email transport is wired yet).
  */
 export async function createTenant(input: CreateTenantInput): Promise<CreateTenantResult> {
   const name = input.name.trim();
@@ -58,13 +79,23 @@ export async function createTenant(input: CreateTenantInput): Promise<CreateTena
       },
     });
     const existingUser = await prisma.user.findUnique({ where: { email: adminEmail } });
-    const user = existingUser ?? await prisma.user.create({
-      data: {
-        name: adminName,
-        email: adminEmail,
-        password: await bcrypt.hash(`setup-${Math.random().toString(36).slice(2)}`, 10),
-      },
-    });
+    let adminTempPassword: string | undefined;
+    let user;
+    if (existingUser) {
+      user = existingUser;
+    } else {
+      // 18 chars of crypto-random base64url — long enough to resist
+      // brute force, short enough to type from a sticky note. The
+      // operator must communicate this to the admin out-of-band.
+      adminTempPassword = randomBytes(13).toString("base64url");
+      user = await prisma.user.create({
+        data: {
+          name: adminName,
+          email: adminEmail,
+          password: await bcrypt.hash(adminTempPassword, 10),
+        },
+      });
+    }
     await prisma.membership.create({
       data: { tenantId: tenant.id, userId: user.id, roleTemplate: "ADMIN" },
     });
@@ -74,11 +105,11 @@ export async function createTenant(input: CreateTenantInput): Promise<CreateTena
         entityType: "Tenant",
         entityId: tenant.id,
         action: "TENANT_CREATED",
-        afterJson: JSON.stringify({ name, slug, primaryMode: input.primaryMode, enabledModes: input.enabledModes, adminEmail }),
+        afterJson: JSON.stringify({ name, slug, primaryMode: input.primaryMode, enabledModes: input.enabledModes, adminEmail, newAdminUser: !existingUser }),
         source: "settings/create",
       },
     });
-    return { ok: true, tenantId: tenant.id, slug: tenant.slug };
+    return { ok: true, tenantId: tenant.id, slug: tenant.slug, adminEmail, adminTempPassword };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Tenant creation failed." };
   }

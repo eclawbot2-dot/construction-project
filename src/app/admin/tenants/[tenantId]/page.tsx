@@ -9,8 +9,15 @@ import { formatDate, modeLabel } from "@/lib/utils";
 
 const ROLE_TEMPLATES = ["ADMIN", "EXECUTIVE", "MANAGER", "PROGRAM_MANAGER", "CONTROLLER", "SUPERINTENDENT", "PROJECT_ENGINEER", "FOREMAN", "SAFETY_MANAGER", "QUALITY_MANAGER", "COORDINATOR", "VIEWER"] as const;
 
-export default async function AdminTenantDetailPage({ params }: { params: Promise<{ tenantId: string }> }) {
+export default async function AdminTenantDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ tenantId: string }>;
+  searchParams: Promise<{ adminEmail?: string; adminTemp?: string }>;
+}) {
   const { tenantId } = await params;
+  const sp = await searchParams;
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: {
@@ -32,6 +39,22 @@ export default async function AdminTenantDetailPage({ params }: { params: Promis
       crumbs={[{ label: "Admin", href: "/admin" }, { label: "Tenants", href: "/admin/tenants" }, { label: tenant.name }]}
       actions={<div className="flex gap-2"><form action={`/api/admin/tenants/${tenant.id}/switch`} method="post"><button className="btn-primary text-xs">Switch in</button></form></div>}
     >
+      {sp.adminEmail && sp.adminTemp ? (
+        <section className="card p-5" style={{ borderColor: "rgba(34, 211, 238, 0.4)" }}>
+          <div className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--accent, #67e8f9)" }}>One-time admin credential</div>
+          <p className="mt-2 text-sm" style={{ color: "var(--heading)" }}>
+            New admin user just created. Copy this temp password and hand it to <code className="font-mono">{sp.adminEmail}</code> out-of-band — they'll change it on first login.
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+            <code className="rounded-lg p-2 font-mono text-sm" style={{ background: "var(--hover-bg)", color: "var(--heading)" }}>{sp.adminTemp}</code>
+            <Link href={`/admin/tenants/${tenantId}`} className="btn-outline text-xs">I've copied it — dismiss</Link>
+          </div>
+          <p className="mt-2 text-xs" style={{ color: "var(--faint)" }}>
+            This banner only renders while these query params are in the URL. Once you click dismiss, the password is gone — there's no way to retrieve it later. If you lose it, super-admins can reset it via the user's detail page.
+          </p>
+        </section>
+      ) : null}
+
       <section className="grid gap-4 md:grid-cols-5">
         <StatTile label="Projects" value={tenant._count.projects} />
         <StatTile label="Members" value={tenant.memberships.length} />

@@ -6,11 +6,17 @@ import { llmProvider } from "@/lib/ai";
  * Health endpoint for the Cloudflare tunnel + monitoring tools. Excluded
  * from session auth in middleware so probes work without a cookie.
  *
- * Returns 200 with a JSON status object. Slow / DB-broken / mis-configured
- * deploys still return 200 with the failing components flagged so a
- * monitoring tool can render a single-tenant uptime dashboard. If you
- * want a hard 503 on degradation, use /api/health?strict=1 — that flips
- * the status code to 503 when any component is down.
+ * Two response shapes:
+ *   - default (no auth header): minimal `{ ok, timestamp }`. Suitable
+ *     for HEAD/GET probes from PagerDuty / Healthchecks.io / etc.
+ *     Doesn't fingerprint the deployment to anonymous callers (pass-10
+ *     flagged the previous version as leaking queue/storage/notify
+ *     transports).
+ *   - with `Authorization: Bearer <CRON_SECRET>` header: full diagnostic
+ *     payload including db latency, transport choices, llm provider.
+ *
+ * `?strict=1` flips the status code to 503 when any component is down,
+ * for monitoring tools that expect a hard signal.
  */
 export async function GET(req: Request) {
   const start = Date.now();
@@ -22,7 +28,6 @@ export async function GET(req: Request) {
   let dbError: string | null = null;
   try {
     const t0 = Date.now();
-    // Cheapest possible probe — counts a tiny system table that always exists.
     await prisma.tenant.count();
     dbLatencyMs = Date.now() - t0;
   } catch (err) {
@@ -30,32 +35,43 @@ export async function GET(req: Request) {
     dbError = err instanceof Error ? err.message : String(err);
   }
 
-  const auth = {
-    secretConfigured: !!process.env.AUTH_SECRET,
-    trustHost: process.env.AUTH_TRUST_HOST === "true",
-  };
-  const cron = { secretConfigured: !!process.env.CRON_SECRET };
-  const llm = { provider: llmProvider() };
-  const queue = { transport: process.env.QUEUE_TRANSPORT ?? "in-process" };
-  const storage = { transport: process.env.STORAGE_TRANSPORT ?? "local" };
-  const notify = { transport: process.env.NOTIFY_TRANSPORT ?? "console" };
+  const authHeader = req.headers.get("authorization") ?? "";
+  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
+  const elevated = expected != null && authHeader === expected;
 
-  const allOk = dbOk && auth.secretConfigured;
+  const allOk = dbOk && !!process.env.AUTH_SECRET;
 
-  const body = {
-    ok: allOk,
-    uptime: process.uptime(),
-    durationMs: Date.now() - start,
-    db: { ok: dbOk, latencyMs: dbLatencyMs, error: dbError },
-    auth,
-    cron,
-    llm,
-    queue,
-    storage,
-    notify,
-    nodeEnv: process.env.NODE_ENV ?? "development",
-    timestamp: new Date().toISOString(),
-  };
+  if (!elevated) {
+    // Minimal public response — caller knows whether the tunnel is up
+    // and the DB is reachable, nothing else.
+    return NextResponse.json(
+      {
+        ok: allOk,
+        db: dbOk,
+        timestamp: new Date().toISOString(),
+      },
+      { status: strict && !allOk ? 503 : 200 },
+    );
+  }
 
-  return NextResponse.json(body, { status: strict && !allOk ? 503 : 200 });
+  return NextResponse.json(
+    {
+      ok: allOk,
+      uptime: process.uptime(),
+      durationMs: Date.now() - start,
+      db: { ok: dbOk, latencyMs: dbLatencyMs, error: dbError },
+      auth: {
+        secretConfigured: !!process.env.AUTH_SECRET,
+        trustHost: process.env.AUTH_TRUST_HOST === "true",
+      },
+      cron: { secretConfigured: !!process.env.CRON_SECRET },
+      llm: { provider: llmProvider() },
+      queue: { transport: process.env.QUEUE_TRANSPORT ?? "in-process" },
+      storage: { transport: process.env.STORAGE_TRANSPORT ?? "local" },
+      notify: { transport: process.env.NOTIFY_TRANSPORT ?? "console" },
+      nodeEnv: process.env.NODE_ENV ?? "development",
+      timestamp: new Date().toISOString(),
+    },
+    { status: strict && !allOk ? 503 : 200 },
+  );
 }

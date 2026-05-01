@@ -21,7 +21,14 @@ export async function POST(req: Request) {
     region: form.get("region") ? String(form.get("region")) : undefined,
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
-  const res = publicRedirect(req, `/admin/tenants/${result.tenantId}`, 303);
+  // If a brand-new admin user was minted, include their temp password
+  // as a one-shot query param so the super-admin can copy it. The
+  // detail page renders this exactly once and discards. URL exposure
+  // is acceptable since the password must be reset on first login.
+  const target = result.adminTempPassword
+    ? `/admin/tenants/${result.tenantId}?adminEmail=${encodeURIComponent(result.adminEmail)}&adminTemp=${encodeURIComponent(result.adminTempPassword)}`
+    : `/admin/tenants/${result.tenantId}`;
+  const res = publicRedirect(req, target, 303);
   if (form.get("switchTo") === "on") {
     res.cookies.set("cx.tenant", result.slug, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   }

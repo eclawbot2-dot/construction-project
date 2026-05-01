@@ -1015,6 +1015,11 @@ model PunchItem {
 
 model Approval {
   id         String         @id @default(cuid())
+  // Pass-10: previously had no tenantId; backup.findMany({}) was leaking
+  // approvals across tenants. Now tenant-scoped at write time by
+  // workflow.recordWorkflowDecision and read-scoped by backup + any
+  // future Approvals admin UI.
+  tenantId   String
   approverId String
   approver   User           @relation("ApprovalApprover", fields: [approverId], references: [id], onDelete: Cascade)
   targetType String
@@ -1023,6 +1028,7 @@ model Approval {
   createdAt  DateTime       @default(now())
 
   @@index([approverId])
+  @@index([tenantId, targetType, targetId])
 }
 
 model AuditEvent {

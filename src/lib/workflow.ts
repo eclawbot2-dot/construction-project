@@ -112,8 +112,19 @@ export async function recordWorkflowDecision(params: {
     const run = await findActiveRunFor(params.projectId, params.entityType, params.entityId);
     if (!run || !params.actor.userId) return null;
 
+    // Resolve tenantId via the workflow run's project — Approval rows
+    // need a tenantId so the backup can scope them correctly (pass-10).
+    const project = await prisma.project.findUnique({
+      where: { id: params.projectId },
+      select: { tenantId: true },
+    });
+    if (!project) {
+      console.warn("[workflow] recordWorkflowDecision: project gone before approval write");
+      return null;
+    }
     await prisma.approval.create({
       data: {
+        tenantId: project.tenantId,
         approverId: params.actor.userId,
         targetType: params.entityType,
         targetId: params.entityId,

@@ -9,8 +9,34 @@ export default async function Home() {
 
   if (!data) {
     return (
-      <AppLayout title="Construction OS" eyebrow="Platform" description="No seeded tenant found.">
-        <div className="card p-8">Run the setup script to seed demo data.</div>
+      <AppLayout title="Construction OS" eyebrow="Platform" description="No tenant context for this user.">
+        <div className="card p-8">
+          <h2 className="text-lg font-semibold" style={{ color: "var(--heading)" }}>Welcome.</h2>
+          <p className="mt-2 text-sm" style={{ color: "var(--faint)" }}>
+            Your account isn't linked to a tenant yet. Ask your administrator to add you to a tenant, or contact the platform operator.
+          </p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (data.kpis.projects === 0) {
+    return (
+      <AppLayout
+        eyebrow="Welcome"
+        title={data.tenant.name}
+        description="Your tenant is set up. Start by creating your first project — every other workflow flows from there."
+      >
+        <div className="card p-8 text-center">
+          <h2 className="text-lg font-semibold" style={{ color: "var(--heading)" }}>No projects yet</h2>
+          <p className="mt-2 max-w-md mx-auto text-sm" style={{ color: "var(--faint)" }}>
+            Projects are the unit of work in Construction OS. Once you create one, you'll get RFIs, submittals, daily logs, change orders, and the full mode-aware workspace.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link href="/admin/tenants" className="btn-outline">Tenant admin</Link>
+            <Link href="/projects" className="btn-primary">Open projects</Link>
+          </div>
+        </div>
       </AppLayout>
     );
   }
