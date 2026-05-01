@@ -29,6 +29,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getQueue } from "@/lib/queue";
 import type { AlertEvent, Watcher } from "@prisma/client";
 
 export type NotificationPayload = {
@@ -47,6 +48,24 @@ export type Recipient = {
   name: string;
   email: string | null;
 };
+
+const DELIVER_JOB = "notify.deliver";
+let queueRegistered = false;
+
+function registerQueueHandler() {
+  if (queueRegistered) return;
+  queueRegistered = true;
+  getQueue().register<{ recipient: Recipient; payload: NotificationPayload }>(
+    DELIVER_JOB,
+    async ({ recipient, payload }) => {
+      try {
+        await activeTransport.send(recipient, payload);
+      } catch (err) {
+        console.error("[notify] transport.send failed", { recipient: recipient.email ?? recipient.userId, err });
+      }
+    },
+  );
+}
 
 export interface Transport {
   name: string;
@@ -148,19 +167,24 @@ async function resolveRecipients(payload: NotificationPayload): Promise<Recipien
 }
 
 /**
- * Dispatch a notification. Returns the count of recipients that received
- * it (or were attempted). Never throws.
+ * Dispatch a notification. Returns the count of recipients that the
+ * dispatcher will attempt to reach (the actual transport.send happens
+ * on the queue, so callers don't block on slow SMTP). Never throws.
+ *
+ * With the in-process queue (the dev default) recipients are attempted
+ * on the next microtask, identical to inline behaviour. Once a real
+ * queue (BullMQ / Inngest) is wired, the same call enqueues a durable
+ * job per recipient — slow email providers stop blocking the request
+ * thread and a transient SMTP outage retries instead of dropping.
  */
 export async function notify(payload: NotificationPayload): Promise<number> {
   try {
+    registerQueueHandler();
     const recipients = await resolveRecipients(payload);
     if (recipients.length === 0) return 0;
-    for (const r of recipients) {
-      try {
-        await activeTransport.send(r, payload);
-      } catch (err) {
-        console.error("[notify] transport.send failed", { recipient: r.email ?? r.userId, err });
-      }
+    const q = getQueue();
+    for (const recipient of recipients) {
+      await q.enqueue(DELIVER_JOB, { recipient, payload });
     }
     return recipients.length;
   } catch (err) {
