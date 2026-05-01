@@ -3,6 +3,16 @@ generator client {
   engineType = "library"
 }
 
+// Local dev runs on SQLite via better-sqlite3 for friction-free setup.
+// For production, change `provider` to "postgresql", set DATABASE_URL to a
+// Postgres URL, install `@prisma/adapter-pg` and `pg`, and update
+// src/lib/prisma.ts to instantiate PrismaPg instead of PrismaBetterSqlite3.
+//
+// Currency-bearing fields throughout this schema currently use `Float`,
+// which on Postgres maps to DOUBLE PRECISION (IEEE-754) and accumulates
+// rounding errors when summed across line items. Production migration
+// must convert these to `Decimal @db.Decimal(15, 2)`. See
+// docs/pass-audit-07.md §1.2 for the full list and migration plan.
 datasource db {
   provider = "sqlite"
 }
