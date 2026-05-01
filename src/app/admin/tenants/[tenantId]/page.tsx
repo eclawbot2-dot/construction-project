@@ -174,6 +174,33 @@ export default async function AdminTenantDetailPage({ params }: { params: Promis
         </table>
       </section>
 
+      <section className="card p-6">
+        <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Backups</div>
+        <div className="mt-2 text-sm text-slate-400">
+          Last run: {tenant.lastBackupAt ? formatDate(tenant.lastBackupAt) : "never"}
+          {tenant.lastBackupBytes ? <span className="ml-2 text-xs text-slate-500">({Math.round(tenant.lastBackupBytes / 1024)} KB)</span> : null}
+          {tenant.lastBackupError ? <span className="ml-2 rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-200">last error: {tenant.lastBackupError.slice(0, 60)}</span> : null}
+        </div>
+        <form action={`/api/admin/tenants/${tenant.id}/backup`} method="post" className="mt-4 grid gap-3">
+          <input type="hidden" name="action" value="config" />
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" name="backupEnabled" defaultChecked={tenant.backupEnabled} /> Nightly backup enabled
+          </label>
+          <div>
+            <label htmlFor="backup-dir" className="form-label">External backup directory</label>
+            <input id="backup-dir" name="backupDirectory" defaultValue={tenant.backupDirectory ?? ""} placeholder={`C:/Users/bot/OneDrive/bcon-backups/${tenant.slug}`} className="form-input" />
+            <p className="mt-1 text-xs text-slate-500">Optional. Local copy at <code>./uploads/backups/{tenant.slug}/</code> always runs. Point this at a OneDrive / Google Drive sync folder for off-machine retention.</p>
+          </div>
+          <div>
+            <button className="btn-outline text-xs">Save settings</button>
+          </div>
+        </form>
+        <form action={`/api/admin/tenants/${tenant.id}/backup`} method="post" className="mt-3">
+          <input type="hidden" name="action" value="run" />
+          <button className="btn-primary text-xs">Run backup now</button>
+        </form>
+      </section>
+
       <section className="card p-6 border-rose-500/30">
         <div className="text-xs uppercase tracking-[0.2em] text-rose-300">Danger zone</div>
         <p className="mt-2 text-sm text-slate-300">Deleting a tenant cascades to every project, membership, document, opportunity, vendor, and financial record under it. This cannot be undone.</p>

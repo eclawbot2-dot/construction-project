@@ -27,15 +27,21 @@ export type IngestedSheet = {
 };
 
 const DISCIPLINE_PREFIXES: Array<{ regex: RegExp; discipline: DrawingDiscipline }> = [
-  { regex: /^A[\d.]/i, discipline: "ARCHITECTURAL" },
-  { regex: /^S[\d.]/i, discipline: "STRUCTURAL" },
-  { regex: /^M[\d.]/i, discipline: "MECHANICAL" },
-  { regex: /^E[\d.]/i, discipline: "ELECTRICAL" },
-  { regex: /^P[\d.]/i, discipline: "PLUMBING" },
-  { regex: /^C[\d.]/i, discipline: "CIVIL" },
-  { regex: /^L[\d.]/i, discipline: "LANDSCAPE" },
-  { regex: /^FP[\d.]/i, discipline: "FIRE_PROTECTION" },
-  { regex: /^MEP/i, discipline: "MEP" },
+  // Match a single-letter prefix followed by an optional dash before the
+  // numeric portion. Both styles are common: "A0.1", "C-101", "E-201".
+  // FP and MEP are checked first because they're 2-3 letter prefixes
+  // that would otherwise trigger the single-letter rules ("FP" → "F"
+  // doesn't match anything, but "MEP" would match against M for Mechanical
+  // — keep MEP ordered before M).
+  { regex: /^FP[-\d.]/i, discipline: "FIRE_PROTECTION" },
+  { regex: /^MEP[-\d.]/i, discipline: "MEP" },
+  { regex: /^A[-\d.]/i, discipline: "ARCHITECTURAL" },
+  { regex: /^S[-\d.]/i, discipline: "STRUCTURAL" },
+  { regex: /^M[-\d.]/i, discipline: "MECHANICAL" },
+  { regex: /^E[-\d.]/i, discipline: "ELECTRICAL" },
+  { regex: /^P[-\d.]/i, discipline: "PLUMBING" },
+  { regex: /^C[-\d.]/i, discipline: "CIVIL" },
+  { regex: /^L[-\d.]/i, discipline: "LANDSCAPE" },
 ];
 
 function disciplineFor(sheetNumber: string): DrawingDiscipline {
