@@ -12,7 +12,9 @@ interface ModalProps {
 
 export function Modal({ open, onClose, title, children, size = "md" }: ModalProps) {
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     if (open) document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
@@ -27,16 +29,26 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
   }[size];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className={`relative w-full ${sizeClass} bg-white rounded-2xl shadow-2xl max-h-[90vh] flex flex-col`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-[#1e3a5f]">{title}</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div
+        className={`relative flex w-full ${sizeClass} max-h-[90vh] flex-col rounded-2xl shadow-2xl`}
+        style={{ background: "var(--card-bg)", border: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <h2 className="text-lg font-bold" style={{ color: "var(--heading)" }}>{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-lg p-1 transition focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{ color: "var(--faint)" }}
+            onFocus={(e) => (e.currentTarget.style.outlineColor = "rgb(34 211 238)")}
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

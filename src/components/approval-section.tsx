@@ -29,19 +29,32 @@ export function ApprovalSection({
         <StatusBadge status={status} />
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        {actions.map((a) => (
-          <form key={a.name} action={a.formAction} method="post" className="panel p-4 space-y-2">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{a.label}</div>
-            <input
-              name={a.requireReason ? "reason" : "note"}
-              placeholder={a.requireReason ? "Reason (required, visible to submitter)" : a.noteLabel ?? "Optional note"}
-              required={a.requireReason}
-              minLength={a.requireReason ? 3 : undefined}
-              className="form-input"
-            />
-            <button className={a.tone === "primary" ? "btn-primary" : a.tone === "danger" ? "btn-danger" : "btn-outline"}>{a.label}</button>
-          </form>
-        ))}
+        {actions.map((a) => {
+          const inputId = `approval-${a.name}-input`;
+          const fieldName = a.requireReason ? "reason" : "note";
+          return (
+            <form key={a.name} action={a.formAction} method="post" className="panel p-4 space-y-2">
+              <label htmlFor={inputId} className="block text-xs uppercase tracking-[0.18em] text-slate-400">
+                {a.label}
+                {a.requireReason ? (
+                  <span className="ml-1 text-rose-300" aria-hidden="true">*</span>
+                ) : null}
+              </label>
+              <input
+                id={inputId}
+                name={fieldName}
+                placeholder={a.requireReason ? "Reason (required, visible to submitter)" : a.noteLabel ?? "Optional note"}
+                required={a.requireReason}
+                minLength={a.requireReason ? 3 : undefined}
+                aria-required={a.requireReason ? true : undefined}
+                className="form-input"
+              />
+              <button className={a.tone === "primary" ? "btn-primary" : a.tone === "danger" ? "btn-danger" : "btn-outline"}>
+                {a.label}
+              </button>
+            </form>
+          );
+        })}
       </div>
     </section>
   );
@@ -73,7 +86,15 @@ export function ActivityTrail({
         ))}
       </div>
       <form action={commentAction} method="post" className="mt-4 flex gap-2">
-        <input name="body" placeholder="Add a comment…" required className="form-input flex-1" />
+        <label htmlFor="activity-comment" className="sr-only">Add a comment</label>
+        <input
+          id="activity-comment"
+          name="body"
+          placeholder="Add a comment…"
+          required
+          aria-required="true"
+          className="form-input flex-1"
+        />
         <button className="btn-outline">Add</button>
       </form>
     </section>
