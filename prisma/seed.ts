@@ -41,6 +41,23 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   await prisma.warrantyItem.deleteMany();
+  await prisma.crewAssignment.deleteMany();
+  await prisma.drawingSheet.deleteMany();
+  await prisma.drawing.deleteMany();
+  await prisma.specSection.deleteMany();
+  await prisma.onboardingStep.deleteMany();
+  await prisma.onboardingPath.deleteMany();
+  await prisma.teamingPartner.deleteMany();
+  await prisma.goNoGoDecision.deleteMany();
+  await prisma.colorTeamReview.deleteMany();
+  await prisma.captureMilestone.deleteMany();
+  await prisma.captureRecord.deleteMany();
+  await prisma.commissionAccrual.deleteMany();
+  await prisma.commissionRule.deleteMany();
+  await prisma.placement.deleteMany();
+  await prisma.submission.deleteMany();
+  await prisma.jobRequisition.deleteMany();
+  await prisma.candidate.deleteMany();
   await prisma.purchaseOrder.deleteMany();
   await prisma.subInvoice.deleteMany();
   await prisma.timeEntry.deleteMany();
@@ -433,6 +450,8 @@ async function main() {
       },
     });
   }
+
+  await seedNewModuleSampleData({ tenantId: tenant.id, projects, adminUserId: admin.id, pmUserName: pm.name });
 
   // Additional tenants — one Simple-first (residential remodel focused), one Heavy Civil-first (infrastructure).
   await seedExtraTenant({
@@ -1060,6 +1079,165 @@ async function seedPermitsForProject(project: { id: string; code: string; mode: 
         autoLookupEnabled: true,
       },
     });
+  }
+}
+
+/**
+ * Sample data for the new modules added in audit pass 7 follow-on PRs:
+ * ATS, Commissions, Federal Capture, Onboarding, Drawing register, and
+ * heavy-civil CrewAssignment + geotagging. Keeps the demo populated so
+ * the new pages aren't empty on first run.
+ */
+async function seedNewModuleSampleData(args: {
+  tenantId: string;
+  projects: Array<{ id: string; code: string; name: string; mode: ProjectMode }>;
+  adminUserId: string;
+  pmUserName: string;
+}) {
+  const { tenantId, projects, adminUserId, pmUserName } = args;
+  const verticalProject = projects.find((p) => p.mode === ProjectMode.VERTICAL) ?? projects[0];
+  const heavyProject = projects.find((p) => p.mode === ProjectMode.HEAVY_CIVIL) ?? projects[0];
+
+  // ---------- ATS ----------
+  const candidates = await Promise.all([
+    prisma.candidate.create({ data: { tenantId, firstName: "Jordan", lastName: "Reyes", email: "jordan.reyes@example.com", phone: "843-555-0101", city: "Charleston", state: "SC", status: "INTERVIEWING", laborCategory: "Project Engineer", primarySkill: "Concrete formwork", rateExpectation: 78, source: "Referral", ownerUserId: adminUserId } }),
+    prisma.candidate.create({ data: { tenantId, firstName: "Priya", lastName: "Anand", email: "priya@example.com", city: "Mt Pleasant", state: "SC", status: "OFFER", laborCategory: "Estimator", primarySkill: "Heavy civil takeoff", rateExpectation: 95, source: "LinkedIn" } }),
+    prisma.candidate.create({ data: { tenantId, firstName: "Mike", lastName: "Holland", email: "mike@example.com", city: "Summerville", state: "SC", status: "HIRED", laborCategory: "Foreman", primarySkill: "Underground utilities", rateExpectation: 52 } }),
+    prisma.candidate.create({ data: { tenantId, firstName: "Sara", lastName: "Tanner", email: "sara@example.com", status: "SCREENING", laborCategory: "Safety Manager", primarySkill: "OSHA 30 + first aid", rateExpectation: 68 } }),
+    prisma.candidate.create({ data: { tenantId, firstName: "Alex", lastName: "Quint", email: "alex@example.com", status: "REJECTED", laborCategory: "Superintendent", primarySkill: "Commercial GC", rateExpectation: 110 } }),
+  ]);
+
+  const reqs = await Promise.all([
+    prisma.jobRequisition.create({ data: { tenantId, projectId: verticalProject.id, reqNumber: "REQ-2026-001", title: "Project Engineer — Vertical", hiringManager: "Paula PM", laborCategory: "Project Engineer", location: "Charleston, SC", rateMin: 65, rateMax: 85, openings: 2, status: "OPEN", description: "Support PMs across two commercial projects.", postedDate: new Date(Date.now() - 14 * 86_400_000), targetStartDate: new Date(Date.now() + 30 * 86_400_000) } }),
+    prisma.jobRequisition.create({ data: { tenantId, projectId: heavyProject.id, reqNumber: "REQ-2026-002", title: "Foreman — Underground Utilities", hiringManager: "Sam Superintendent", laborCategory: "Foreman", location: "Lowcountry", rateMin: 48, rateMax: 62, openings: 1, status: "OPEN", postedDate: new Date(Date.now() - 7 * 86_400_000), targetStartDate: new Date(Date.now() + 14 * 86_400_000) } }),
+    prisma.jobRequisition.create({ data: { tenantId, reqNumber: "REQ-2026-003", title: "Senior Estimator", hiringManager: pmUserName, laborCategory: "Estimator", remoteAllowed: true, rateMin: 85, rateMax: 110, openings: 1, status: "OPEN", postedDate: new Date(Date.now() - 21 * 86_400_000) } }),
+  ]);
+
+  await Promise.all([
+    prisma.submission.create({ data: { tenantId, candidateId: candidates[0].id, reqId: reqs[0].id, stage: "TECH_SCREEN", recruiterName: pmUserName, rateOffered: 78 } }),
+    prisma.submission.create({ data: { tenantId, candidateId: candidates[1].id, reqId: reqs[2].id, stage: "OFFER_EXTENDED", recruiterName: pmUserName, rateOffered: 95 } }),
+    prisma.submission.create({ data: { tenantId, candidateId: candidates[3].id, reqId: reqs[0].id, stage: "RECRUITER_SCREEN", recruiterName: pmUserName } }),
+  ]);
+
+  const placement = await prisma.placement.create({
+    data: {
+      tenantId,
+      candidateId: candidates[2].id,
+      projectId: heavyProject.id,
+      contractRef: `${heavyProject.code}-LBR-001`,
+      laborCategory: "Foreman",
+      department: "Underground Utilities",
+      startDate: new Date(Date.now() - 30 * 86_400_000),
+      endDate: new Date(Date.now() + 365 * 86_400_000),
+      billRate: 92,
+      payRate: 52,
+      status: "ACTIVE",
+    },
+  });
+
+  // ---------- Commissions ----------
+  const ruleAward = await prisma.commissionRule.create({ data: { tenantId, name: "Award commission — vertical", appliesTo: "OPPORTUNITY", recipientRole: "ACCOUNT_EXECUTIVE", ratePct: 0.5, cap: 25000 } });
+  await prisma.commissionRule.create({ data: { tenantId, name: "Federal capture bonus", appliesTo: "PROJECT", recipientRole: "CAPTURE_MANAGER", ratePct: 0.25, cap: 50000 } });
+
+  await prisma.commissionAccrual.create({ data: { tenantId, ruleId: ruleAward.id, recipientName: "Jamie Closer", recipientRole: "ACCOUNT_EXECUTIVE", sourceType: "OPPORTUNITY", sourceId: "demo-opp-1", sourceLabel: "Charleston Mixed-Use Award", basis: 1_500_000, ratePct: 0.5, amount: 7500, status: "APPROVED", approvedAt: new Date(Date.now() - 3 * 86_400_000), approvedBy: "Morgan Admin" } });
+  await prisma.commissionAccrual.create({ data: { tenantId, recipientName: "Riley Capture", recipientRole: "CAPTURE_MANAGER", sourceType: "MANUAL", sourceId: "manual", sourceLabel: "Q1 strategic capture bonus", basis: 0, ratePct: 0, amount: 5000, status: "ACCRUED" } });
+  await prisma.commissionAccrual.create({ data: { tenantId, recipientName: "Jamie Closer", sourceType: "PROJECT", sourceId: verticalProject.id, sourceLabel: verticalProject.name, basis: 800_000, ratePct: 0.4, amount: 3200, status: "PAID", approvedAt: new Date(Date.now() - 14 * 86_400_000), approvedBy: "Morgan Admin", paidAt: new Date(Date.now() - 7 * 86_400_000), paidBy: "Morgan Admin" } });
+
+  // ---------- Federal capture ----------
+  const capture1 = await prisma.captureRecord.create({ data: { tenantId, title: "Naval Weapons Station Charleston — Pier Modernization", agency: "U.S. Navy NAVFAC", contractVehicle: "MATOC", solicitationNumber: "N69450-26-R-0017", naicsCode: "237990", setAside: "TOTAL_SMALL_BUSINESS", estimatedValue: 18_500_000, rfpReleaseDate: new Date(Date.now() - 21 * 86_400_000), proposalDueDate: new Date(Date.now() + 35 * 86_400_000), stage: "PROPOSAL", captureLead: "Riley Capture", proposalLead: pmUserName, pwinPercent: 38, winStrategy: "Local self-perform diving + recent NAVFAC past performance" } });
+  await prisma.captureRecord.create({ data: { tenantId, title: "FAA Tower Site Civil Pkg", agency: "FAA", contractVehicle: "IDIQ", solicitationNumber: "FAA-26-0411", naicsCode: "237310", setAside: "EIGHT_A", estimatedValue: 4_200_000, proposalDueDate: new Date(Date.now() + 60 * 86_400_000), stage: "QUALIFYING", captureLead: "Riley Capture", pwinPercent: 22 } });
+
+  await prisma.captureMilestone.create({ data: { captureId: capture1.id, label: "Pink team review", dueAt: new Date(Date.now() + 14 * 86_400_000), ownerName: pmUserName } });
+  await prisma.captureMilestone.create({ data: { captureId: capture1.id, label: "Red team review", dueAt: new Date(Date.now() + 25 * 86_400_000), ownerName: pmUserName } });
+  await prisma.captureMilestone.create({ data: { captureId: capture1.id, label: "Final submit", dueAt: new Date(Date.now() + 35 * 86_400_000), ownerName: "Riley Capture" } });
+
+  await prisma.goNoGoDecision.create({ data: { captureId: capture1.id, decision: "GO", decidedBy: "Morgan Admin", rationale: "Strong NAVFAC past performance + 8(a) primes available for teaming. pWin justifies investment.", pwinAtDecision: 35 } });
+
+  await prisma.teamingPartner.create({ data: { captureId: capture1.id, partnerName: "Atlantic Dive Services LLC", role: "Subcontractor — diving", workSharePct: 22, taSignedAt: new Date(Date.now() - 7 * 86_400_000) } });
+
+  // ---------- Onboarding ----------
+  const path = await prisma.onboardingPath.create({ data: { tenantId, candidateId: candidates[2].id, placementId: placement.id, personName: "Mike Holland", role: "Foreman", startDateTarget: new Date(Date.now() + 7 * 86_400_000), status: "IN_PROGRESS", ownerName: pmUserName } });
+  const onboardingSteps = [
+    { kind: "DOCUMENT" as const, label: "I-9 + W-4", status: "COMPLETE" as const },
+    { kind: "DOCUMENT" as const, label: "Direct deposit form", status: "COMPLETE" as const },
+    { kind: "TRAINING" as const, label: "Safety orientation", status: "COMPLETE" as const },
+    { kind: "ACCESS_PROVISION" as const, label: "Email + system access", status: "IN_PROGRESS" as const },
+    { kind: "EQUIPMENT" as const, label: "Truck + PPE issued", status: "PENDING" as const },
+    { kind: "COMPLIANCE_CHECK" as const, label: "Background check clear", status: "PENDING" as const },
+    { kind: "SIGNOFF" as const, label: "Manager final signoff", status: "PENDING" as const },
+  ];
+  for (let i = 0; i < onboardingSteps.length; i++) {
+    const s = onboardingSteps[i];
+    await prisma.onboardingStep.create({
+      data: {
+        pathId: path.id,
+        ordering: i + 1,
+        kind: s.kind,
+        label: s.label,
+        status: s.status,
+        completedAt: s.status === "COMPLETE" ? new Date(Date.now() - (10 - i) * 86_400_000) : null,
+        completedBy: s.status === "COMPLETE" ? pmUserName : null,
+      },
+    });
+  }
+
+  // ---------- Drawings & spec sections ----------
+  if (verticalProject) {
+    const drawing = await prisma.drawing.create({ data: { projectId: verticalProject.id, setName: "100% Construction Documents", discipline: "ARCHITECTURAL", revisionNumber: 0, issuedDate: new Date(Date.now() - 60 * 86_400_000) } });
+    const sheets = [
+      { sheetNumber: "A0.0", title: "Cover Sheet" },
+      { sheetNumber: "A0.1", title: "Code Analysis" },
+      { sheetNumber: "A1.1", title: "Site Plan" },
+      { sheetNumber: "A2.1", title: "First Floor Plan" },
+      { sheetNumber: "A2.2", title: "Second Floor Plan" },
+      { sheetNumber: "A3.1", title: "Building Elevations" },
+    ];
+    for (const s of sheets) {
+      await prisma.drawingSheet.create({ data: { drawingId: drawing.id, sheetNumber: s.sheetNumber, title: s.title } });
+    }
+    await prisma.drawing.create({ data: { projectId: verticalProject.id, setName: "Addendum 1", discipline: "STRUCTURAL", revisionNumber: 1, issuedDate: new Date(Date.now() - 14 * 86_400_000), notes: "Foundation revisions per geotech update." } });
+
+    const specs = [
+      { csiDivision: "03", sectionCode: "03 30 00", title: "Cast-in-Place Concrete" },
+      { csiDivision: "05", sectionCode: "05 12 00", title: "Structural Steel Framing" },
+      { csiDivision: "07", sectionCode: "07 21 00", title: "Thermal Insulation" },
+      { csiDivision: "08", sectionCode: "08 11 13", title: "Hollow Metal Doors and Frames" },
+      { csiDivision: "09", sectionCode: "09 51 23", title: "Acoustical Tile Ceilings" },
+    ];
+    for (const s of specs) {
+      await prisma.specSection.create({ data: { projectId: verticalProject.id, csiDivision: s.csiDivision, sectionCode: s.sectionCode, title: s.title } });
+    }
+  }
+
+  // ---------- Crew assignments (heavy civil) ----------
+  if (heavyProject) {
+    const today = new Date(); today.setHours(7, 0, 0, 0);
+    const crews = [
+      { crewName: "Spread A", foreman: "Mike Holland", costCode: "31-23-16", activity: "Excavation", plannedHeadcount: 6, plannedHours: 60, station: "STA 12+50" },
+      { crewName: "Spread B", foreman: "Carlos Vega", costCode: "33-12-16", activity: "Water main installation", plannedHeadcount: 5, plannedHours: 50, station: "STA 8+00" },
+      { crewName: "Paving crew", foreman: "Devon Lee", costCode: "32-12-16", activity: "Asphalt overlay", plannedHeadcount: 8, plannedHours: 80, station: "STA 0+00 - 4+00" },
+    ];
+    for (let dayOffset = -2; dayOffset <= 2; dayOffset++) {
+      const day = new Date(today.getTime() + dayOffset * 86_400_000);
+      for (const c of crews) {
+        await prisma.crewAssignment.create({
+          data: {
+            projectId: heavyProject.id,
+            assignedDate: day,
+            crewName: c.crewName,
+            foreman: c.foreman,
+            costCode: c.costCode,
+            activity: c.activity,
+            plannedHeadcount: c.plannedHeadcount,
+            actualHeadcount: dayOffset <= 0 ? c.plannedHeadcount - (Math.abs(dayOffset) % 2) : 0,
+            plannedHours: c.plannedHours,
+            actualHours: dayOffset <= 0 ? c.plannedHours - (Math.abs(dayOffset) * 4) : 0,
+            station: c.station,
+            shift: "Day",
+          },
+        });
+      }
+    }
   }
 }
 
