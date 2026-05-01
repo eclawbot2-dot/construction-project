@@ -19,7 +19,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!crewName || !assignedDateRaw) {
     return NextResponse.json({ error: "crewName and assignedDate required" }, { status: 400 });
   }
-  const costCode = form.get("costCode") ? String(form.get("costCode")) : null;
+  // Schema defaults costCode to "" so the unique index is well-defined.
+  // Empty string here means "not assigned to any cost code"; storing ""
+  // (rather than null) keeps Postgres + SQLite unique-index semantics
+  // consistent because both providers treat null as distinct in unique
+  // constraints.
+  const costCode = form.get("costCode") ? String(form.get("costCode")) : "";
 
   // Upsert prevents duplicates when the same crew is rebooked for the same
   // day/cost-code combo (the @@unique on the schema).
@@ -29,7 +34,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         projectId,
         assignedDate: new Date(assignedDateRaw),
         crewName,
-        costCode: costCode ?? "",
+        costCode,
       },
     },
     create: {

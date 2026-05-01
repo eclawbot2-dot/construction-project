@@ -635,6 +635,13 @@ model WorkflowRun {
   templateName String
   module       String
   status       WorkflowStatus @default(DRAFT)
+  // entityType + entityId promote the (formerly payloadJson-only)
+  // identifier of the underlying entity to first-class columns. Lets
+  // findActiveRunFor do an O(log N) index lookup instead of scanning the
+  // most-recent 50 rows and parsing JSON. payloadJson stays for any extra
+  // metadata callers want to attach.
+  entityType   String?
+  entityId     String?
   payloadJson  String         @default("{}")
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -642,6 +649,7 @@ model WorkflowRun {
   watchers Watcher[]
 
   @@index([projectId])
+  @@index([projectId, entityType, entityId, status])
 }
 
 model Watcher {
@@ -2659,7 +2667,11 @@ model CrewAssignment {
   assignedDate     DateTime
   crewName         String
   foreman          String?
-  costCode         String?
+  // costCode defaults to "" so @@unique([projectId, assignedDate, crewName,
+  // costCode]) is well-defined when callers omit a cost code. Storing ""
+  // instead of null keeps Postgres + SQLite unique semantics consistent
+  // (null != null in unique indexes on both providers).
+  costCode         String    @default("")
   activity         String?
   plannedHeadcount Int       @default(0)
   actualHeadcount  Int       @default(0)

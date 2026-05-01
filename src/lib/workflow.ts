@@ -66,18 +66,14 @@ export async function startWorkflowRun(args: StartArgs) {
       ?? `${args.module}/default`;
 
     return await prisma.$transaction(async (tx) => {
-      const candidates = await tx.workflowRun.findMany({
-        where: { projectId: args.projectId, status: { in: ["DRAFT", "UNDER_REVIEW"] } },
+      const existing = await tx.workflowRun.findFirst({
+        where: {
+          projectId: args.projectId,
+          entityType: args.entityType,
+          entityId: args.entityId,
+          status: { in: ["DRAFT", "UNDER_REVIEW"] },
+        },
         orderBy: { createdAt: "desc" },
-        take: 50,
-      });
-      const existing = candidates.find((run) => {
-        try {
-          const p = JSON.parse(run.payloadJson || "{}") as { entityType?: string; entityId?: string };
-          return p.entityType === args.entityType && p.entityId === args.entityId;
-        } catch {
-          return false;
-        }
       });
       if (existing) return existing;
 
@@ -87,11 +83,9 @@ export async function startWorkflowRun(args: StartArgs) {
           templateName,
           module: args.module,
           status: "UNDER_REVIEW",
-          payloadJson: JSON.stringify({
-            entityType: args.entityType,
-            entityId: args.entityId,
-            ...(args.payload ?? {}),
-          }),
+          entityType: args.entityType,
+          entityId: args.entityId,
+          payloadJson: JSON.stringify(args.payload ?? {}),
         },
       });
     });
@@ -161,27 +155,21 @@ export async function closeWorkflowRun(params: {
 }
 
 /**
- * Find the most recent non-terminal run for an entity. Implemented with a
- * payloadJson scan because the schema doesn't have first-class entity FK
- * columns on WorkflowRun (the targetType/targetId pair lives on Approval
- * but not on the run itself). At present the row count per project is low,
- * so the scan is cheap; if this becomes a hot path we can add explicit
- * entityType / entityId columns to WorkflowRun.
+ * Find the most recent non-terminal run for an entity. Uses the explicit
+ * (projectId, entityType, entityId, status) compound index so the lookup
+ * is a single B-tree probe regardless of how many WorkflowRuns the
+ * project has accumulated.
  */
 async function findActiveRunFor(projectId: string, entityType: string, entityId: string) {
-  const candidates = await prisma.workflowRun.findMany({
-    where: { projectId, status: { in: ["DRAFT", "UNDER_REVIEW"] } },
+  return prisma.workflowRun.findFirst({
+    where: {
+      projectId,
+      entityType,
+      entityId,
+      status: { in: ["DRAFT", "UNDER_REVIEW"] },
+    },
     orderBy: { createdAt: "desc" },
-    take: 50,
   });
-  return candidates.find((run) => {
-    try {
-      const p = JSON.parse(run.payloadJson || "{}") as { entityType?: string; entityId?: string };
-      return p.entityType === entityType && p.entityId === entityId;
-    } catch {
-      return false;
-    }
-  }) ?? null;
 }
 
 async function pickTemplateName(tenantId: string, module: string): Promise<string | null> {

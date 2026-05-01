@@ -2,6 +2,7 @@ import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
 
 const config: NextAuthConfig = {
   session: {
@@ -22,10 +23,28 @@ const config: NextAuthConfig = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = (credentials?.email as string | undefined)?.trim().toLowerCase();
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
+
+        // Pass-8 hardening: bound brute-force attempts before paying the
+        // ~70ms bcrypt cost. Sliding window on (ip, email) — 8 tries per
+        // 15 min per (ip, email). The `?` IP fallback catches the
+        // edge-runtime case where neither x-forwarded-for nor cf-connecting-
+        // ip is set; a missed IP just means we share one bucket across all
+        // such callers, which is the safe direction for a fallback.
+        const headers = (request as { headers?: Headers })?.headers;
+        const ip =
+          headers?.get?.("cf-connecting-ip") ??
+          headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ??
+          "?";
+        const key = `login:${ip}:${email}`;
+        const limit = consumeRateLimit(key, { limit: 8, windowMs: 15 * 60 * 1000 });
+        if (!limit.allowed) {
+          console.warn(`[auth] rate-limit hit for ${email} from ${ip}; resetAt=${new Date(limit.resetAt).toISOString()}`);
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email },
@@ -36,6 +55,9 @@ const config: NextAuthConfig = {
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return null;
 
+        // Successful auth — clear the throttle so a user who fat-fingered
+        // their password a few times doesn't get locked out post-fix.
+        resetRateLimit(key);
         prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
 
         return { id: user.id, name: user.name, email: user.email, superAdmin: user.superAdmin };
