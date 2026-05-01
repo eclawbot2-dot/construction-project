@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { currentActor } from "@/lib/permissions";
+import { recordAudit } from "@/lib/audit";
 import type { TimeEntry, TimeEntryStatus } from "@prisma/client";
 
 export type TimesheetActionResult = { ok: boolean; error?: string; entry?: TimeEntry };
@@ -8,8 +9,29 @@ export function loadedLabor(entry: Pick<TimeEntry, "regularHours" | "overtimeHou
   return entry.regularHours * entry.rate + entry.overtimeHours * entry.rate * 1.5 + entry.doubleTimeHours * entry.rate * 2;
 }
 
-async function logComment(entryId: string, actorName: string, actorId: string | null, kind: string, body: string): Promise<void> {
+const TIMESHEET_AUDITED_KINDS = new Set(["CREATE", "EDIT", "SUBMIT", "APPROVE", "REJECT"]);
+
+async function logComment(
+  entryId: string,
+  tenantId: string,
+  actorName: string,
+  actorId: string | null,
+  kind: string,
+  body: string,
+): Promise<void> {
   await prisma.timeEntryComment.create({ data: { entryId, authorName: actorName, authorId: actorId ?? undefined, kind, body } });
+  if (TIMESHEET_AUDITED_KINDS.has(kind)) {
+    await recordAudit({
+      tenantId,
+      actorId,
+      actorName,
+      entityType: "TimeEntry",
+      entityId: entryId,
+      action: kind,
+      after: { note: body },
+      source: "timesheets",
+    });
+  }
 }
 
 export async function submitTimesheet(id: string, tenantId: string, note?: string): Promise<TimesheetActionResult> {
@@ -21,7 +43,7 @@ export async function submitTimesheet(id: string, tenantId: string, note?: strin
     where: { id },
     data: { status: "SUBMITTED", submittedAt: new Date(), submittedBy: actor.userName, rejectionReason: null },
   });
-  await logComment(id, actor.userName, actor.userId, "SUBMIT", note ? `Submitted for approval. Note: ${note}` : "Submitted for approval.");
+  await logComment(id, tenantId, actor.userName, actor.userId, "SUBMIT", note ? `Submitted for approval. Note: ${note}` : "Submitted for approval.");
   return { ok: true, entry: updated };
 }
 
@@ -35,7 +57,7 @@ export async function approveTimesheet(id: string, tenantId: string, note?: stri
     where: { id },
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null, rejectedAt: null, rejectedBy: null, rejectionReason: null },
   });
-  await logComment(id, actor.userName, actor.userId, "APPROVE", note ? `Approved — ${note}` : "Approved.");
+  await logComment(id, tenantId, actor.userName, actor.userId, "APPROVE", note ? `Approved — ${note}` : "Approved.");
   return { ok: true, entry: updated };
 }
 
@@ -50,7 +72,7 @@ export async function rejectTimesheet(id: string, tenantId: string, reason: stri
     where: { id },
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
-  await logComment(id, actor.userName, actor.userId, "REJECT", `Rejected: ${reason.trim()}`);
+  await logComment(id, tenantId, actor.userName, actor.userId, "REJECT", `Rejected: ${reason.trim()}`);
   return { ok: true, entry: updated };
 }
 
@@ -95,7 +117,7 @@ export async function editTimesheet(id: string, tenantId: string, patch: Partial
     }).join(", ");
 
   const updated = await prisma.timeEntry.update({ where: { id }, data });
-  await logComment(id, actor.userName, actor.userId, "EDIT", `Edited: ${changes}`);
+  await logComment(id, tenantId, actor.userName, actor.userId, "EDIT", `Edited: ${changes}`);
   return { ok: true, entry: updated };
 }
 
@@ -104,7 +126,7 @@ export async function commentOnTimesheet(id: string, tenantId: string, body: str
   if (!body || body.trim().length < 1) return { ok: false, error: "Comment body required." };
   const entry = await prisma.timeEntry.findFirst({ where: { id, project: { tenantId } } });
   if (!entry) return { ok: false, error: "Entry not found." };
-  await logComment(id, actor.userName, actor.userId, "COMMENT", body.trim());
+  await logComment(id, tenantId, actor.userName, actor.userId, "COMMENT", body.trim());
   return { ok: true, entry };
 }
 
@@ -127,7 +149,7 @@ export async function createTimesheet(tenantId: string, input: { projectId: stri
       status: "DRAFT",
     },
   });
-  await logComment(entry.id, actor.userName, actor.userId, "CREATE", `Created draft by ${actor.userName}.`);
+  await logComment(entry.id, tenantId, actor.userName, actor.userId, "CREATE", `Created draft by ${actor.userName}.`);
   return { ok: true, entry };
 }
 

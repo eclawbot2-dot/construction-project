@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { currentActor, type CurrentActor } from "@/lib/permissions";
+import { recordAudit } from "@/lib/audit";
 
 export type CommentKind =
   | "COMMENT"
@@ -27,6 +28,21 @@ export type CommentKind =
   | "PAY"
   | "RESPOND"
   | "SYSTEM";
+
+// Comment kinds that should also emit an immutable AuditEvent. Plain
+// "COMMENT" and "SYSTEM" notes are RecordComment-only because they aren't
+// state-bearing changes.
+const AUDITED_KINDS: ReadonlySet<CommentKind> = new Set([
+  "CREATE",
+  "EDIT",
+  "SUBMIT",
+  "APPROVE",
+  "REJECT",
+  "CLOSE",
+  "REOPEN",
+  "PAY",
+  "RESPOND",
+]);
 
 export async function logComment(params: {
   tenantId: string;
@@ -48,6 +64,19 @@ export async function logComment(params: {
       body: params.body,
     },
   });
+
+  if (AUDITED_KINDS.has(params.kind)) {
+    await recordAudit({
+      tenantId: params.tenantId,
+      actorId: params.actorId,
+      actorName: params.actorName,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      action: params.kind,
+      after: { note: params.body },
+      source: "record-actions",
+    });
+  }
 }
 
 export async function listComments(tenantId: string, entityType: string, entityId: string) {
