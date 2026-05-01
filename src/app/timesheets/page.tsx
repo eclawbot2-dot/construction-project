@@ -2,12 +2,24 @@ import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-tile";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { loadedLabor } from "@/lib/timesheets";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { TimeEntryStatus } from "@prisma/client";
+
+type TimeEntryRow = Awaited<ReturnType<typeof loadEntries>>[number];
+
+async function loadEntries(where: Record<string, unknown>) {
+  return prisma.timeEntry.findMany({
+    where,
+    include: { project: true },
+    orderBy: [{ weekEnding: "desc" }, { employeeName: "asc" }],
+    take: 500,
+  });
+}
 
 const STATUS_OPTIONS: Array<TimeEntryStatus | "ALL"> = ["ALL", "DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "PAID"];
 
@@ -22,12 +34,7 @@ export default async function TimesheetsRollupPage({ searchParams }: { searchPar
   if (sp.employee) where.employeeName = { contains: sp.employee };
 
   const [entries, projects, statusCounts] = await Promise.all([
-    prisma.timeEntry.findMany({
-      where,
-      include: { project: true },
-      orderBy: [{ weekEnding: "desc" }, { employeeName: "asc" }],
-      take: 500,
-    }),
+    loadEntries(where),
     prisma.project.findMany({ where: { tenantId: tenant.id }, select: { id: true, code: true, name: true } }),
     prisma.timeEntry.groupBy({
       by: ["status"],
@@ -110,42 +117,30 @@ export default async function TimesheetsRollupPage({ searchParams }: { searchPar
           </form>
         </section>
 
-        <section className="card p-0 overflow-hidden">
-          <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Entries · {entries.length}</div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-white/10">
-              <thead className="bg-white/5">
-                <tr>
-                  <th className="table-header">Project</th>
-                  <th className="table-header">Employee</th>
-                  <th className="table-header">Week ending</th>
-                  <th className="table-header">Hours</th>
-                  <th className="table-header">Loaded</th>
-                  <th className="table-header">Cost code</th>
-                  <th className="table-header">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10 bg-slate-950/40">
-                {entries.map((t) => {
-                  const loaded = loadedLabor(t);
+        <DataTable
+          columns={
+            [
+              { key: "project", header: "Project", cellClassName: "text-cyan-300", render: (t) => t.project.code },
+              { key: "employeeName", header: "Employee", render: (t) => t.employeeName },
+              { key: "weekEnding", header: "Week ending", cellClassName: "text-xs text-slate-400", render: (t) => formatDate(t.weekEnding) },
+              {
+                key: "hours",
+                header: "Hours",
+                render: (t) => {
                   const hours = t.regularHours + t.overtimeHours + t.doubleTimeHours;
-                  return (
-                    <tr key={t.id} className="cursor-pointer transition hover:bg-white/5">
-                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block text-cyan-300 hover:underline">{t.project.code}</Link></td>
-                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block font-medium text-white">{t.employeeName}</Link></td>
-                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block text-slate-400">{formatDate(t.weekEnding)}</Link></td>
-                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block">{hours} <span className="text-xs text-slate-500">({t.regularHours}/{t.overtimeHours}/{t.doubleTimeHours})</span></Link></td>
-                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block">{formatCurrency(loaded)}</Link></td>
-                      <td className="table-cell font-mono text-xs"><Link href={`/timesheets/${t.id}`} className="block">{t.costCode ?? "—"}</Link></td>
-                      <td className="table-cell"><Link href={`/timesheets/${t.id}`} className="block"><StatusBadge status={t.status} /></Link></td>
-                    </tr>
-                  );
-                })}
-                {entries.length === 0 ? <tr><td colSpan={7} className="table-cell text-center text-slate-500">No entries matching filters.</td></tr> : null}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                  return <>{hours} <span className="text-xs text-slate-500">({t.regularHours}/{t.overtimeHours}/{t.doubleTimeHours})</span></>;
+                },
+              },
+              { key: "loaded", header: "Loaded", cellClassName: "text-xs text-right", render: (t) => formatCurrency(loadedLabor(t)) },
+              { key: "costCode", header: "Cost code", cellClassName: "font-mono text-xs", render: (t) => t.costCode ?? "—" },
+              { key: "status", header: "Status", render: (t) => <StatusBadge status={t.status} /> },
+            ] as DataTableColumn<TimeEntryRow>[]
+          }
+          rows={entries}
+          rowKey={(t) => t.id}
+          getRowHref={(t) => `/timesheets/${t.id}`}
+          emptyMessage="No entries matching filters."
+        />
       </div>
     </AppLayout>
   );
