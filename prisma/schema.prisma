@@ -409,6 +409,7 @@ model Tenant {
   commissionRules      CommissionRule[]
   commissionAccruals   CommissionAccrual[]
   captureRecords       CaptureRecord[]
+  onboardingPaths      OnboardingPath[]
 }
 
 model BusinessUnit {
@@ -2196,8 +2197,9 @@ model Candidate {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  submissions Submission[]
-  placements  Placement[]
+  submissions     Submission[]
+  placements      Placement[]
+  onboardingPaths OnboardingPath[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -2290,6 +2292,8 @@ model Placement {
   redeployable    Boolean         @default(true)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+
+  onboardingPath OnboardingPath?
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -2539,4 +2543,84 @@ model TeamingPartner {
   createdAt        DateTime      @default(now())
 
   @@index([captureId])
+}
+
+enum OnboardingPathStatus {
+  PLANNED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum OnboardingStepKind {
+  DOCUMENT
+  TRAINING
+  SIGNOFF
+  ACCESS_PROVISION
+  EQUIPMENT
+  COMPLIANCE_CHECK
+  ORIENTATION
+  OTHER
+}
+
+enum OnboardingStepStatus {
+  PENDING
+  IN_PROGRESS
+  WAIVED
+  COMPLETE
+  BLOCKED
+}
+
+/// Onboarding path — a personalised sequence of pre-start tasks for a
+/// new hire / placement. Status drives whether the path appears in the
+/// "active onboarding" view; an OnboardingPath is closed when every
+/// non-waived step reaches COMPLETE (the route enforces this).
+model OnboardingPath {
+  id              String               @id @default(cuid())
+  tenantId        String
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  candidateId     String?
+  candidate       Candidate?           @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  placementId     String?              @unique
+  placement       Placement?           @relation(fields: [placementId], references: [id], onDelete: SetNull)
+  personName      String
+  role            String?
+  startDateTarget DateTime?
+  status          OnboardingPathStatus @default(PLANNED)
+  ownerName       String?
+  notes           String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  steps OnboardingStep[]
+
+  @@index([tenantId, status])
+  @@index([candidateId])
+}
+
+/// One step in an OnboardingPath. `kind` lets the UI render the right
+/// affordance (file upload for DOCUMENT, link out for TRAINING, etc.).
+/// dueAt drives reminders; completedAt closes it. WAIVED is the manager
+/// override.
+model OnboardingStep {
+  id          String               @id @default(cuid())
+  pathId      String
+  path        OnboardingPath       @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  ordering    Int                  @default(0)
+  kind        OnboardingStepKind
+  label       String
+  description String?
+  status      OnboardingStepStatus @default(PENDING)
+  required    Boolean              @default(true)
+  dueAt       DateTime?
+  completedAt DateTime?
+  completedBy String?
+  documentUrl String?
+  blocker     String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([pathId, ordering])
+  @@index([pathId, status])
 }

@@ -57,6 +57,7 @@ const navGroups: NavGroup[] = [
       { href: "/people", label: "People & Roles", icon: Users },
       { href: "/people/ats", label: "ATS · Candidates", icon: Users },
       { href: "/people/placements", label: "Placements", icon: Briefcase },
+      { href: "/people/onboarding", label: "Onboarding", icon: ClipboardList },
       { href: "/timesheets", label: "Timesheets", icon: Timer },
       { href: "/vendors", label: "Vendors & Prequal", icon: Truck },
       { href: "/documents", label: "Documents", icon: FileStack },
