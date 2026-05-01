@@ -3,6 +3,33 @@ import { prisma } from "@/lib/prisma";
 import { currentTenantSlug } from "@/lib/tenant";
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
+export type TenantContext = Awaited<ReturnType<typeof getTenantContext>>;
+
+/**
+ * Lightweight tenant header used by the sidebar (rendered on every page).
+ * Skips the entire project graph that getDashboardData() walks — saves
+ * dozens of joins per request when the page itself doesn't need projects.
+ */
+export async function getTenantContext() {
+  const slug = await currentTenantSlug();
+  const tenant = await prisma.tenant.findFirst({
+    where: slug ? { slug } : undefined,
+    orderBy: { createdAt: "asc" },
+    include: { businessUnits: true },
+  });
+  if (!tenant) return null;
+
+  return {
+    id: tenant.id,
+    name: tenant.name,
+    slug: tenant.slug,
+    primaryMode: tenant.primaryMode,
+    enabledModes: parseJsonArray(tenant.enabledModes),
+    featurePacks: parseJsonArray(tenant.featurePacks),
+    terminology: parseJsonObject<Record<string, string>>(tenant.terminology, {}),
+    businessUnits: tenant.businessUnits,
+  };
+}
 
 function parseJsonArray(value: string | null | undefined): string[] {
   if (!value) return [];
@@ -46,26 +73,47 @@ export async function getDashboardData() {
               },
             },
           },
+          // Per-project includes are bounded so a tenant with thousands of
+          // rows in any one collection doesn't tip the dashboard into a
+          // multi-MB JSON response. Detail pages should use focused
+          // single-entity loaders, not the dashboard fan-out.
           tasks: {
             include: { assignee: true },
             orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+            take: 50,
           },
-          documents: true,
-          rfis: true,
-          submittals: true,
+          documents: { orderBy: { createdAt: "desc" }, take: 20 },
+          rfis: { orderBy: { createdAt: "desc" }, take: 30 },
+          submittals: { orderBy: { createdAt: "desc" }, take: 30 },
           dailyLogs: { orderBy: { logDate: "desc" }, take: 3 },
           budgets: { include: { lines: true } },
-          quantities: true,
-          productionEntries: true,
-          tickets: true,
-          meetings: true,
-          safetyIncidents: true,
-          punchItems: true,
-          workflowRuns: { include: { watchers: { include: { user: true } } } },
-          watchers: { include: { user: true } },
-          approvalRoutes: true,
-          equipmentRecords: true,
-          materialRecords: true,
+          quantities: { take: 30 },
+          productionEntries: { orderBy: { createdAt: "desc" }, take: 30 },
+          tickets: { orderBy: { createdAt: "desc" }, take: 30 },
+          meetings: { orderBy: { scheduledAt: "desc" }, take: 10 },
+          safetyIncidents: { orderBy: { createdAt: "desc" }, take: 20 },
+          punchItems: { orderBy: { createdAt: "desc" }, take: 30 },
+          workflowRuns: { include: { watchers: { include: { user: true } } }, take: 10 },
+          watchers: { include: { user: true }, take: 30 },
+          approvalRoutes: { take: 10 },
+          equipmentRecords: { take: 20 },
+          materialRecords: { take: 20 },
+          _count: {
+            select: {
+              tasks: { where: { status: { not: "COMPLETE" } } },
+              rfis: { where: { status: { not: WorkflowStatus.CLOSED } } },
+              submittals: { where: { status: { not: WorkflowStatus.CLOSED } } },
+              meetings: true,
+              quantities: true,
+              productionEntries: true,
+              tickets: true,
+              documents: true,
+              safetyIncidents: true,
+              punchItems: true,
+              watchers: true,
+              approvalRoutes: true,
+            },
+          },
         },
         orderBy: { createdAt: "asc" },
       },
@@ -92,18 +140,35 @@ export async function getDashboardData() {
     };
   });
 
-  const kpis = {
-    projects: tenant.projects.length,
-    openTasks: tenant.projects.reduce((sum, project) => sum + project.tasks.filter((task) => task.status !== "COMPLETE").length, 0),
-    activeRfis: tenant.projects.reduce((sum, project) => sum + project.rfis.filter((rfi) => rfi.status !== WorkflowStatus.CLOSED).length, 0),
-    activeSubmittals: tenant.projects.reduce((sum, project) => sum + project.submittals.filter((submittal) => submittal.status !== WorkflowStatus.CLOSED).length, 0),
-    tickets: tenant.projects.reduce((sum, project) => sum + project.tickets.length, 0),
-    documents: tenant.projects.reduce((sum, project) => sum + project.documents.length, 0),
-    incidents: tenant.projects.reduce((sum, project) => sum + project.safetyIncidents.length, 0),
-    punchItems: tenant.projects.reduce((sum, project) => sum + project.punchItems.length, 0),
-    watchers: tenant.projects.reduce((sum, project) => sum + project.watchers.length, 0),
-    approvalRoutes: tenant.projects.reduce((sum, project) => sum + project.approvalRoutes.length, 0),
-  };
+  // Roll up KPIs from the per-project _count aggregations rather than
+  // counting array lengths post-hoc. This keeps the numbers correct even
+  // when the per-project includes are capped by `take: N` above.
+  const kpis = tenant.projects.reduce(
+    (acc, project) => {
+      acc.openTasks += project._count.tasks;
+      acc.activeRfis += project._count.rfis;
+      acc.activeSubmittals += project._count.submittals;
+      acc.tickets += project._count.tickets;
+      acc.documents += project._count.documents;
+      acc.incidents += project._count.safetyIncidents;
+      acc.punchItems += project._count.punchItems;
+      acc.watchers += project._count.watchers;
+      acc.approvalRoutes += project._count.approvalRoutes;
+      return acc;
+    },
+    {
+      projects: tenant.projects.length,
+      openTasks: 0,
+      activeRfis: 0,
+      activeSubmittals: 0,
+      tickets: 0,
+      documents: 0,
+      incidents: 0,
+      punchItems: 0,
+      watchers: 0,
+      approvalRoutes: 0,
+    },
+  );
 
   const dashboardCards = tenant.projects.map((project) => {
     const budget = project.budgets[0];
@@ -129,22 +194,22 @@ export async function getDashboardData() {
       metrics:
         project.mode === ProjectMode.SIMPLE
           ? [
-              { label: "Open tasks", value: project.tasks.filter((task) => task.status !== "COMPLETE").length },
-              { label: "Photos/docs", value: project.documents.length },
+              { label: "Open tasks", value: project._count.tasks },
+              { label: "Photos/docs", value: project._count.documents },
               { label: "Budget", value: `$${Math.round((budget?.currentValue ?? 0) / 1000)}k` },
-              { label: "Punch", value: project.punchItems.length },
+              { label: "Punch", value: project._count.punchItems },
             ]
           : project.mode === ProjectMode.VERTICAL
             ? [
-                { label: "RFIs", value: project.rfis.length },
-                { label: "Submittals", value: project.submittals.length },
-                { label: "Meetings", value: project.meetings.length },
+                { label: "RFIs", value: project._count.rfis },
+                { label: "Submittals", value: project._count.submittals },
+                { label: "Meetings", value: project._count.meetings },
                 { label: "Budget", value: `$${Math.round((budget?.currentValue ?? 0) / 1000000)}M` },
               ]
             : [
-                { label: "Quantities", value: project.quantities.length },
-                { label: "Production entries", value: project.productionEntries.length },
-                { label: "Tickets", value: project.tickets.length },
+                { label: "Quantities", value: project._count.quantities },
+                { label: "Production entries", value: project._count.productionEntries },
+                { label: "Tickets", value: project._count.tickets },
                 { label: "Budget", value: `$${Math.round((budget?.currentValue ?? 0) / 1000000)}M` },
               ],
       latestSummary: project.dailyLogs[0]?.summary ?? "No daily summary yet",
