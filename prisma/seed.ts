@@ -496,6 +496,13 @@ async function main() {
     userForPm: pm,
     userForSuper: superintendent,
   });
+
+  // Seed the global solicitation-portal catalog. Idempotent (upsert by
+  // URL) so re-running won't disturb live RfpSource subscriptions that
+  // reference catalog rows.
+  const { upsertPortalCatalog } = await import("./portal-catalog");
+  const { created, updated } = await upsertPortalCatalog(prisma);
+  console.log(`portal catalog: ${created} created, ${updated} updated`);
 }
 
 type ExtraTenantSpec = {

@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { draftBidFromListing, runComplianceCheck } from "@/lib/bid-author";
 import { generateEstimateForDraft } from "@/lib/estimating";
 import { crawlSourceAndPersist, modeFromListing } from "@/lib/rfp-crawl";
+import { defaultProfile, scoreListing } from "@/lib/listing-score";
 import { OpportunityStage, RfpSourceStatus } from "@prisma/client";
 
 export async function autopilotListing(tenantId: string, listingId: string, companyName: string): Promise<{ ok: boolean; draftId?: string; passed?: number; total?: number; note: string }> {
@@ -66,20 +67,125 @@ export async function autopilotListing(tenantId: string, listingId: string, comp
   };
 }
 
-/** Run a sweep across every ACTIVE source in every tenant, respecting cadence. */
-export async function sweepAllSources(): Promise<{ ok: boolean; sourcesChecked: number; newListings: number }> {
-  const sources = await prisma.rfpSource.findMany({ where: { status: RfpSourceStatus.ACTIVE } });
+/**
+ * Run a sweep across every ACTIVE source in every tenant, respecting
+ * cadence. After each source crawl, score the new listings against the
+ * tenant's bid profile and (if the source has autoDraftEnabled) fire
+ * autopilotListing on listings whose score crosses the configured
+ * threshold.
+ */
+export async function sweepAllSources(): Promise<{
+  ok: boolean;
+  sourcesChecked: number;
+  newListings: number;
+  scored: number;
+  autoDrafted: number;
+}> {
+  const sources = await prisma.rfpSource.findMany({
+    where: { status: RfpSourceStatus.ACTIVE },
+    include: { tenant: { include: { bidProfile: true } } },
+  });
   let checked = 0;
   let created = 0;
+  let scored = 0;
+  let autoDrafted = 0;
   const now = Date.now();
-  for (const s of sources) {
-    const cadenceMs = cadenceToMs(s.cadence);
-    if (s.lastCheckedAt && now - new Date(s.lastCheckedAt).getTime() < cadenceMs) continue;
-    const result = await crawlSourceAndPersist(s.id);
+
+  for (const source of sources) {
+    const cadenceMs = cadenceToMs(source.cadence);
+    if (source.lastCheckedAt && now - new Date(source.lastCheckedAt).getTime() < cadenceMs) continue;
+    const result = await crawlSourceAndPersist(source.id);
     checked += 1;
     created += result.created;
+
+    if (result.created === 0) continue;
+
+    // Score the listings created in this crawl. Pull the latest N
+    // unscored listings for this source — slightly imprecise but
+    // avoids passing IDs around.
+    const profile = source.tenant.bidProfile
+      ? bidProfileFromRow(source.tenant.bidProfile)
+      : defaultProfile();
+    const unscored = await prisma.rfpListing.findMany({
+      where: { sourceId: source.id, score: null },
+      orderBy: { discoveredAt: "desc" },
+      take: result.created,
+    });
+    for (const listing of unscored) {
+      const breakdown = scoreListing(listing, profile);
+      await prisma.rfpListing.update({
+        where: { id: listing.id },
+        data: {
+          score: breakdown.score,
+          scoreExplanation: JSON.stringify(breakdown.signals),
+        },
+      });
+      scored += 1;
+
+      if (source.autoDraftEnabled && breakdown.score >= source.autoDraftMinScore) {
+        try {
+          const auto = await autopilotListing(source.tenantId, listing.id, source.tenant.name);
+          await prisma.rfpListing.update({
+            where: { id: listing.id },
+            data: {
+              autoDrafted: auto.ok,
+              autoDraftedAt: new Date(),
+              autoDraftError: auto.ok ? null : auto.note.slice(0, 500),
+            },
+          });
+          if (auto.ok) autoDrafted += 1;
+        } catch (err) {
+          console.error("[sweep] autopilotListing threw", { listingId: listing.id, err });
+          await prisma.rfpListing.update({
+            where: { id: listing.id },
+            data: {
+              autoDraftError: (err instanceof Error ? err.message : String(err)).slice(0, 500),
+              autoDraftedAt: new Date(),
+            },
+          });
+        }
+      }
+    }
   }
-  return { ok: true, sourcesChecked: checked, newListings: created };
+
+  return { ok: true, sourcesChecked: checked, newListings: created, scored, autoDrafted };
+}
+
+type StoredBidProfile = {
+  targetNaicsJson: string;
+  qualifiedSetAsidesJson: string;
+  targetStatesJson: string;
+  targetCitiesJson: string;
+  minValue: number | null;
+  maxValue: number | null;
+  boostKeywordsJson: string;
+  blockKeywordsJson: string;
+  preferredTiersJson: string;
+  hotThreshold: number;
+};
+
+/** Map a TenantBidProfile row into the in-memory BidProfile shape. */
+function bidProfileFromRow(row: StoredBidProfile) {
+  const parseList = (json: string): string[] => {
+    try {
+      const parsed = JSON.parse(json);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  };
+  return {
+    targetNaics: parseList(row.targetNaicsJson),
+    qualifiedSetAsides: parseList(row.qualifiedSetAsidesJson),
+    targetStates: parseList(row.targetStatesJson),
+    targetCities: parseList(row.targetCitiesJson),
+    minValue: row.minValue,
+    maxValue: row.maxValue,
+    boostKeywords: parseList(row.boostKeywordsJson),
+    blockKeywords: parseList(row.blockKeywordsJson),
+    preferredTiers: parseList(row.preferredTiersJson),
+    hotThreshold: row.hotThreshold,
+  };
 }
 
 function cadenceToMs(cadence: string): number {

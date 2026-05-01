@@ -421,6 +421,7 @@ model Tenant {
   commissionAccruals   CommissionAccrual[]
   captureRecords       CaptureRecord[]
   onboardingPaths      OnboardingPath[]
+  bidProfile           TenantBidProfile?
 }
 
 model BusinessUnit {
@@ -1609,57 +1610,108 @@ model InspectionAttachment {
 // RFP / bid automation CRM
 
 model RfpSource {
-  id              String          @id @default(cuid())
-  tenantId        String
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  label           String
-  url             String
-  agencyHint      String?
-  cadence         String          @default("DAILY")
-  naicsFilter     String?
-  keywordsJson    String          @default("[]")
-  setAsideFilter  String?
-  status          RfpSourceStatus @default(ACTIVE)
-  geoScope        String?
-  geoCity         String?
-  geoState        String?
-  geoCountry      String?         @default("US")
-  authType        String          @default("NONE")
-  authUsername    String?
-  authPasswordEnc String?
-  authApiKeyEnc   String?
-  authCookieJar   String?
-  authNotes       String?
-  autoLogin       Boolean         @default(false)
-  lastAuthAt      DateTime?
-  lastCheckedAt   DateTime?
-  lastCheckNote   String?
-  lastResultCount Int             @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                String                     @id @default(cuid())
+  tenantId          String
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label             String
+  url               String
+  agencyHint        String?
+  // Optional pointer to the global SolicitationPortalCatalog row this
+  // source was derived from. Lets the UI render "subscribed via the
+  // GSA Forecast catalog entry" affordances.
+  catalogId         String?
+  catalog           SolicitationPortalCatalog? @relation(fields: [catalogId], references: [id], onDelete: SetNull)
+  cadence           String                     @default("DAILY")
+  naicsFilter       String?
+  keywordsJson      String                     @default("[]")
+  setAsideFilter    String?
+  status            RfpSourceStatus            @default(ACTIVE)
+  geoScope          String?
+  geoCity           String?
+  geoState          String?
+  geoCountry        String?                    @default("US")
+  authType          String                     @default("NONE")
+  authUsername      String?
+  authPasswordEnc   String?
+  authApiKeyEnc     String?
+  authCookieJar     String?
+  authNotes         String?
+  autoLogin         Boolean                    @default(false)
+  // Auto-draft policy. When enabled, listings whose computed score is
+  // >= autoDraftMinScore at sweep time skip manual review and run
+  // autopilotListing() right away. Default 70 is sensible; the UI
+  // exposes per-source overrides.
+  autoDraftEnabled  Boolean                    @default(false)
+  autoDraftMinScore Int                        @default(70)
+  lastAuthAt        DateTime?
+  lastCheckedAt     DateTime?
+  lastCheckNote     String?
+  lastResultCount   Int                        @default(0)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
 
   listings RfpListing[]
 
   @@index([tenantId])
+  @@index([catalogId])
+}
+
+enum AgencyKind {
+  FEDERAL
+  STATE
+  COUNTY
+  MUNICIPAL
+  TRIBAL
+  AGGREGATOR
+  PRIVATE
+  AUTHORITY
+}
+
+/// Agency tier — coarse grouping under FEDERAL. Lets the catalog UI
+/// render "DoD branches" / "VA centers" / "GSA-wide" categories without
+/// hard-coding the entire NAICS taxonomy.
+enum AgencyTier {
+  CIVILIAN
+  DOD
+  VA
+  USACE
+  GSA
+  HOMELAND
+  ENERGY
+  TRANSPORTATION
+  HEALTH
+  EDUCATION
+  INDEPENDENT
+  OTHER
 }
 
 model SolicitationPortalCatalog {
-  id          String   @id @default(cuid())
-  name        String
-  url         String   @unique
-  category    String
-  geoScope    String
-  geoCity     String?
-  geoState    String?
-  geoCountry  String   @default("US")
-  authType    String   @default("NONE")
-  signupUrl   String?
-  description String?
-  naicsFocus  String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id            String     @id @default(cuid())
+  name          String
+  url           String     @unique
+  category      String
+  // Structured agency classification (added 2026-05-01) lets the
+  // discover UI categorize portals federal vs state vs county vs
+  // municipal vs aggregator and surface DoD / VA / GSA sub-tiers.
+  agencyKind    AgencyKind @default(FEDERAL)
+  agencyTier    AgencyTier @default(CIVILIAN)
+  agencyName    String?
+  geoScope      String
+  geoCity       String?
+  geoState      String?
+  geoCountry    String     @default("US")
+  authType      String     @default("NONE")
+  signupUrl     String?
+  description   String?
+  naicsFocus    String?
+  setAsideFocus String?
+  active        Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+
+  rfpSources RfpSource[]
 
   @@index([active])
+  @@index([agencyKind, agencyTier])
 }
 
 model RfpListing {
@@ -1670,6 +1722,8 @@ model RfpListing {
   source             RfpSource?       @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   title              String
   agency             String
+  agencyKind         AgencyKind?
+  agencyTier         AgencyTier?
   solicitationNo     String?
   url                String?
   summary            String?
@@ -1681,6 +1735,19 @@ model RfpListing {
   placeOfPerformance String?
   matched            Boolean          @default(false)
   status             RfpListingStatus @default(NEW)
+  // Match score 0-100 against the tenant's bid profile. NULL means
+  // "not yet scored." scoreExplanation is a JSON string with the
+  // signal breakdown so the UI can render "matched on NAICS, missed
+  // on geo" tooltips and the operator can audit the ranking.
+  score              Int?
+  scoreExplanation   String?
+  // Auto-draft attempt status (added 2026-05-01). When the sweep
+  // auto-fires autopilotListing on a hot listing, we record the
+  // outcome here so the UI can show "auto-drafted on date X" without
+  // walking AuditEvent rows.
+  autoDrafted        Boolean          @default(false)
+  autoDraftedAt      DateTime?
+  autoDraftError     String?
   opportunityId      String?
   opportunity        Opportunity?     @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
   ownerName          String?
@@ -1691,6 +1758,53 @@ model RfpListing {
 
   @@index([tenantId])
   @@index([sourceId])
+  @@index([tenantId, score])
+  @@index([tenantId, dueAt])
+}
+
+/// Per-tenant matching profile — what makes a listing a "good fit" for
+/// THIS tenant. Used by the scoring engine to assign 0-100 scores at
+/// sweep time. Each field is JSON-encoded to keep the schema stable as
+/// the matching logic evolves.
+///
+/// Pass-11 (2026-05-01): added to support auto-tracking and auto-draft
+/// across federal / state / county / municipal pipelines.
+model TenantBidProfile {
+  id                     String   @id @default(cuid())
+  tenantId               String   @unique
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Comma-separated NAICS codes the tenant pursues. Listings whose
+  // naicsCode matches any of these score full points on NAICS.
+  targetNaicsJson        String   @default("[]")
+  // Set-aside codes the tenant qualifies for (SDVOSB, EIGHT_A, WOSB,
+  // HUBZONE, SMALL_BUSINESS, NONE). Listings whose setAside is in this
+  // list score full points; UNKNOWN listings (no setAside) score
+  // partial.
+  qualifiedSetAsidesJson String   @default("[]")
+  // Geographic preference. Listings within targetStates or
+  // targetCities score full geo points; further away gets partial.
+  targetStatesJson       String   @default("[]")
+  targetCitiesJson       String   @default("[]")
+  // Dollar value range — listings outside the range take a hit.
+  minValue               Float?
+  maxValue               Float?
+  // Keywords / phrases boosting score when found in title/summary.
+  boostKeywordsJson      String   @default("[]")
+  // Keywords that should subtract from score (e.g. "demolition only"
+  // for a tenant that doesn't do demo work).
+  blockKeywordsJson      String   @default("[]")
+  // Per-agency-tier preference — array of AgencyTier values. Empty
+  // array means no preference.
+  preferredTiersJson     String   @default("[]")
+  // The score floor at which a listing becomes "hot" — surfaced in
+  // dashboards, gets a notification, and (if the source allows)
+  // qualifies for auto-draft.
+  hotThreshold           Int      @default(70)
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model BidDraft {

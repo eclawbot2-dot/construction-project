@@ -54,6 +54,7 @@ export default async function BidSourcesPage() {
                   <th className="table-header">Last checked</th>
                   <th className="table-header">Result</th>
                   <th className="table-header">Status</th>
+                  <th className="table-header">Auto-draft</th>
                   <th className="table-header" />
                 </tr>
               </thead>
@@ -68,13 +69,31 @@ export default async function BidSourcesPage() {
                     <td className="table-cell text-xs text-slate-400">{s.lastCheckNote ?? "—"}</td>
                     <td className="table-cell"><StatusBadge status={s.status} /></td>
                     <td className="table-cell">
+                      <form action={`/api/rfp/sources/${s.id}/auto-draft`} method="post" className="flex items-center gap-1">
+                        <label className="flex items-center gap-1 text-xs" style={{ color: "var(--faint)" }}>
+                          <input type="checkbox" name="autoDraftEnabled" defaultChecked={s.autoDraftEnabled} />
+                          auto-draft
+                        </label>
+                        <input
+                          name="autoDraftMinScore"
+                          type="number"
+                          min={0}
+                          max={100}
+                          defaultValue={s.autoDraftMinScore}
+                          aria-label="Auto-draft minimum score"
+                          className="form-input w-14 text-xs"
+                        />
+                        <button type="submit" className="btn-outline text-xs">Save</button>
+                      </form>
+                    </td>
+                    <td className="table-cell">
                       <form action={`/api/rfp/sources/${s.id}/refresh`} method="post">
                         <button type="submit" className="btn-outline text-xs">Refresh</button>
                       </form>
                     </td>
                   </tr>
                 ))}
-                {sources.length === 0 ? <tr><td colSpan={8} className="table-cell text-center text-slate-500">No sources yet. Add one above or use the seed defaults.</td></tr> : null}
+                {sources.length === 0 ? <tr><td colSpan={9} className="table-cell text-center text-slate-500">No sources yet. Add one above or via <Link href="/bids/discover" className="underline">Discover</Link>.</td></tr> : null}
               </tbody>
             </table>
           </div>

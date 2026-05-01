@@ -41,6 +41,7 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
             <table className="min-w-full divide-y divide-white/10">
               <thead className="bg-white/5">
                 <tr>
+                  <th className="table-header">Score</th>
                   <th className="table-header">Agency</th>
                   <th className="table-header">Title</th>
                   <th className="table-header">Value</th>
@@ -55,6 +56,18 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {listings.map((l) => (
                   <tr key={l.id} className="transition hover:bg-white/5">
+                    <td className="table-cell text-xs">
+                      {l.score == null ? (
+                        <span className="text-slate-500">—</span>
+                      ) : (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${l.score >= 70 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" : l.score >= 50 ? "border-amber-500/40 bg-amber-500/10 text-amber-200" : "border-slate-500/40 bg-slate-500/10 text-slate-300"}`}
+                          title={l.scoreExplanation ?? undefined}
+                        >
+                          {l.score}{l.autoDrafted ? " · auto" : ""}
+                        </span>
+                      )}
+                    </td>
                     <td className="table-cell text-slate-400">{l.agency}</td>
                     <td className="table-cell">
                       <div className="font-medium text-white">{l.title}</div>
@@ -79,7 +92,7 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
                     </td>
                   </tr>
                 ))}
-                {listings.length === 0 ? <tr><td colSpan={9} className="table-cell text-center text-slate-500">No listings yet. Refresh a source from /bids/sources or discover new portals.</td></tr> : null}
+                {listings.length === 0 ? <tr><td colSpan={10} className="table-cell text-center text-slate-500">No listings yet. Refresh a source from /bids/sources or discover new portals.</td></tr> : null}
               </tbody>
             </table>
           </div>

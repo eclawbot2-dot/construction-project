@@ -13,9 +13,20 @@ export async function POST(req: Request) {
   const url = String(form.get("url") ?? "").trim();
   if (!label || !url) return NextResponse.json({ error: "label and url are required" }, { status: 400 });
 
+  // Optional catalogId — when subscribing via /bids/discover, this links
+  // the new source back to the catalog row so the UI can render
+  // "watching via the GSA Forecast catalog entry" affordances.
+  const catalogIdInput = String(form.get("catalogId") ?? "").trim();
+  let catalogId: string | null = null;
+  if (catalogIdInput) {
+    const cat = await prisma.solicitationPortalCatalog.findUnique({ where: { id: catalogIdInput } });
+    if (cat) catalogId = cat.id;
+  }
+
   await prisma.rfpSource.create({
     data: {
       tenantId: tenant.id,
+      catalogId,
       label,
       url,
       agencyHint: String(form.get("agencyHint") ?? "") || null,
