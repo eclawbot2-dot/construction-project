@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { notifyForAlert } from "@/lib/notify";
 
 type Produced = { title: string; body?: string; severity: "INFO" | "WARN" | "ALERT"; entityType: string; entityId: string; link?: string; projectId?: string };
 
@@ -63,9 +64,15 @@ export async function runAlertScan(tenantId: string): Promise<{ ok: boolean; pro
   }
 
   await prisma.alertEvent.deleteMany({ where: { tenantId, acknowledgedAt: null } });
+  let notified = 0;
   for (const p of out) {
-    await prisma.alertEvent.create({ data: { tenantId, ...p } });
+    const event = await prisma.alertEvent.create({ data: { tenantId, ...p } });
+    notified += await notifyForAlert(event);
   }
 
-  return { ok: true, produced: out.length, note: `produced ${out.length} alerts` };
+  return {
+    ok: true,
+    produced: out.length,
+    note: `produced ${out.length} alert${out.length === 1 ? "" : "s"}; dispatched ${notified} notification${notified === 1 ? "" : "s"}`,
+  };
 }
