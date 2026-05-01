@@ -127,7 +127,7 @@ export default async function CapturePage() {
             description="Add a pursuit above. Each capture tracks its own milestones, color-team reviews, decisions, and teaming partners."
           />
         ) : (
-          <DataTable columns={columns} rows={captures} rowKey={(c) => c.id} />
+          <DataTable columns={columns} rows={captures} rowKey={(c) => c.id} getRowHref={(c) => `/bids/capture/${c.id}`} />
         )}
 
         <p className="text-xs" style={{ color: "var(--faint)" }}>

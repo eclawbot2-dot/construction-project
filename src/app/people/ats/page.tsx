@@ -210,7 +210,7 @@ export default async function AtsPage() {
           {candidates.length === 0 ? (
             <EmptyState icon={Users} title="No candidates yet" description="Add one with the form above to start tracking." />
           ) : (
-            <DataTable columns={candidateColumns} rows={candidates} rowKey={(c) => c.id} />
+            <DataTable columns={candidateColumns} rows={candidates} rowKey={(c) => c.id} getRowHref={(c) => `/people/ats/${c.id}`} />
           )}
         </div>
 
