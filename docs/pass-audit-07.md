@@ -267,6 +267,29 @@ After this sequence, the repo would move from "MVP foundation with security hole
 
 ---
 
+## 7c. Pass-8 audit findings + fixes
+
+After the autonomous-run PRs landed, four more parallel agents ran a
+review of the work itself. Key findings and what got fixed in the
+same session:
+
+| # | Severity | Finding | Fix |
+|---|----------|---------|-----|
+| 1 | High | `middleware.ts` passed `salt` to NextAuth's `getToken`, but `salt` is the JWT encryption salt, not the cookie name. Functionally worked because the value happened to match the default `salt = cookieName`, but semantically wrong and brittle to upgrades. | Replaced with `secureCookie: NODE_ENV === "production"`. NextAuth auto-derives the right cookie name + salt. |
+| 2 | High | `auth.ts` had no explicit session `maxAge` — defaulted to NextAuth's 30 days. A demoted super-admin's JWT keeps claiming `superAdmin: true` for that whole window. | Set `maxAge: 60 * 60 * 4` (4 hours). Privilege-revocation lag is now bounded; users re-auth at most twice per workday. |
+| 3 | High | `signOut()` only cleared the NextAuth session cookie; the app-specific `cx.tenant` / `cx.actor` / `cx.superAdmin` cookies persisted. A subsequent sign-in on the same browser would inherit the previous user's tenant context. | Added `/api/auth/sign-out-clean` that calls NextAuth's `signOut` and deletes all three `cx.*` cookies in the same response. `SignOutButton` now POSTs there (and dropped its `next-auth/react` dep, becoming a server component). |
+| 4 | High | `startWorkflowRun` had a find-then-create race: two concurrent `submitChangeOrder` calls could each scan, miss, and create duplicate WorkflowRuns. | Wrapped in `prisma.$transaction(async (tx) => { ... })`. SQLite serializes writes anyway; on Postgres, SERIALIZABLE catches the conflicting writer at COMMIT and Prisma retries. |
+| 5 | Critical | `/api/capture/records/[id]/milestone` created `CaptureMilestone` rows but emitted no `AuditEvent`. Pass 7 §1.6 demanded universal audit emission. | Added `recordAudit` call. |
+| 6 | Medium | `approval-section.tsx` had hardcoded `text-cyan-300` / `text-slate-500` / `text-white` — pass-7 fixed similar in EmptyState/Modal but missed this one. | Replaced with `var(--accent)` / `var(--faint)` / `var(--heading)` CSS variables. |
+| 7 | Medium | Several inline forms (commissions add-rule, add-accrual, crew-assignment add) had inputs with placeholders only — no `<label>` or `aria-label`. | Added `aria-label` per input + `sm:grid-cols-1` (or `sm:grid-cols-2`) so wide forms reflow on phones. |
+
+Still open from pass-8 (deferred):
+
+  * No login rate limiting on `/api/auth/signin` — credentials provider has no built-in throttle. Needs a rate-limit lib choice.
+  * Float on currency persists across the new modules (14 fields) — folded into the existing pass-7 §1.2 Decimal migration.
+  * `CrewAssignment` upsert uses `costCode ?? ""` to handle the nullable schema field. Works on SQLite + Postgres but is brittle if a row ever gets a literal `null` costCode through another path. Adding `@default("")` to the schema would make it watertight; deferred so the unique constraint behaviour stays predictable on both providers.
+  * `WorkflowRun` payloadJson scan is bounded at `take: 50` per project. Will need explicit `entityType`/`entityId` columns + index when audit-history queries scale past a few months.
+
 ## 8. What this audit did not cover
 
 - Mobile/native client work (req §6.5, native/hybrid roadmap)

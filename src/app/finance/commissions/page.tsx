@@ -93,37 +93,37 @@ export default async function CommissionsPage() {
 
         <section className="card p-5">
           <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--heading)" }}>+ Add a commission rule</h2>
-          <form action="/api/commissions/rules/create" method="post" className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto_auto]">
-            <input name="name" required placeholder="Rule name (e.g. Award commission)" className="form-input" />
-            <select name="appliesTo" defaultValue="OPPORTUNITY" className="form-select">
+          <form action="/api/commissions/rules/create" method="post" className="grid gap-3 sm:grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto_auto_auto]">
+            <input name="name" required placeholder="Rule name (e.g. Award commission)" aria-label="Rule name" className="form-input" />
+            <select name="appliesTo" defaultValue="OPPORTUNITY" aria-label="Applies to" className="form-select">
               {["OPPORTUNITY", "PROJECT", "CONTRACT", "PAY_APPLICATION", "CHANGE_ORDER", "MANUAL"].map((s) => (
                 <option key={s} value={s}>{s.replace("_", " ")}</option>
               ))}
             </select>
-            <select name="recipientRole" defaultValue="" className="form-select">
+            <select name="recipientRole" defaultValue="" aria-label="Recipient role" className="form-select">
               <option value="">— any role —</option>
               {["ADMIN", "EXECUTIVE", "MANAGER", "CAPTURE_MANAGER", "PROGRAM_MANAGER", "ACCOUNT_EXECUTIVE", "RECRUITER", "COORDINATOR"].map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
-            <input name="ratePct" type="number" step="0.01" defaultValue={5} className="form-input w-24" placeholder="Rate %" />
-            <input name="cap" type="number" step="0.01" placeholder="Cap" className="form-input w-24" />
+            <input name="ratePct" type="number" step="0.01" defaultValue={5} className="form-input w-24" placeholder="Rate %" aria-label="Rate percent" />
+            <input name="cap" type="number" step="0.01" placeholder="Cap" aria-label="Cap (max payout)" className="form-input w-24" />
             <button className="btn-primary">Add rule</button>
           </form>
         </section>
 
         <section className="card p-5">
           <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--heading)" }}>+ Record an accrual</h2>
-          <form action="/api/commissions/accruals/create" method="post" className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto_1fr_auto]">
-            <input name="recipientName" required placeholder="Recipient" className="form-input" />
-            <select name="sourceType" defaultValue="MANUAL" className="form-select">
+          <form action="/api/commissions/accruals/create" method="post" className="grid gap-3 sm:grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_1fr_auto]">
+            <input name="recipientName" required placeholder="Recipient" aria-label="Recipient name" className="form-input" />
+            <select name="sourceType" defaultValue="MANUAL" aria-label="Source type" className="form-select">
               {["OPPORTUNITY", "PROJECT", "CONTRACT", "PAY_APPLICATION", "CHANGE_ORDER", "MANUAL"].map((s) => (
                 <option key={s} value={s}>{s.replace("_", " ")}</option>
               ))}
             </select>
-            <input name="basis" type="number" step="0.01" placeholder="Basis $" className="form-input w-32" />
-            <input name="ratePct" type="number" step="0.01" placeholder="Rate %" className="form-input w-24" />
-            <select name="ruleId" defaultValue="" className="form-select">
+            <input name="basis" type="number" step="0.01" placeholder="Basis $" aria-label="Basis amount" className="form-input w-32" />
+            <input name="ratePct" type="number" step="0.01" placeholder="Rate %" aria-label="Rate percent" className="form-input w-24" />
+            <select name="ruleId" defaultValue="" aria-label="Linked rule" className="form-select">
               <option value="">— no rule —</option>
               {rules.filter((r) => r.active).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>

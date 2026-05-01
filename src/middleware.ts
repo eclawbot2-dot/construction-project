@@ -15,9 +15,12 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET,
-    salt: process.env.NODE_ENV === "production"
-      ? "__Secure-authjs.session-token"
-      : "authjs.session-token",
+    // `secureCookie` lets NextAuth pick the right cookie name (auto-prefixed
+    // with `__Secure-` in production) and the matching encryption salt.
+    // Pass-8 audit caught the prior version misusing `salt` (an encryption
+    // salt) as a cookie-name override; the value happened to match the
+    // default but the parameter was semantically wrong.
+    secureCookie: process.env.NODE_ENV === "production",
   });
 
   if (token?.userId) {

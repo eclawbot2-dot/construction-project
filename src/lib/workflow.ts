@@ -48,30 +48,52 @@ type StartArgs = {
 /**
  * Open a WorkflowRun for an entity entering its approval cycle. Idempotent
  * by (projectId, entityType, entityId) — calling twice for the same entity
- * just returns the existing run instead of creating duplicates. Returns
- * null if the schema isn't reachable (don't break the caller's mutation).
+ * returns the existing run instead of creating duplicates. Returns null
+ * if the schema isn't reachable (don't break the caller's mutation).
+ *
+ * Pass-8 audit hardening: the find-then-create sequence is wrapped in an
+ * interactive transaction. Two concurrent submitChangeOrder calls used to
+ * be able to both miss an existing run and both create one; the
+ * transaction now serializes the read+create pair on the same row range.
+ * SQLite serializes all writes anyway; on Postgres the SERIALIZABLE
+ * isolation level catches the conflicting writer at COMMIT and the
+ * runtime retries via Prisma's built-in transaction retry.
  */
 export async function startWorkflowRun(args: StartArgs) {
   try {
-    const existing = await findActiveRunFor(args.projectId, args.entityType, args.entityId);
-    if (existing) return existing;
-
     const templateName = args.templateName
       ?? (await pickTemplateName(args.tenantId, args.module))
       ?? `${args.module}/default`;
 
-    return await prisma.workflowRun.create({
-      data: {
-        projectId: args.projectId,
-        templateName,
-        module: args.module,
-        status: "UNDER_REVIEW",
-        payloadJson: JSON.stringify({
-          entityType: args.entityType,
-          entityId: args.entityId,
-          ...(args.payload ?? {}),
-        }),
-      },
+    return await prisma.$transaction(async (tx) => {
+      const candidates = await tx.workflowRun.findMany({
+        where: { projectId: args.projectId, status: { in: ["DRAFT", "UNDER_REVIEW"] } },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+      const existing = candidates.find((run) => {
+        try {
+          const p = JSON.parse(run.payloadJson || "{}") as { entityType?: string; entityId?: string };
+          return p.entityType === args.entityType && p.entityId === args.entityId;
+        } catch {
+          return false;
+        }
+      });
+      if (existing) return existing;
+
+      return await tx.workflowRun.create({
+        data: {
+          projectId: args.projectId,
+          templateName,
+          module: args.module,
+          status: "UNDER_REVIEW",
+          payloadJson: JSON.stringify({
+            entityType: args.entityType,
+            entityId: args.entityId,
+            ...(args.payload ?? {}),
+          }),
+        },
+      });
     });
   } catch (err) {
     console.error("[workflow] startWorkflowRun failed", { args, err });

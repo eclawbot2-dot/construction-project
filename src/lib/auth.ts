@@ -4,7 +4,16 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 const config: NextAuthConfig = {
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    // Pass-8 audit: the default 30-day session window means a demoted
+    // super-admin's JWT keeps claiming superAdmin: true for up to 30 days.
+    // 4 hours bounds the privilege-revocation lag; users re-auth at most
+    // ~2× per workday. The cookie-based credentials provider has no
+    // refresh; longer windows would also extend brute-force exposure on
+    // the login endpoint.
+    maxAge: 60 * 60 * 4,
+  },
   pages: { signIn: "/login" },
   trustHost: true,
   providers: [

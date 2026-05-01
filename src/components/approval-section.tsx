@@ -23,8 +23,8 @@ export function ApprovalSection({
     <section className="card p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">{title}</div>
-          <div className="mt-1 text-xs text-slate-500">Acting as <span className="text-white font-semibold">{actorName}</span> · role <span className="font-mono text-cyan-200">{actorRole ?? "—"}</span>{isManager ? " · manager" : " · read-only for approvals"}</div>
+          <div className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--accent, #67e8f9)" }}>{title}</div>
+          <div className="mt-1 text-xs" style={{ color: "var(--faint)" }}>Acting as <span className="font-semibold" style={{ color: "var(--heading)" }}>{actorName}</span> · role <span className="font-mono" style={{ color: "var(--accent, #67e8f9)" }}>{actorRole ?? "—"}</span>{isManager ? " · manager" : " · read-only for approvals"}</div>
         </div>
         <StatusBadge status={status} />
       </div>

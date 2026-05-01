@@ -75,14 +75,14 @@ export default async function ProjectCrewPage({ params }: { params: Promise<{ pr
 
         <section className="card p-5">
           <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--heading)" }}>+ Plan a crew assignment</h2>
-          <form action={`/api/projects/${projectId}/crew-assignments/create`} method="post" className="grid gap-3 md:grid-cols-[auto_1fr_1fr_1fr_1fr_auto_auto_auto]">
-            <input name="assignedDate" type="date" required className="form-input" />
-            <input name="crewName" required placeholder="Crew name" className="form-input" />
-            <input name="foreman" placeholder="Foreman" className="form-input" />
-            <input name="activity" placeholder="Activity" className="form-input" />
-            <input name="costCode" placeholder="Cost code" className="form-input" />
-            <input name="plannedHeadcount" type="number" min={0} placeholder="HC" className="form-input w-20" />
-            <input name="plannedHours" type="number" step="0.5" min={0} placeholder="Hrs" className="form-input w-20" />
+          <form action={`/api/projects/${projectId}/crew-assignments/create`} method="post" className="grid gap-3 sm:grid-cols-2 md:grid-cols-[auto_1fr_1fr_1fr_1fr_auto_auto_auto]">
+            <input name="assignedDate" type="date" required aria-label="Assigned date" className="form-input" />
+            <input name="crewName" required placeholder="Crew name" aria-label="Crew name" className="form-input" />
+            <input name="foreman" placeholder="Foreman" aria-label="Foreman" className="form-input" />
+            <input name="activity" placeholder="Activity" aria-label="Activity" className="form-input" />
+            <input name="costCode" placeholder="Cost code" aria-label="Cost code" className="form-input" />
+            <input name="plannedHeadcount" type="number" min={0} placeholder="HC" aria-label="Planned headcount" className="form-input w-20" />
+            <input name="plannedHours" type="number" step="0.5" min={0} placeholder="Hrs" aria-label="Planned hours" className="form-input w-20" />
             <button className="btn-primary">Assign</button>
           </form>
           <p className="mt-2 text-xs" style={{ color: "var(--faint)" }}>
