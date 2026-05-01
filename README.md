@@ -59,25 +59,28 @@ The app is built as a Next.js + TypeScript + Prisma baseline with seeded demo da
 
 ```bash
 npm install
+cp .env.example .env
+# generate an AUTH_SECRET into .env:
+node -e "require('fs').appendFileSync('.env', 'AUTH_SECRET=' + require('crypto').randomBytes(32).toString('hex') + '\n')"
 npm run setup
 npm run dev
 ```
 
-App runs on http://localhost:3101
+App runs on http://localhost:3101 — you'll be redirected to `/login`.
+
+`AUTH_SECRET` is required (NextAuth refuses to mint sessions without
+one). `AUTH_TRUST_HOST=true` lets the credentials provider work behind
+the local Cloudflare tunnel; remove it for a stricter production
+deployment that runs on a known public hostname.
 
 ## Demo login users
 
-All seeded users use password:
+All seeded users use password `demo1234`:
 
-```text
-demo1234
-```
-
-Seeded users:
-- admin@construction.local
-- exec@construction.local
-- pm@construction.local
-- super@construction.local
+- `admin@construction.local` — Morgan Admin (super-admin, can switch tenants and access `/admin/*`)
+- `exec@construction.local` — Elena Executive
+- `pm@construction.local` — Paula PM
+- `super@construction.local` — Sam Superintendent
 
 ## Important files
 
@@ -92,5 +95,17 @@ Seeded users:
 ## Notes
 
 - Local dev uses SQLite to make the repo immediately runnable.
-- Production should migrate to Postgres and object storage.
-- This is intentionally a strong MVP foundation / vertical slice, not a fully complete Procore replacement in one commit.
+- Production should migrate to Postgres and object storage. The header of
+  `prisma/schema.prisma` and `src/lib/prisma.ts` document the required
+  steps; `docs/pass-audit-07.md` §1.2 lists every Float currency field that
+  must convert to Decimal in the same migration.
+- This is intentionally a strong MVP foundation / vertical slice, not a
+  fully complete Procore replacement in one commit.
+
+## Audit history
+
+`docs/pass-audit-01.md` through `pass-audit-07.md` contain the audit
+trail for the platform. Pass 7 (2026-05-01) added the auth, middleware,
+role guards, audit-emission, indexes, dashboard refactor, workflow
+materialization, notification dispatcher, and UI theming work present
+at HEAD. See pass-audit-07.md §7 for the prioritized PR sequence.
