@@ -551,6 +551,8 @@ model Project {
   revenueProjections   RevenueProjection[]
   alertEvents          AlertEvent[]
   historicalImports    HistoricalImport[]
+  drawings             Drawing[]
+  specSections         SpecSection[]
 
   @@unique([tenantId, code])
 }
@@ -2034,4 +2036,82 @@ model RecordComment {
 
   @@index([tenantId, entityType, entityId, createdAt])
   @@index([tenantId, createdAt])
+}
+
+enum DrawingDiscipline {
+  ARCHITECTURAL
+  STRUCTURAL
+  MEP
+  CIVIL
+  LANDSCAPE
+  ELECTRICAL
+  PLUMBING
+  MECHANICAL
+  FIRE_PROTECTION
+  OTHER
+}
+
+/// Drawing register entry — a versioned set of sheets for one project +
+/// discipline. Captures the full Sheet/Spec lineage that req §7.7 asks
+/// for: discipline classification, revision history, link to the source
+/// Document, and a list of DrawingSheet rows for the sheet register.
+model Drawing {
+  id             String            @id @default(cuid())
+  projectId      String
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  setName        String
+  discipline     DrawingDiscipline @default(OTHER)
+  revisionNumber Int               @default(0)
+  issuedDate     DateTime?
+  receivedDate   DateTime          @default(now())
+  archived       Boolean           @default(false)
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  sheets DrawingSheet[]
+
+  @@index([projectId])
+  @@index([projectId, discipline])
+}
+
+/// One sheet in a drawing set — e.g. "A0.1 Cover Sheet". `isCurrent`
+/// flips to false when superseded by a later revision; we keep the row
+/// instead of deleting so cross-references from RFIs / Submittals stay
+/// stable.
+model DrawingSheet {
+  id          String   @id @default(cuid())
+  drawingId   String
+  drawing     Drawing  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  sheetNumber String
+  title       String
+  fileUrl     String?
+  pageNumber  Int?
+  isCurrent   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([drawingId, sheetNumber])
+  @@index([drawingId])
+}
+
+/// CSI MasterFormat specification section. csiDivision is the 2-digit
+/// division code ("03" = Concrete, "09" = Finishes); sectionCode is the
+/// full 6-digit code ("03 30 00"). Specs are project-scoped because two
+/// projects can share a division but have different section content.
+model SpecSection {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  csiDivision    String
+  sectionCode    String
+  title          String
+  fileUrl        String?
+  revisionNumber Int      @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([projectId, sectionCode])
+  @@index([projectId])
+  @@index([projectId, csiDivision])
 }
