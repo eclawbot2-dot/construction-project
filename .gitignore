@@ -1,6 +1,7 @@
 node_modules/
 .next/
 tsconfig.tsbuildinfo
+uploads/
 .env
 .env.local
 .env.*.local
