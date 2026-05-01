@@ -9,7 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { actorFor, logComment, changeSummary, type ActionResult } from "@/lib/approvals";
-import { startWorkflowRun, recordWorkflowDecision } from "@/lib/workflow";
+import { startWorkflowRun, recordWorkflowDecision, closeWorkflowRun } from "@/lib/workflow";
 
 // ---------- CHANGE ORDERS ----------
 export async function submitChangeOrder(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -125,6 +125,7 @@ export async function markPayAppPaid(id: string, tenantId: string, note?: string
   if (pa.status !== "APPROVED") return { ok: false, error: `Must be APPROVED before PAID.` };
   const entity = await prisma.payApplication.update({ where: { id }, data: { status: "PAID", paidAt: new Date(), paidBy: actor.userName } });
   await logComment({ tenantId, entityType: "PayApplication", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "PAY", body: note ? `Marked paid. ${note}` : "Marked paid." });
+  await closeWorkflowRun({ projectId: pa.projectId, entityType: "PayApplication", entityId: id, status: "CLOSED" });
   return { ok: true, entity };
 }
 export async function editPayApp(id: string, tenantId: string, patch: { workCompletedToDate?: number; materialsStoredToDate?: number; retainageHeld?: number; currentPaymentDue?: number; notes?: string }): Promise<ActionResult> {
@@ -153,6 +154,7 @@ export async function submitRfi(id: string, tenantId: string, question?: string)
     data: { status: "UNDER_REVIEW", submittedAt: new Date(), submittedBy: actor.userName, rejectionReason: null, question: question ?? r.question },
   });
   await logComment({ tenantId, entityType: "RFI", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "SUBMIT", body: question ? `Submitted. Q: ${question}` : "Submitted for response." });
+  await startWorkflowRun({ tenantId, projectId: r.projectId, module: "rfis", entityType: "RFI", entityId: id });
   return { ok: true, entity };
 }
 export async function respondRfi(id: string, tenantId: string, response: string): Promise<ActionResult> {
@@ -180,6 +182,7 @@ export async function approveRfi(id: string, tenantId: string, note?: string): P
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "RFI", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Approved — ${note}` : "Approved and closed." });
+  await recordWorkflowDecision({ projectId: r.projectId, entityType: "RFI", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectRfi(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -191,6 +194,7 @@ export async function rejectRfi(id: string, tenantId: string, reason: string): P
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "RFI", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Rejected: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "RFI", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function editRfi(id: string, tenantId: string, patch: { subject?: string; question?: string; ballInCourt?: string; dueDate?: Date | null }): Promise<ActionResult> {
@@ -217,6 +221,7 @@ export async function submitSubmittal(id: string, tenantId: string, note?: strin
     data: { status: "UNDER_REVIEW", submittedAt: new Date(), submittedBy: actor.userName, rejectionReason: null },
   });
   await logComment({ tenantId, entityType: "Submittal", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "SUBMIT", body: note ? `Submitted. ${note}` : "Submitted for review." });
+  await startWorkflowRun({ tenantId, projectId: s.projectId, module: "submittals", entityType: "Submittal", entityId: id });
   return { ok: true, entity };
 }
 export async function approveSubmittal(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -230,6 +235,7 @@ export async function approveSubmittal(id: string, tenantId: string, note?: stri
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "Submittal", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Approved — ${note}` : "Approved." });
+  await recordWorkflowDecision({ projectId: s.projectId, entityType: "Submittal", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectSubmittal(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -244,6 +250,7 @@ export async function rejectSubmittal(id: string, tenantId: string, reason: stri
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "Submittal", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Rejected: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: s.projectId, entityType: "Submittal", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function editSubmittal(id: string, tenantId: string, patch: { title?: string; specSection?: string; longLead?: boolean; notes?: string }): Promise<ActionResult> {
@@ -266,6 +273,7 @@ export async function submitSafetyIncident(id: string, tenantId: string, note?: 
     data: { status: "UNDER_REVIEW", submittedAt: new Date(), submittedBy: actor.userName },
   });
   await logComment({ tenantId, entityType: "SafetyIncident", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "SUBMIT", body: note ?? "Submitted for review." });
+  await startWorkflowRun({ tenantId, projectId: entity.projectId, module: "safety-incidents", entityType: "SafetyIncident", entityId: id });
   return { ok: true, entity };
 }
 export async function approveSafetyIncident(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -276,6 +284,7 @@ export async function approveSafetyIncident(id: string, tenantId: string, note?:
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "SafetyIncident", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Closed. ${note}` : "Reviewed and closed." });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "SafetyIncident", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function editSafetyIncident(id: string, tenantId: string, patch: { title?: string; severity?: string; description?: string; correctiveActions?: string }): Promise<ActionResult> {
@@ -297,6 +306,7 @@ export async function submitPunch(id: string, tenantId: string, note?: string): 
     data: { status: "UNDER_REVIEW", submittedAt: new Date(), submittedBy: actor.userName },
   });
   await logComment({ tenantId, entityType: "PunchItem", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "SUBMIT", body: note ? `Ready for verification. ${note}` : "Marked ready for verification." });
+  await startWorkflowRun({ tenantId, projectId: entity.projectId, module: "punch-items", entityType: "PunchItem", entityId: id });
   return { ok: true, entity };
 }
 export async function closePunch(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -307,6 +317,7 @@ export async function closePunch(id: string, tenantId: string, note?: string): P
     data: { status: "CLOSED", closedAt: new Date(), closedBy: actor.userName, approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "PunchItem", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "CLOSE", body: note ? `Closed. ${note}` : "Verified and closed." });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "PunchItem", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectPunch(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -318,6 +329,7 @@ export async function rejectPunch(id: string, tenantId: string, reason: string):
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "PunchItem", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Rejected: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "PunchItem", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function editPunch(id: string, tenantId: string, patch: { title?: string; area?: string; description?: string; trade?: string; assignedTo?: string; dueDate?: Date | null }): Promise<ActionResult> {
@@ -340,6 +352,8 @@ export async function approveSubInvoice(id: string, tenantId: string, note?: str
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "SubInvoice", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Approved — ${note}` : "Approved." });
+  await startWorkflowRun({ tenantId, projectId: entity.projectId, module: "sub-invoices", entityType: "SubInvoice", entityId: id });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "SubInvoice", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectSubInvoice(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -351,6 +365,7 @@ export async function rejectSubInvoice(id: string, tenantId: string, reason: str
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "SubInvoice", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Rejected: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "SubInvoice", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function markSubInvoicePaid(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -361,6 +376,7 @@ export async function markSubInvoicePaid(id: string, tenantId: string, note?: st
     data: { status: "PAID", paidAt: new Date(), paidBy: actor.userName },
   });
   await logComment({ tenantId, entityType: "SubInvoice", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "PAY", body: note ? `Paid. ${note}` : "Marked paid." });
+  await closeWorkflowRun({ projectId: entity.projectId, entityType: "SubInvoice", entityId: id, status: "CLOSED" });
   return { ok: true, entity };
 }
 export async function editSubInvoice(id: string, tenantId: string, patch: { amount?: number; retainageHeld?: number; netDue?: number; notes?: string }): Promise<ActionResult> {
@@ -383,6 +399,8 @@ export async function approvePurchaseOrder(id: string, tenantId: string, note?: 
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "PurchaseOrder", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Approved — ${note}` : "Approved." });
+  await startWorkflowRun({ tenantId, projectId: entity.projectId, module: "purchase-orders", entityType: "PurchaseOrder", entityId: id });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "PurchaseOrder", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function closePurchaseOrder(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -393,6 +411,7 @@ export async function closePurchaseOrder(id: string, tenantId: string, note?: st
     data: { status: "CLOSED", closedAt: new Date(), closedBy: actor.userName },
   });
   await logComment({ tenantId, entityType: "PurchaseOrder", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "CLOSE", body: note ? `Closed. ${note}` : "Closed out." });
+  await closeWorkflowRun({ projectId: entity.projectId, entityType: "PurchaseOrder", entityId: id, status: "CLOSED" });
   return { ok: true, entity };
 }
 export async function editPurchaseOrder(id: string, tenantId: string, patch: { description?: string; amount?: number; expectedDelivery?: Date | null; notes?: string }): Promise<ActionResult> {
@@ -415,6 +434,8 @@ export async function executeContract(id: string, tenantId: string, note?: strin
     data: { status: "EXECUTED", executedAt: new Date(), executedBy: actor.userName, approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "Contract", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Executed. ${note}` : "Executed." });
+  await startWorkflowRun({ tenantId, projectId: entity.projectId, module: "contracts", entityType: "Contract", entityId: id });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "Contract", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectContract(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -426,6 +447,7 @@ export async function rejectContract(id: string, tenantId: string, reason: strin
     data: { status: "TERMINATED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "Contract", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Terminated: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "Contract", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function editContract(id: string, tenantId: string, patch: { title?: string; currentValue?: number; retainagePct?: number; startDate?: Date | null; endDate?: Date | null; notes?: string }): Promise<ActionResult> {
@@ -448,6 +470,8 @@ export async function approveLienWaiver(id: string, tenantId: string, note?: str
     data: { status: "RECEIVED", receivedAt: new Date(), receivedBy: actor.userName, approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "LienWaiver", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Accepted. ${note}` : "Accepted." });
+  await startWorkflowRun({ tenantId, projectId: entity.projectId, module: "lien-waivers", entityType: "LienWaiver", entityId: id });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "LienWaiver", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectLienWaiver(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -459,6 +483,7 @@ export async function rejectLienWaiver(id: string, tenantId: string, reason: str
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "LienWaiver", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Rejected: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: entity.projectId, entityType: "LienWaiver", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function editLienWaiver(id: string, tenantId: string, patch: { partyName?: string; amount?: number; throughDate?: Date; notes?: string }): Promise<ActionResult> {
