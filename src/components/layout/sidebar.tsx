@@ -34,6 +34,7 @@ const navGroups: NavGroup[] = [
     title: "Business Development",
     items: [
       { href: "/bids", label: "Bid Hub", icon: Gavel },
+      { href: "/bids/capture", label: "Federal capture", icon: Gavel },
       { href: "/bids/discover", label: "Discover RFP sources", icon: Search },
       { href: "/crm", label: "CRM & Shared Services", icon: BriefcaseBusiness },
       { href: "/portal", label: "Owner Portal", icon: Users },

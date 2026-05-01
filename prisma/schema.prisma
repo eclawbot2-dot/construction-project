@@ -408,6 +408,7 @@ model Tenant {
   jobRequisitions      JobRequisition[]
   commissionRules      CommissionRule[]
   commissionAccruals   CommissionAccrual[]
+  captureRecords       CaptureRecord[]
 }
 
 model BusinessUnit {
@@ -1281,8 +1282,9 @@ model Opportunity {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  rfpListings RfpListing[]
-  bidDrafts   BidDraft[]
+  rfpListings   RfpListing[]
+  bidDrafts     BidDraft[]
+  captureRecord CaptureRecord?
 
   @@index([tenantId])
   @@index([projectId])
@@ -2378,4 +2380,163 @@ model CommissionAccrual {
   @@index([tenantId, status])
   @@index([tenantId, sourceType, sourceId])
   @@index([tenantId, recipientUserId])
+}
+
+enum CaptureStage {
+  IDENTIFIED
+  QUALIFYING
+  CAPTURE
+  PROPOSAL
+  EVALUATION
+  AWARDED
+  LOST
+  WITHDRAWN
+}
+
+enum SetAsideCode {
+  NONE
+  SMALL_BUSINESS
+  WOSB
+  EDWOSB
+  HUBZONE
+  EIGHT_A
+  SDVOSB
+  TOTAL_SMALL_BUSINESS
+  PARTIAL_SMALL_BUSINESS
+}
+
+enum ColorTeamPhase {
+  PINK
+  RED
+  GOLD
+  WHITE
+  BLACK
+  GREEN
+}
+
+enum GoNoGoDecisionType {
+  GO
+  NO_GO
+  CONDITIONAL_GO
+  DEFERRED
+}
+
+/// Federal capture record. Extends the generic Opportunity model with
+/// the capture-specific lifecycle req §7.1A demands: stage, vehicle,
+/// agency, set-aside, capture lead, NAICS, capture plan url, win
+/// strategy, and discriminators. Tied to an Opportunity row when the
+/// capture is reflected on the BD pipeline; standalone otherwise.
+model CaptureRecord {
+  id                 String       @id @default(cuid())
+  tenantId           String
+  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  opportunityId      String?      @unique
+  opportunity        Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  title              String
+  agency             String?
+  subAgency          String?
+  contractVehicle    String?
+  solicitationNumber String?
+  naicsCode          String?
+  setAside           SetAsideCode @default(NONE)
+  estimatedValue     Float?
+  rfpReleaseDate     DateTime?
+  proposalDueDate    DateTime?
+  awardDate          DateTime?
+  stage              CaptureStage @default(IDENTIFIED)
+  captureLead        String?
+  proposalLead       String?
+  pricingLead        String?
+  winStrategy        String?
+  capturePlanUrl     String?
+  discriminators     String?
+  pwinPercent        Float?
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  milestones       CaptureMilestone[]
+  colorTeamReviews ColorTeamReview[]
+  decisions        GoNoGoDecision[]
+  teamingPartners  TeamingPartner[]
+
+  @@index([tenantId])
+  @@index([tenantId, stage])
+  @@index([tenantId, agency])
+}
+
+/// Calendar milestone within a capture (RFP release, Q&A close, draft
+/// due, color reviews, submit). dueAt is the planned date; completedAt
+/// records actuals.
+model CaptureMilestone {
+  id          String        @id @default(cuid())
+  captureId   String
+  capture     CaptureRecord @relation(fields: [captureId], references: [id], onDelete: Cascade)
+  label       String
+  dueAt       DateTime
+  completedAt DateTime?
+  ownerName   String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+
+  @@index([captureId])
+}
+
+/// Color-team review session — pink/red/gold/etc. — per the federal
+/// proposal lifecycle. summaryUrl points at the review readout document
+/// (managed via the storage adapter).
+model ColorTeamReview {
+  id           String         @id @default(cuid())
+  captureId    String
+  capture      CaptureRecord  @relation(fields: [captureId], references: [id], onDelete: Cascade)
+  phase        ColorTeamPhase
+  scheduledAt  DateTime
+  completedAt  DateTime?
+  facilitator  String?
+  attendees    String?
+  scoreOverall Int?
+  summaryUrl   String?
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([captureId])
+  @@index([captureId, phase])
+}
+
+/// Go / no-go decision with reasoning, approver, and supporting context.
+/// Captures append-only — a CONDITIONAL_GO followed by a NO_GO writes
+/// two rows so the rationale chain stays auditable.
+model GoNoGoDecision {
+  id             String             @id @default(cuid())
+  captureId      String
+  capture        CaptureRecord      @relation(fields: [captureId], references: [id], onDelete: Cascade)
+  decisionAt     DateTime           @default(now())
+  decision       GoNoGoDecisionType
+  decidedBy      String
+  rationale      String
+  conditions     String?
+  pwinAtDecision Float?
+  bidNoBidScore  Float?
+
+  @@index([captureId, decisionAt])
+}
+
+/// Teaming partner on a federal pursuit — prime/sub, workshare,
+/// teaming agreement status. workSharePct is the planned percentage of
+/// the eventual award.
+model TeamingPartner {
+  id               String        @id @default(cuid())
+  captureId        String
+  capture          CaptureRecord @relation(fields: [captureId], references: [id], onDelete: Cascade)
+  partnerName      String
+  role             String
+  workSharePct     Float?
+  taSignedAt       DateTime?
+  ndaSignedAt      DateTime?
+  capabilitiesJson String        @default("[]")
+  notes            String?
+  createdAt        DateTime      @default(now())
+
+  @@index([captureId])
 }
