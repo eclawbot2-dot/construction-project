@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { actorFor, logComment, changeSummary, type ActionResult } from "@/lib/approvals";
+import { startWorkflowRun, recordWorkflowDecision } from "@/lib/workflow";
 
 // ---------- CHANGE ORDERS ----------
 export async function submitChangeOrder(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -21,6 +22,7 @@ export async function submitChangeOrder(id: string, tenantId: string, note?: str
     data: { status: "PENDING", requestedAt: new Date(), submittedBy: actor.userName, rejectionReason: null },
   });
   await logComment({ tenantId, entityType: "ChangeOrder", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "SUBMIT", body: note ? `Submitted for approval. ${note}` : "Submitted for approval." });
+  await startWorkflowRun({ tenantId, projectId: co.projectId, module: "change-orders", entityType: "ChangeOrder", entityId: id });
   return { ok: true, entity };
 }
 export async function approveChangeOrder(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -34,6 +36,7 @@ export async function approveChangeOrder(id: string, tenantId: string, note?: st
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null, rejectedAt: null, rejectedBy: null, rejectionReason: null },
   });
   await logComment({ tenantId, entityType: "ChangeOrder", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Approved — ${note}` : "Approved." });
+  await recordWorkflowDecision({ projectId: co.projectId, entityType: "ChangeOrder", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectChangeOrder(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -48,6 +51,7 @@ export async function rejectChangeOrder(id: string, tenantId: string, reason: st
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "ChangeOrder", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Rejected: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: co.projectId, entityType: "ChangeOrder", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function editChangeOrder(id: string, tenantId: string, patch: { title?: string; description?: string; reason?: string; amount?: number; markupPct?: number; scheduleImpactDays?: number }): Promise<ActionResult> {
@@ -81,6 +85,7 @@ export async function submitPayApp(id: string, tenantId: string, note?: string):
     data: { status: "SUBMITTED", submittedAt: new Date(), submittedBy: actor.userName, rejectionReason: null },
   });
   await logComment({ tenantId, entityType: "PayApplication", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "SUBMIT", body: note ? `Submitted. ${note}` : "Submitted." });
+  await startWorkflowRun({ tenantId, projectId: pa.projectId, module: "pay-apps", entityType: "PayApplication", entityId: id });
   return { ok: true, entity };
 }
 export async function approvePayApp(id: string, tenantId: string, note?: string): Promise<ActionResult> {
@@ -94,6 +99,7 @@ export async function approvePayApp(id: string, tenantId: string, note?: string)
     data: { status: "APPROVED", approvedAt: new Date(), approvedBy: actor.userName, approvalNote: note ?? null },
   });
   await logComment({ tenantId, entityType: "PayApplication", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "APPROVE", body: note ? `Approved — ${note}` : "Approved." });
+  await recordWorkflowDecision({ projectId: pa.projectId, entityType: "PayApplication", entityId: id, actor, decision: "APPROVED" });
   return { ok: true, entity };
 }
 export async function rejectPayApp(id: string, tenantId: string, reason: string): Promise<ActionResult> {
@@ -108,6 +114,7 @@ export async function rejectPayApp(id: string, tenantId: string, reason: string)
     data: { status: "REJECTED", rejectedAt: new Date(), rejectedBy: actor.userName, rejectionReason: reason.trim() },
   });
   await logComment({ tenantId, entityType: "PayApplication", entityId: id, actorName: actor.userName, actorId: actor.userId, kind: "REJECT", body: `Rejected: ${reason.trim()}` });
+  await recordWorkflowDecision({ projectId: pa.projectId, entityType: "PayApplication", entityId: id, actor, decision: "REJECTED" });
   return { ok: true, entity };
 }
 export async function markPayAppPaid(id: string, tenantId: string, note?: string): Promise<ActionResult> {
