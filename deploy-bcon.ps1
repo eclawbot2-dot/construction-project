@@ -38,10 +38,24 @@ Write-Host 'Building Next.js...'
 if ($LASTEXITCODE -ne 0) { throw 'npm run build failed' }
 
 Write-Host 'Stopping previous bcon processes...'
+# Primary: kill whatever process owns localhost:$localPort. The previous
+# regex-based kill missed the actual command line (which includes
+# `next start -p 3101` but NOT `construction-project`), leaving the old
+# process running with the port bound and the new one silently failing
+# to start. Killing by port is the only reliable signal.
+$portOwners = @()
+try {
+  $portOwners = Get-NetTCPConnection -LocalPort $localPort -State Listen -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess -Unique
+} catch {}
+foreach ($pid in $portOwners) {
+  try { Stop-Process -Id $pid -Force -ErrorAction Stop; Write-Host "  killed PID $pid (was bound to $localPort)" } catch {}
+}
+# Secondary: kill any other stray `next start` processes that might be
+# left over from a previous botched deploy.
 Get-CimInstance Win32_Process |
-  Where-Object { $_.CommandLine -match 'construction-project.*next.*start' -or $_.CommandLine -match "--port $localPort" -or ($_.CommandLine -match 'node.*next' -and $_.CommandLine -match 'construction-project') } |
+  Where-Object { $_.CommandLine -match 'next.*start' -and ($_.CommandLine -match "-p $localPort" -or $_.CommandLine -match "--port $localPort") } |
   ForEach-Object {
-    try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch {}
+    try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop; Write-Host "  killed PID $($_.ProcessId) (next start)" } catch {}
   }
 
 Start-Sleep -Seconds 2
