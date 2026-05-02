@@ -126,11 +126,101 @@ SAM.gov key, first sweep, auto-draft policy).
 
 ```bash
 npx tsc --noEmit             # type checks (must be 0 errors)
-npx vitest run               # unit + integration tests (71 passing)
+npx vitest run               # unit + integration tests (82 passing)
 npx tsx prisma/seed-portals.ts   # idempotent catalog refresh smoke check
 ```
 
 GitHub Actions CI runs all three on push/PR (`.github/workflows/ci.yml`).
+
+## What's new (2026-05 maturity sprint)
+
+Construction depth:
+- **Drawing register + revisions + markup** — DrawingRevision model
+  with supersession + delta reasons; DrawingMarkup geometric
+  annotations layer.
+- **RFI routing chain** — sequential reviewer chain via RfiReviewer +
+  full response history via RfiResponse + drawing-pin spatial
+  context via RfiDrawingPin. Cost + schedule impact captured in
+  the response.
+- **Submittal workflow** — SubmittalReviewer + SubmittalCycle for
+  proper resubmittal cycle audit.
+- **Photo library** — ProjectPhoto with EXIF capture metadata,
+  AI-tag JSON, ProjectPhotoAlbum + ProjectPhotoPin (link to drawing
+  sheet). Mobile upload page with capture=environment.
+- **Quality / NCR** — QualityChecklistTemplate per trade,
+  NonConformanceReport with category/severity/disposition/root
+  cause/auto-RFI link.
+- **Safety expansion** — SafetyToolboxTalk, JobHazardAnalysis,
+  SafetyObservation; SafetyIncident gains OSHA classification +
+  case number + days-away/restricted counts.
+- **Permit prerequisites** — PermitPrerequisite chain, ContractorLicense.
+- **Closeout package** — CloseoutPackage with checklist completeness +
+  warranty start/end + owner acceptance.
+- **Document expiry + transmittals** — Document.expiresAt +
+  DocumentTransmittal log.
+
+Financial maturity:
+- **3-way match** — PurchaseOrderLine + PurchaseOrderReceipt +
+  PurchaseOrderReceiptLine + SubInvoiceLine + SubInvoice.matchStatus.
+- **Sub CO carry-down** — ChangeOrder.parentChangeOrderId + vendorId,
+  labor/material/equipment/sub/OHP split.
+- **Period close** — AccountingPeriod state machine + AdjustingEntry
+  for accruals/reversals.
+- **Balance sheet snapshots** — BalanceSheetSnapshot with construction-
+  specific lines (retainage receivable, costs/billings in excess).
+- **Cash flow** — CashFlowForecast (rolling 13-week) +
+  CashFlowStatement (period statement).
+- **Cost codes** — CostCode hierarchical chart of accounts with
+  CSI MasterFormat alignment; seed of 25 standard divisions.
+- **Lien waiver depth** — sub-tier chain, statutory form state,
+  notarization, conditional release tied to subInvoice.
+- **Multi-BU consolidation** — BusinessUnit gains legal entity +
+  fiscal year + base currency; ConsolidatedReport rollup.
+- **Payroll + certified payroll** — Employee, PayrollRun,
+  PayrollRunLine, CertifiedPayrollRecord (Davis-Bacon WH-347 shape).
+- **Fleet** — FleetAsset + FleetAssignment + FleetMaintenance with
+  internal rental rates for charge-back.
+- **1099** — Vendor1099Record annual aggregate per vendor.
+- **Vendor prequalification** — VendorPrequalification + VendorReference
+  with scoring + qualified value range.
+
+Reports + APIs:
+- 7 reports (`/reports`): WIP, cost-to-complete, margin fade, win
+  rate, estimate accuracy, resource heatmap, bonding capacity. CSV
+  export at `/api/reports/[name]?format=csv`.
+- Public REST API at `/api/v1/*` — projects, listings, RFIs (read +
+  write). Token auth via `Authorization: Bearer bcon_…`.
+- Outbound webhooks via WebhookEndpoint + dispatchWebhook with
+  HMAC-SHA256 signatures.
+- OpenAPI 3.1 spec at `/api/v1/openapi`.
+- Bid leveling matrix at `/projects/[id]/bids/[pkgId]/leveling`.
+- Capital programs admin at `/admin/capital-programs`.
+- Pull-planning / look-ahead at `/projects/[id]/look-ahead`.
+
+Auth + security:
+- TOTP MFA (RFC 6238, no deps) — `src/lib/totp.ts`.
+- SSO scaffold — Okta / Azure AD / Google / Auth0 via env-gated
+  NextAuth providers (`src/lib/sso-providers.ts`).
+- Session revocation — User.sessionsRevokedAt timestamp.
+
+Infrastructure:
+- S3 / R2 storage adapter with pure-fetch SigV4 (no AWS SDK).
+- Email transport — Resend / SendGrid / SMTP.
+- SSE real-time updates — `/api/sse?topic=…`.
+- Structured logging via `src/lib/log.ts` with optional Sentry
+  transport.
+- Zod runtime validation for JSON columns (`src/lib/json-schema.ts`).
+- Audit-event triggers — UPDATE blocked at the SQL level;
+  BCON_AUDIT_IMMUTABLE=true also blocks DELETE.
+- PWA manifest + service worker with offline-outbox queue for
+  field crews on bad networks.
+- Dependabot + npm audit + CycloneDX SBOM in CI.
+
+Tenant operations:
+- API tokens + webhooks UI at `/settings/api`.
+- Guest accounts at `/settings/guests` (free magic-link seats for
+  owner / architect / inspector / sub).
+- Per-tenant currency + locale.
 
 ## Demo login users
 
