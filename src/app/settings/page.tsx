@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatDate, modeLabel, roleLabel } from "@/lib/utils";
 import { ProjectMode } from "@prisma/client";
+import { TestAiKeyButton } from "@/components/settings/test-ai-key-button";
 
 const ROLE_TEMPLATES = ["ADMIN", "EXECUTIVE", "MANAGER", "PROJECT_ENGINEER", "SUPERINTENDENT", "FOREMAN", "CONTROLLER", "SAFETY_MANAGER", "QUALITY_MANAGER", "VIEWER"] as const;
 
@@ -241,6 +242,14 @@ export default async function SettingsPage() {
               <button className="btn-primary">Save AI keys</button>
             </div>
           </form>
+          {tenant.openaiKeyEnc || tenant.anthropicKeyEnc ? (
+            <div className="mt-4 border-t border-white/5 pt-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Verify your saved key</div>
+              <div className="mt-2">
+                <TestAiKeyButton />
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="card p-6">

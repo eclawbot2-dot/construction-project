@@ -173,7 +173,59 @@ These are real product gaps the customer will hit. Plan around them:
   flips `ok: false` and (with `?strict=1`) returns 503.
 - `/admin/audit` — the platform-wide audit-event ledger. Filter to
   the customer's tenant to see every state change.
+- `/admin/portal-coverage` — every catalog row with last-verified
+  status. Click "Refresh now" weekly (or wire `/api/cron/verify-portals`
+  to a Windows Task). Watch for newly-failing portals (URL drift) and
+  for portals with high subscription counts that are still MANUAL —
+  those are the next scrapers worth implementing.
+- `/settings/audit` — the customer's own scoped audit log. Useful
+  for compliance review without giving them super-admin access.
 - `tenant.lastBackupAt` — should never be more than 25 hours stale.
   Render it on `/admin/tenants` (TODO: surface this column in the UI).
 - `AlertEvent` rows — `runAlertScan()` populates these from cron;
   the customer's `/alerts` page surfaces what needs attention.
+
+---
+
+## 7. Pass-12+ flow — bid pipeline activation
+
+The new federal/SE construction pipeline is opt-in per tenant. After
+the basic tenant is provisioned, walk the customer through:
+
+1. **Per-tenant LLM key** (pass-15): `/settings` → AI provider keys.
+   Customer pastes their own OpenAI / Anthropic key; the cleartext is
+   encrypted with a per-tenant salt before persistence. They get
+   billed for their AI usage on their own provider account. Click
+   "Test key" to verify before relying on it.
+
+2. **Bid profile** (pass-11): `/bids/profile`. Customer fills in
+   target NAICS codes (e.g. 236220 commercial building, 237310
+   highway), qualified set-asides (8a, SDVOSB, HUBZONE, WOSB),
+   target states + cities, value range, boost / block keywords.
+   Without this, every listing scores neutral 50; with it, scores
+   become actionable and the auto-draft pipeline can fire.
+
+3. **Portal subscriptions**: `/bids/discover` browses 234 catalog
+   entries. Customer subscribes to portals matching their geography
+   + agency mix. Federal entries (USACE districts, NASA, VA, Air
+   Force bases) auto-route to the SAM.gov scraper; KYTC has a
+   working HTML scraper; others stay MANUAL.
+
+4. **SAM.gov API key**: free key from
+   https://open.gsa.gov/api/get-opportunities-public-api/ — paste
+   into `.env` as `SAM_GOV_API_KEY`. Without it, all federal
+   subscriptions fail with a clear "key not configured" error;
+   with it, ~50 federal portals start auto-sweeping.
+
+5. **First sweep**: `/bids/sources` → "Run sweep now". Watch the
+   Last-checked column for green "auto · api" badges; expect
+   listings to land on `/bids/listings` within a minute.
+
+6. **Auto-draft policy**: per-source toggle on `/bids/sources`.
+   Default threshold 70 means a listing has to score ≥70 to
+   auto-draft a bid. Lower to 60 for aggressive pursuit; raise to
+   80 for conservative.
+
+The customer's first day measures success by: (a) ≥5 listings ingested,
+(b) ≥1 listing scoring above 70, (c) at least one auto-drafted bid
+they actually want to submit.
