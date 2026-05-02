@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
-import { sumMoney, subtractMoney } from "@/lib/money";
+import { sumMoney, subtractMoney, addMoney, toNum, type MoneyLike } from "@/lib/money";
 
 /**
  * AIA G702/G703 progress-billing document, generated server-side as
@@ -29,7 +29,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (!payApp) return NextResponse.json({ error: "pay application not found" }, { status: 404 });
 
-  const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  const fmt = (n: MoneyLike) => toNum(n).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
   const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
   const today = new Date().toLocaleDateString("en-US");
 
@@ -86,7 +86,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     <tr><td>6. Total Earned Less Retainage (4-5)</td><td class="num">${fmt(subtractMoney(payApp.workCompletedToDate ?? 0, payApp.retainageHeld ?? 0))}</td></tr>
     <tr><td>7. Less Previous Certificates for Payment</td><td class="num">${fmt(payApp.lessPreviousPayments ?? 0)}</td></tr>
     <tr class="totals"><td>8. Current Payment Due</td><td class="num">${fmt(payApp.currentPaymentDue ?? 0)}</td></tr>
-    <tr><td>9. Balance to Finish, Plus Retainage</td><td class="num">${fmt(((payApp.totalContractValue ?? 0) - (payApp.workCompletedToDate ?? 0)) + (payApp.retainageHeld ?? 0))}</td></tr>
+    <tr><td>9. Balance to Finish, Plus Retainage</td><td class="num">${fmt(addMoney(subtractMoney(payApp.totalContractValue, payApp.workCompletedToDate), payApp.retainageHeld))}</td></tr>
   </table>
 
   <h2>G703 — Continuation Sheet (Schedule of Values)</h2>
@@ -107,20 +107,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     </thead>
     <tbody>
       ${payApp.lines.map((l) => {
-        const total = (l.workCompletedPrev ?? 0) + (l.workCompletedThis ?? 0) + (l.materialsStored ?? 0);
-        const pct = (l.scheduledValue ?? 0) > 0 ? total / (l.scheduledValue ?? 1) : 0;
+        const total = sumMoney([l.workCompletedPrev, l.workCompletedThis, l.materialsStored]);
+        const sv = toNum(l.scheduledValue);
+        const pct = sv > 0 ? total / sv : 0;
         return `
         <tr>
           <td>${l.lineNumber}</td>
           <td>${escapeHtml(l.description ?? "")}</td>
-          <td class="num">${fmt(l.scheduledValue ?? 0)}</td>
-          <td class="num">${fmt(l.workCompletedPrev ?? 0)}</td>
-          <td class="num">${fmt(l.workCompletedThis ?? 0)}</td>
-          <td class="num">${fmt(l.materialsStored ?? 0)}</td>
+          <td class="num">${fmt(l.scheduledValue)}</td>
+          <td class="num">${fmt(l.workCompletedPrev)}</td>
+          <td class="num">${fmt(l.workCompletedThis)}</td>
+          <td class="num">${fmt(l.materialsStored)}</td>
           <td class="num">${fmt(total)}</td>
           <td class="num">${fmtPct(pct)}</td>
-          <td class="num">${fmt((l.scheduledValue ?? 0) - total)}</td>
-          <td class="num">${fmt(l.retainage ?? 0)}</td>
+          <td class="num">${fmt(subtractMoney(l.scheduledValue, total))}</td>
+          <td class="num">${fmt(l.retainage)}</td>
         </tr>`;
       }).join("")}
       <tr class="totals">

@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { notifyForAlert } from "@/lib/notify";
+import { toNum } from "@/lib/money";
 
 type Produced = { title: string; body?: string; severity: "INFO" | "WARN" | "ALERT"; entityType: string; entityId: string; link?: string; projectId?: string };
 
@@ -46,8 +47,9 @@ export async function runAlertScan(tenantId: string): Promise<{ ok: boolean; pro
 
   const commitments = await prisma.contractCommitment.findMany({ where: { contract: { project: { tenantId } } }, include: { contract: true } });
   for (const c of commitments) {
-    if (c.committedAmount === 0) continue;
-    const pct = c.invoicedToDate / c.committedAmount;
+    const committed = toNum(c.committedAmount);
+    if (committed === 0) continue;
+    const pct = toNum(c.invoicedToDate) / committed;
     if (pct > 1.1) {
       out.push({ title: `Commitment over-run: ${c.description}`, body: `Invoiced ${Math.round(pct * 100)}% of commitment (${c.contract.contractNumber})`, severity: "ALERT", entityType: "ContractCommitment", entityId: c.id, link: `/projects/${c.contract.projectId}/contracts/${c.contract.id}`, projectId: c.contract.projectId });
     } else if (pct > 0.95) {

@@ -9,6 +9,7 @@ import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { listComments } from "@/lib/approvals";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/utils";
+import { sumMoney, subtractMoney, toNum } from "@/lib/money";
 
 export default async function PayAppDetailPage({ params }: { params: Promise<{ projectId: string; appId: string }> }) {
   const { projectId, appId } = await params;
@@ -21,8 +22,8 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
   if (!app) notFound();
   const comments = await listComments(tenant.id, "PayApplication", app.id);
 
-  const totalScheduled = app.lines.reduce((s, l) => s + l.scheduledValue, 0);
-  const totalCompleted = app.lines.reduce((s, l) => s + l.totalCompleted, 0);
+  const totalScheduled = sumMoney(app.lines.map((l) => l.scheduledValue));
+  const totalCompleted = sumMoney(app.lines.map((l) => l.totalCompleted));
   const overallPct = totalScheduled > 0 ? (totalCompleted / totalScheduled) * 100 : 0;
 
   const actions: Array<{ name: string; label: string; tone: "primary" | "outline" | "danger"; requireReason?: boolean; formAction: string }> = [];
@@ -48,7 +49,7 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Original contract" value={formatCurrency(app.originalContractValue)} />
-        <StatTile label="Change orders" value={formatCurrency(app.changeOrderValue)} tone={app.changeOrderValue > 0 ? "warn" : "default"} />
+        <StatTile label="Change orders" value={formatCurrency(app.changeOrderValue)} tone={toNum(app.changeOrderValue) > 0 ? "warn" : "default"} />
         <StatTile label="Current contract" value={formatCurrency(app.totalContractValue)} />
         <StatTile label="Overall % complete" value={formatPercent(overallPct)} tone={overallPct >= 50 ? "good" : "warn"} />
       </section>
@@ -57,7 +58,7 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
         <StatTile label="Work completed" value={formatCurrency(app.workCompletedToDate)} tone="good" />
         <StatTile label="Materials stored" value={formatCurrency(app.materialsStoredToDate)} />
         <StatTile label="Retainage held" value={formatCurrency(app.retainageHeld)} sub={`${app.retainagePct}%`} tone="warn" />
-        <StatTile label="Payment due now" value={formatCurrency(app.currentPaymentDue)} tone={app.currentPaymentDue > 0 ? "good" : "default"} />
+        <StatTile label="Payment due now" value={formatCurrency(app.currentPaymentDue)} tone={toNum(app.currentPaymentDue) > 0 ? "good" : "default"} />
       </section>
 
       <section className="card p-6">
@@ -83,10 +84,10 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit application</div>
           {(app.status === "APPROVED" || app.status === "PAID") ? <div className="mt-2 text-xs text-amber-300">Editing an {app.status.toLowerCase()} application reverts status to SUBMITTED.</div> : null}
           <form action={`/api/pay-apps/${app.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
-            <div><label className="form-label">Work completed to date ($)</label><input name="workCompletedToDate" type="number" step="0.01" defaultValue={app.workCompletedToDate} className="form-input" /></div>
-            <div><label className="form-label">Materials stored ($)</label><input name="materialsStoredToDate" type="number" step="0.01" defaultValue={app.materialsStoredToDate} className="form-input" /></div>
-            <div><label className="form-label">Retainage held ($)</label><input name="retainageHeld" type="number" step="0.01" defaultValue={app.retainageHeld} className="form-input" /></div>
-            <div><label className="form-label">Current payment due ($)</label><input name="currentPaymentDue" type="number" step="0.01" defaultValue={app.currentPaymentDue} className="form-input" /></div>
+            <div><label className="form-label">Work completed to date ($)</label><input name="workCompletedToDate" type="number" step="0.01" defaultValue={toNum(app.workCompletedToDate)} className="form-input" /></div>
+            <div><label className="form-label">Materials stored ($)</label><input name="materialsStoredToDate" type="number" step="0.01" defaultValue={toNum(app.materialsStoredToDate)} className="form-input" /></div>
+            <div><label className="form-label">Retainage held ($)</label><input name="retainageHeld" type="number" step="0.01" defaultValue={toNum(app.retainageHeld)} className="form-input" /></div>
+            <div><label className="form-label">Current payment due ($)</label><input name="currentPaymentDue" type="number" step="0.01" defaultValue={toNum(app.currentPaymentDue)} className="form-input" /></div>
             <div className="md:col-span-2"><label className="form-label">Notes</label><input name="notes" defaultValue={app.notes ?? ""} className="form-input" /></div>
             <div className="md:col-span-3"><button className="btn-primary">Save changes</button></div>
           </form>
@@ -134,7 +135,7 @@ export default async function PayAppDetailPage({ params }: { params: Promise<{ p
                 <td colSpan={3} className="table-cell" />
                 <td className="table-cell font-semibold text-white">{formatCurrency(totalCompleted)}</td>
                 <td className="table-cell font-semibold text-white">{formatPercent(overallPct)}</td>
-                <td className="table-cell font-semibold text-white">{formatCurrency(totalScheduled - totalCompleted)}</td>
+                <td className="table-cell font-semibold text-white">{formatCurrency(subtractMoney(totalScheduled, totalCompleted))}</td>
                 <td className="table-cell font-semibold text-white">{formatCurrency(app.retainageHeld)}</td>
               </tr>
             </tbody>

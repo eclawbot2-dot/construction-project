@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiCall, stableHash } from "@/lib/ai";
+import { toNum } from "@/lib/money";
 
 export type ExtractedInvoice = {
   vendorName: string;
@@ -463,7 +464,7 @@ export async function eacForecast(projectId: string, tenantId: string): Promise<
     fallback: () => {
       const committed = snap?.committedCost ?? 0;
       const actual = snap?.costsToDate ?? 0;
-      const contract = project.contractValue ?? snap?.totalContractValue ?? 0;
+      const contract = toNum(project.contractValue) || (snap?.totalContractValue ?? 0);
       const pctComplete = snap?.percentComplete ?? (contract > 0 ? (actual / contract) * 100 : 0);
 
       // Bucket journals by month to compute trailing-3 burn rate.

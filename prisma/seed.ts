@@ -31,6 +31,7 @@ import {
   WarrantyStatus,
   WorkflowStatus,
 } from "@prisma/client";
+import { toNum, multiplyMoney, addMoney, sumMoney } from "../src/lib/money";
 
 const configuredDbUrl = process.env.DATABASE_URL;
 const dbUrl = configuredDbUrl
@@ -342,9 +343,9 @@ async function main() {
       data: {
         projectId: project.id,
         name: "Current Control Budget",
-        originalValue: project.contractValue ?? 0,
-        currentValue: (project.contractValue ?? 0) * 1.04,
-        forecastFinal: (project.contractValue ?? 0) * 1.03,
+        originalValue: toNum(project.contractValue),
+        currentValue: multiplyMoney(project.contractValue, 1.04),
+        forecastFinal: multiplyMoney(project.contractValue, 1.03),
       },
     });
 
@@ -644,7 +645,7 @@ async function seedExtraTenant(spec: ExtraTenantSpec) {
   void ownerCompany;
 }
 
-async function seedFinancialsAndSchedule(project: { id: string; name: string; code: string; contractValue: number | null; mode: ProjectMode; startDate: Date | null; endDate: Date | null }, users: { pmId: string; superintendentId: string }) {
+async function seedFinancialsAndSchedule(project: { id: string; name: string; code: string; contractValue: number | { toNumber: () => number } | null; mode: ProjectMode; startDate: Date | null; endDate: Date | null }, users: { pmId: string; superintendentId: string }) {
   // Contract + commitments
   const primeContract = await prisma.contract.create({
     data: {
@@ -654,8 +655,8 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
       title: `${project.name} — Prime Owner Contract`,
       type: ContractType.PRIME_OWNER,
       status: ContractStatus.ACTIVE,
-      originalValue: project.contractValue ?? 0,
-      currentValue: (project.contractValue ?? 0) * 1.04,
+      originalValue: toNum(project.contractValue),
+      currentValue: multiplyMoney(project.contractValue, 1.04),
       retainagePct: 10,
       startDate: project.startDate,
       endDate: project.endDate,
@@ -673,8 +674,8 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
       title: `${subCounterparty} — Scope Subcontract`,
       type: ContractType.SUBCONTRACT,
       status: ContractStatus.ACTIVE,
-      originalValue: (project.contractValue ?? 0) * 0.32,
-      currentValue: (project.contractValue ?? 0) * 0.33,
+      originalValue: multiplyMoney(project.contractValue, 0.32),
+      currentValue: multiplyMoney(project.contractValue, 0.33),
       retainagePct: 10,
       startDate: project.startDate,
       endDate: project.endDate,
@@ -682,10 +683,13 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
     },
   });
 
+  const primeCurrentValue = toNum(primeContract.currentValue);
+  const primeOriginalValue = toNum(primeContract.originalValue);
+  const subCurrentValue = toNum(subContract.currentValue);
   await prisma.contractCommitment.createMany({
     data: [
-      { contractId: primeContract.id, costCode: "ZZ-PRIME", description: "Overall contract commitment", committedAmount: primeContract.currentValue, invoicedToDate: primeContract.currentValue * 0.42, paidToDate: primeContract.currentValue * 0.38 },
-      { contractId: subContract.id, costCode: project.mode === ProjectMode.HEAVY_CIVIL ? "P-014" : "033000", description: project.mode === ProjectMode.HEAVY_CIVIL ? "12in Water main install" : "Structural concrete scope", committedAmount: subContract.currentValue, invoicedToDate: subContract.currentValue * 0.45, paidToDate: subContract.currentValue * 0.40 },
+      { contractId: primeContract.id, costCode: "ZZ-PRIME", description: "Overall contract commitment", committedAmount: primeCurrentValue, invoicedToDate: multiplyMoney(primeCurrentValue, 0.42), paidToDate: multiplyMoney(primeCurrentValue, 0.38) },
+      { contractId: subContract.id, costCode: project.mode === ProjectMode.HEAVY_CIVIL ? "P-014" : "033000", description: project.mode === ProjectMode.HEAVY_CIVIL ? "12in Water main install" : "Structural concrete scope", committedAmount: subCurrentValue, invoicedToDate: multiplyMoney(subCurrentValue, 0.45), paidToDate: multiplyMoney(subCurrentValue, 0.40) },
     ],
   });
 
@@ -807,12 +811,12 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
   // Pay Application
   const periodFrom = new Date("2026-04-01");
   const periodTo = new Date("2026-04-30");
-  const scheduledValue = primeContract.currentValue;
-  const workCompletedPrev = scheduledValue * 0.32;
-  const workCompletedThis = scheduledValue * 0.08;
-  const totalCompleted = workCompletedPrev + workCompletedThis;
-  const retainageHeld = totalCompleted * 0.10;
-  const currentPaymentDue = (totalCompleted * 0.90) - workCompletedPrev;
+  const scheduledValue = primeCurrentValue;
+  const workCompletedPrev = multiplyMoney(scheduledValue, 0.32);
+  const workCompletedThis = multiplyMoney(scheduledValue, 0.08);
+  const totalCompleted = addMoney(workCompletedPrev, workCompletedThis);
+  const retainageHeld = multiplyMoney(totalCompleted, 0.10);
+  const currentPaymentDue = sumMoney([multiplyMoney(totalCompleted, 0.90), -workCompletedPrev]);
   const payApp = await prisma.payApplication.create({
     data: {
       projectId: project.id,
@@ -821,20 +825,22 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
       periodFrom,
       periodTo,
       status: PayApplicationStatus.SUBMITTED,
-      originalContractValue: primeContract.originalValue,
-      changeOrderValue: primeContract.currentValue - primeContract.originalValue,
-      totalContractValue: primeContract.currentValue,
+      originalContractValue: primeOriginalValue,
+      changeOrderValue: sumMoney([primeCurrentValue, -primeOriginalValue]),
+      totalContractValue: primeCurrentValue,
       workCompletedToDate: totalCompleted,
       materialsStoredToDate: 0,
       retainagePct: 10,
       retainageHeld,
-      lessPreviousPayments: workCompletedPrev * 0.90,
+      lessPreviousPayments: multiplyMoney(workCompletedPrev, 0.90),
       currentPaymentDue,
       submittedAt: new Date("2026-05-02"),
       notes: "AIA G702/G703 style draw seeded for demo.",
     },
   });
 
+  const sv45 = multiplyMoney(scheduledValue, 0.45);
+  const sv12 = multiplyMoney(scheduledValue, 0.12);
   await prisma.payApplicationLine.createMany({
     data: [
       {
@@ -842,26 +848,26 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
         lineNumber: 1,
         costCode: project.mode === ProjectMode.HEAVY_CIVIL ? "2010" : "033000",
         description: project.mode === ProjectMode.HEAVY_CIVIL ? "Earthwork / Excavation" : "Structural concrete",
-        scheduledValue: scheduledValue * 0.45,
-        workCompletedPrev: scheduledValue * 0.45 * 0.40,
-        workCompletedThis: scheduledValue * 0.45 * 0.15,
-        totalCompleted: scheduledValue * 0.45 * 0.55,
+        scheduledValue: sv45,
+        workCompletedPrev: multiplyMoney(sv45, 0.40),
+        workCompletedThis: multiplyMoney(sv45, 0.15),
+        totalCompleted: multiplyMoney(sv45, 0.55),
         percentComplete: 55,
-        balanceToFinish: scheduledValue * 0.45 * 0.45,
-        retainage: scheduledValue * 0.45 * 0.55 * 0.10,
+        balanceToFinish: multiplyMoney(sv45, 0.45),
+        retainage: multiplyMoney(multiplyMoney(sv45, 0.55), 0.10),
       },
       {
         payApplicationId: payApp.id,
         lineNumber: 2,
         costCode: "GC",
         description: "General Conditions",
-        scheduledValue: scheduledValue * 0.12,
-        workCompletedPrev: scheduledValue * 0.12 * 0.30,
-        workCompletedThis: scheduledValue * 0.12 * 0.08,
-        totalCompleted: scheduledValue * 0.12 * 0.38,
+        scheduledValue: sv12,
+        workCompletedPrev: multiplyMoney(sv12, 0.30),
+        workCompletedThis: multiplyMoney(sv12, 0.08),
+        totalCompleted: multiplyMoney(sv12, 0.38),
         percentComplete: 38,
-        balanceToFinish: scheduledValue * 0.12 * 0.62,
-        retainage: scheduledValue * 0.12 * 0.38 * 0.10,
+        balanceToFinish: multiplyMoney(sv12, 0.62),
+        retainage: multiplyMoney(multiplyMoney(sv12, 0.38), 0.10),
       },
     ],
   });
@@ -870,7 +876,7 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
   await prisma.lienWaiver.createMany({
     data: [
       { projectId: project.id, contractId: subContract.id, waiverType: LienWaiverType.CONDITIONAL_PARTIAL, partyName: subCounterparty, throughDate: periodTo, amount: workCompletedThis, status: LienWaiverStatus.RECEIVED, receivedAt: new Date("2026-05-05") },
-      { projectId: project.id, contractId: primeContract.id, waiverType: LienWaiverType.UNCONDITIONAL_PARTIAL, partyName: primeContract.counterparty, throughDate: periodFrom, amount: workCompletedPrev * 0.10, status: LienWaiverStatus.PENDING },
+      { projectId: project.id, contractId: primeContract.id, waiverType: LienWaiverType.UNCONDITIONAL_PARTIAL, partyName: primeContract.counterparty, throughDate: periodFrom, amount: multiplyMoney(workCompletedPrev, 0.10), status: LienWaiverStatus.PENDING },
     ],
   });
 
@@ -883,7 +889,7 @@ async function seedFinancialsAndSchedule(project: { id: string; name: string; co
   });
 }
 
-async function seedLifecycle(project: { id: string; name: string; code: string; mode: ProjectMode; contractValue: number | null; startDate: Date | null }, tenantId: string) {
+async function seedLifecycle(project: { id: string; name: string; code: string; mode: ProjectMode; contractValue: number | { toNumber: () => number } | null; startDate: Date | null }, tenantId: string) {
   // Tenant-scoped one-time seeding of opportunities and vendors — guard via upsert-by-marker.
   const existingOpp = await prisma.opportunity.findFirst({ where: { tenantId, name: "Lowline Civic Center — Pursue" } });
   if (!existingOpp) {
@@ -950,7 +956,7 @@ async function seedLifecycle(project: { id: string; name: string; code: string; 
       trade: project.mode === ProjectMode.VERTICAL ? "Concrete" : project.mode === ProjectMode.HEAVY_CIVIL ? "Utilities" : "Finish carpentry",
       scopeSummary: "Seeded package for bid leveling demo.",
       dueDate: new Date("2026-04-25"),
-      estimatedValue: (project.contractValue ?? 1000000) * 0.18,
+      estimatedValue: multiplyMoney(toNum(project.contractValue) || 1000000, 0.18),
       status: BidPackageStatus.LEVELING,
     },
   });
@@ -1001,9 +1007,9 @@ async function seedLifecycle(project: { id: string; name: string; code: string; 
         vendorId: primaryVendor.id,
         invoiceNumber: `${project.code}-INV-001`,
         description: `${primaryVendor.name} — Period 1 invoice`,
-        amount: (project.contractValue ?? 1000000) * 0.08,
-        retainageHeld: (project.contractValue ?? 1000000) * 0.08 * 0.10,
-        netDue: (project.contractValue ?? 1000000) * 0.08 * 0.90,
+        amount: multiplyMoney(toNum(project.contractValue) || 1000000, 0.08),
+        retainageHeld: multiplyMoney(multiplyMoney(toNum(project.contractValue) || 1000000, 0.08), 0.10),
+        netDue: multiplyMoney(multiplyMoney(toNum(project.contractValue) || 1000000, 0.08), 0.90),
         status: SubInvoiceStatus.APPROVED,
         invoiceDate: new Date("2026-05-01"),
         dueDate: new Date("2026-05-31"),

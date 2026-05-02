@@ -616,7 +616,7 @@ model Project {
   address           String?
   ownerName         String?
   contractType      String?
-  contractValue     Float?
+  contractValue     Decimal?
   marginTargetPct   Float?
   progressPct       Float         @default(0)
   healthScore       Int           @default(75)
@@ -1194,10 +1194,10 @@ model RFI {
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
-  reviewers   RfiReviewer[]
-  responses   RfiResponse[]
-  drawingPins RfiDrawingPin[]
-  linkedChangeOrders ChangeOrder[] @relation("RfiLinkedChangeOrders")
+  reviewers          RfiReviewer[]
+  responses          RfiResponse[]
+  drawingPins        RfiDrawingPin[]
+  linkedChangeOrders ChangeOrder[]          @relation("RfiLinkedChangeOrders")
   linkedNcrs         NonConformanceReport[] @relation("RfiLinkedNcrs")
 
   @@unique([projectId, number])
@@ -1233,9 +1233,9 @@ model Submittal {
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
-  reviewers SubmittalReviewer[]
-  cycles    SubmittalCycle[]
-  linkedChangeOrders ChangeOrder[] @relation("SubmittalLinkedChangeOrders")
+  reviewers          SubmittalReviewer[]
+  cycles             SubmittalCycle[]
+  linkedChangeOrders ChangeOrder[]       @relation("SubmittalLinkedChangeOrders")
 
   @@unique([projectId, number])
   @@index([projectId])
@@ -1657,7 +1657,7 @@ model ChangeOrder {
   title               String
   description         String?
   reason              String?
-  amount              Float             @default(0)
+  amount              Decimal           @default(0)
   markupPct           Float             @default(0)
   scheduleImpactDays  Int               @default(0)
   status              ChangeOrderStatus @default(DRAFT)
@@ -1676,9 +1676,9 @@ model ChangeOrder {
   // prompts the CO. Optional + SetNull on parent delete so the CO
   // record survives as an independent audit trail.
   linkedRfiId         String?
-  linkedRfi           RFI?       @relation("RfiLinkedChangeOrders", fields: [linkedRfiId], references: [id], onDelete: SetNull)
+  linkedRfi           RFI?              @relation("RfiLinkedChangeOrders", fields: [linkedRfiId], references: [id], onDelete: SetNull)
   linkedSubmittalId   String?
-  linkedSubmittal     Submittal? @relation("SubmittalLinkedChangeOrders", fields: [linkedSubmittalId], references: [id], onDelete: SetNull)
+  linkedSubmittal     Submittal?        @relation("SubmittalLinkedChangeOrders", fields: [linkedSubmittalId], references: [id], onDelete: SetNull)
   // Sub CO carry-down — when an owner CO is approved, child sub COs
   // are auto-created against the affected sub contracts. This field
   // is null on owner-tier COs and set on sub-tier ones to reference
@@ -1692,11 +1692,11 @@ model ChangeOrder {
   vendor              Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   // Dollar split — captures labor / material / equipment for proper
   // job-cost allocation. Sum should match `amount` after markup.
-  laborAmount         Float             @default(0)
-  materialAmount      Float             @default(0)
-  equipmentAmount     Float             @default(0)
-  subAmount           Float             @default(0)
-  ohpAmount           Float             @default(0) // overhead+profit
+  laborAmount         Decimal           @default(0)
+  materialAmount      Decimal           @default(0)
+  equipmentAmount     Decimal           @default(0)
+  subAmount           Decimal           @default(0)
+  ohpAmount           Decimal           @default(0) // overhead+profit
   lines               ChangeOrderLine[]
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
@@ -1716,8 +1716,8 @@ model ChangeOrderLine {
   category      String      @default("LABOR")
   quantity      Float       @default(1)
   unit          String?
-  unitCost      Float       @default(0)
-  amount        Float       @default(0)
+  unitCost      Decimal     @default(0)
+  amount        Decimal     @default(0)
   createdAt     DateTime    @default(now())
 
   @@index([changeOrderId])
@@ -2033,8 +2033,8 @@ model Contract {
   title           String
   type            ContractType
   status          ContractStatus       @default(DRAFT)
-  originalValue   Float                @default(0)
-  currentValue    Float                @default(0)
+  originalValue   Decimal              @default(0)
+  currentValue    Decimal              @default(0)
   retainagePct    Float                @default(10)
   startDate       DateTime?
   endDate         DateTime?
@@ -2064,9 +2064,9 @@ model ContractCommitment {
   costCode        String?
   description     String
   scope           String?
-  committedAmount Float    @default(0)
-  invoicedToDate  Float    @default(0)
-  paidToDate      Float    @default(0)
+  committedAmount Decimal  @default(0)
+  invoicedToDate  Decimal  @default(0)
+  paidToDate      Decimal  @default(0)
   createdAt       DateTime @default(now())
 
   @@index([contractId])
@@ -2082,15 +2082,15 @@ model PayApplication {
   periodFrom            DateTime
   periodTo              DateTime
   status                PayApplicationStatus @default(DRAFT)
-  originalContractValue Float                @default(0)
-  changeOrderValue      Float                @default(0)
-  totalContractValue    Float                @default(0)
-  workCompletedToDate   Float                @default(0)
-  materialsStoredToDate Float                @default(0)
+  originalContractValue Decimal              @default(0)
+  changeOrderValue      Decimal              @default(0)
+  totalContractValue    Decimal              @default(0)
+  workCompletedToDate   Decimal              @default(0)
+  materialsStoredToDate Decimal              @default(0)
   retainagePct          Float                @default(10)
-  retainageHeld         Float                @default(0)
-  lessPreviousPayments  Float                @default(0)
-  currentPaymentDue     Float                @default(0)
+  retainageHeld         Decimal              @default(0)
+  lessPreviousPayments  Decimal              @default(0)
+  currentPaymentDue     Decimal              @default(0)
   submittedAt           DateTime?
   submittedBy           String?
   approvedAt            DateTime?
@@ -2118,14 +2118,14 @@ model PayApplicationLine {
   lineNumber        Int
   costCode          String?
   description       String
-  scheduledValue    Float          @default(0)
-  workCompletedPrev Float          @default(0)
-  workCompletedThis Float          @default(0)
-  materialsStored   Float          @default(0)
-  totalCompleted    Float          @default(0)
+  scheduledValue    Decimal        @default(0)
+  workCompletedPrev Decimal        @default(0)
+  workCompletedThis Decimal        @default(0)
+  materialsStored   Decimal        @default(0)
+  totalCompleted    Decimal        @default(0)
   percentComplete   Float          @default(0)
-  balanceToFinish   Float          @default(0)
-  retainage         Float          @default(0)
+  balanceToFinish   Decimal        @default(0)
+  retainage         Decimal        @default(0)
   createdAt         DateTime       @default(now())
 
   @@unique([payApplicationId, lineNumber])
@@ -2141,7 +2141,7 @@ model LienWaiver {
   waiverType         LienWaiverType
   partyName          String
   throughDate        DateTime
-  amount             Float            @default(0)
+  amount             Decimal          @default(0)
   status             LienWaiverStatus @default(PENDING)
   receivedAt         DateTime?
   receivedBy         String?
@@ -2564,9 +2564,9 @@ model SubInvoice {
   vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   invoiceNumber   String
   description     String?
-  amount          Float            @default(0)
-  retainageHeld   Float            @default(0)
-  netDue          Float            @default(0)
+  amount          Decimal          @default(0)
+  retainageHeld   Decimal          @default(0)
+  netDue          Decimal          @default(0)
   status          SubInvoiceStatus @default(RECEIVED)
   invoiceDate     DateTime
   dueDate         DateTime?
@@ -2623,10 +2623,10 @@ model SubInvoiceLine {
   description  String
   costCode     String?
   quantity     Float?
-  unitPrice    Float?
-  amount       Float
+  unitPrice    Decimal?
+  amount       Decimal
   poLineId     String?
-  retainage    Float      @default(0)
+  retainage    Decimal    @default(0)
   notes        String?
   createdAt    DateTime   @default(now())
 

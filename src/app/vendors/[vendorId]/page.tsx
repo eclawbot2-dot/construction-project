@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney } from "@/lib/money";
 
 export default async function VendorDetailPage({ params }: { params: Promise<{ vendorId: string }> }) {
   const { vendorId } = await params;
@@ -26,9 +27,9 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ v
     const d = new Date(c.expirationDate).getTime() - Date.now();
     return d >= 0 && d < 60 * 24 * 3600 * 1000;
   });
-  const invoicedTotal = vendor.subInvoices.reduce((s, i) => s + i.amount, 0);
-  const paidTotal = vendor.subInvoices.filter((i) => i.status === "PAID").reduce((s, i) => s + i.amount, 0);
-  const outstanding = vendor.subInvoices.filter((i) => i.status !== "PAID").reduce((s, i) => s + i.netDue, 0);
+  const invoicedTotal = sumMoney(vendor.subInvoices.map((i) => i.amount));
+  const paidTotal = sumMoney(vendor.subInvoices.filter((i) => i.status === "PAID").map((i) => i.amount));
+  const outstanding = sumMoney(vendor.subInvoices.filter((i) => i.status !== "PAID").map((i) => i.netDue));
   const bidWinRate = (() => {
     if (vendor.subBids.length === 0) return "—";
     const selected = vendor.subBids.filter((b) => b.status === "SELECTED").length;

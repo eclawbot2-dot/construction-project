@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/utils";
+import { sumMoney } from "@/lib/money";
 
 export default async function PayAppsPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -21,9 +22,9 @@ export default async function PayAppsPage({ params }: { params: Promise<{ projec
   });
   if (!project) notFound();
 
-  const totalBilled = project.payApplications.reduce((s, p) => s + p.workCompletedToDate, 0);
-  const retentionHeld = project.payApplications.reduce((s, p) => s + p.retainageHeld, 0);
-  const pendingPayment = project.payApplications.filter((p) => p.status !== "PAID").reduce((s, p) => s + p.currentPaymentDue, 0);
+  const totalBilled = sumMoney(project.payApplications.map((p) => p.workCompletedToDate));
+  const retentionHeld = sumMoney(project.payApplications.map((p) => p.retainageHeld));
+  const pendingPayment = sumMoney(project.payApplications.filter((p) => p.status !== "PAID").map((p) => p.currentPaymentDue));
 
   return (
     <AppLayout eyebrow={`${project.code} · Pay applications`} title={project.name} description="AIA G702/G703 progress billing with schedule of values, retainage, and approvals.">

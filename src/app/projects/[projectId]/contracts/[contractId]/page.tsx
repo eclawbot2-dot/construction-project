@@ -9,6 +9,7 @@ import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { listComments } from "@/lib/approvals";
 import { contractTypeLabel, formatCurrency, formatDate, formatPercent } from "@/lib/utils";
+import { sumMoney, subtractMoney, toNum } from "@/lib/money";
 
 export default async function ContractDetailPage({ params }: { params: Promise<{ projectId: string; contractId: string }> }) {
   const { projectId, contractId } = await params;
@@ -21,9 +22,9 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   if (!contract) notFound();
   const comments = await listComments(tenant.id, "Contract", contract.id);
 
-  const committed = contract.commitments.reduce((s, c) => s + c.committedAmount, 0);
-  const invoiced = contract.commitments.reduce((s, c) => s + c.invoicedToDate, 0);
-  const paid = contract.commitments.reduce((s, c) => s + c.paidToDate, 0);
+  const committed = sumMoney(contract.commitments.map((c) => c.committedAmount));
+  const invoiced = sumMoney(contract.commitments.map((c) => c.invoicedToDate));
+  const paid = sumMoney(contract.commitments.map((c) => c.paidToDate));
   const startIso = contract.startDate ? new Date(contract.startDate).toISOString().slice(0, 10) : "";
   const endIso = contract.endDate ? new Date(contract.endDate).toISOString().slice(0, 10) : "";
 
@@ -43,7 +44,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Original value" value={formatCurrency(contract.originalValue)} />
-        <StatTile label="Current value" value={formatCurrency(contract.currentValue)} sub={`${formatCurrency(contract.currentValue - contract.originalValue)} in COs`} />
+        <StatTile label="Current value" value={formatCurrency(contract.currentValue)} sub={`${formatCurrency(subtractMoney(contract.currentValue, contract.originalValue))} in COs`} />
         <StatTile label="Retainage %" value={`${contract.retainagePct}%`} />
         <StatTile label="Billed vs. committed" value={committed ? formatPercent((invoiced / committed) * 100) : "—"} tone={invoiced > committed * 0.95 ? "warn" : "good"} />
       </section>
@@ -78,7 +79,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit contract</div>
           <form action={`/api/contracts/${contract.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="md:col-span-2"><label className="form-label">Title</label><input name="title" defaultValue={contract.title} className="form-input" /></div>
-            <div><label className="form-label">Current value ($)</label><input name="currentValue" type="number" step="0.01" defaultValue={contract.currentValue} className="form-input" /></div>
+            <div><label className="form-label">Current value ($)</label><input name="currentValue" type="number" step="0.01" defaultValue={toNum(contract.currentValue)} className="form-input" /></div>
             <div><label className="form-label">Retainage %</label><input name="retainagePct" type="number" step="0.01" defaultValue={contract.retainagePct} className="form-input" /></div>
             <div><label className="form-label">Start</label><input name="startDate" type="date" defaultValue={startIso} className="form-input" /></div>
             <div><label className="form-label">End</label><input name="endDate" type="date" defaultValue={endIso} className="form-input" /></div>
@@ -110,7 +111,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                   <td className="table-cell">{formatCurrency(c.committedAmount)}</td>
                   <td className="table-cell">{formatCurrency(c.invoicedToDate)}</td>
                   <td className="table-cell">{formatCurrency(c.paidToDate)}</td>
-                  <td className="table-cell">{formatCurrency(c.committedAmount - c.invoicedToDate)}</td>
+                  <td className="table-cell">{formatCurrency(subtractMoney(c.committedAmount, c.invoicedToDate))}</td>
                 </tr>
               ))}
               {contract.commitments.length === 0 ? <tr><td colSpan={6} className="table-cell text-center text-slate-500">No commitments.</td></tr> : null}

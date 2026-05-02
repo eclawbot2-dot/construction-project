@@ -30,13 +30,21 @@ export function formatDateTime(date: Date | string | null | undefined, locale: s
   });
 }
 
-export function formatCurrency(value: number | null | undefined, currency: string = "USD", locale: string = "en-US"): string {
+export function formatCurrency(value: number | { toNumber: () => number } | null | undefined, currency: string = "USD", locale: string = "en-US"): string {
   if (value === null || value === undefined) return "—";
+  // Accept both Float (number) and Prisma Decimal (has .toNumber()).
+  // Intl.NumberFormat takes number, so we always coerce here.
+  const n = typeof value === "number"
+    ? value
+    : typeof value === "object" && typeof value.toNumber === "function"
+      ? value.toNumber()
+      : NaN;
+  if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(n);
 }
 
 export function formatPercent(value: number | null | undefined): string {

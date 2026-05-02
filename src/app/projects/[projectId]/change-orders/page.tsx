@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { changeOrderKindLabel, formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney } from "@/lib/money";
 
 export default async function ChangeOrdersPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -16,8 +17,8 @@ export default async function ChangeOrdersPage({ params }: { params: Promise<{ p
   });
   if (!project) notFound();
 
-  const approvedTotal = project.changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").reduce((s, c) => s + c.amount, 0);
-  const pendingTotal = project.changeOrders.filter((c) => c.status === "PENDING" || c.status === "DRAFT").reduce((s, c) => s + c.amount, 0);
+  const approvedTotal = sumMoney(project.changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").map((c) => c.amount));
+  const pendingTotal = sumMoney(project.changeOrders.filter((c) => c.status === "PENDING" || c.status === "DRAFT").map((c) => c.amount));
   const scheduleImpact = project.changeOrders.reduce((s, c) => s + c.scheduleImpactDays, 0);
 
   return (

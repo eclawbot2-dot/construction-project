@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiCall, stableHash } from "@/lib/ai";
+import { sumMoney, toNum } from "@/lib/money";
 
 export type OwnerAnswer = { answer: string; sources: string[] };
 
@@ -34,7 +35,7 @@ export async function answerOwnerQuestion(params: { question: string; projectId:
     fallback: () => {
       const q = params.question.toLowerCase();
       const sources: string[] = [];
-      const contractValue = project.contractValue ?? 0;
+      const contractValue = toNum(project.contractValue);
 
       // SCHEDULE
       if (/schedule|deadline|complete|when|finish|milestone|target\s+date/i.test(q)) {
@@ -53,12 +54,12 @@ export async function answerOwnerQuestion(params: { question: string; projectId:
       }
       // COST / BILLING
       if (/spent|cost|budget|expense|bill|invoice|pay.*app|cash/i.test(q)) {
-        const billed = project.payApplications.reduce((s, p) => s + p.currentPaymentDue, 0);
-        const cos = project.changeOrders.reduce((s, c) => s + c.amount, 0);
+        const billed = sumMoney(project.payApplications.map((p) => p.currentPaymentDue));
+        const cos = sumMoney(project.changeOrders.map((c) => c.amount));
         const lastApp = project.payApplications[0];
         sources.push("PayApplication", "ChangeOrder", "Contract");
         return {
-          answer: `Contract value: $${contractValue.toLocaleString()} (includes $${cos.toLocaleString()} in approved change orders). Billed to date: $${billed.toLocaleString()} across ${project.payApplications.length} pay applications.${lastApp ? ` Most recent pay app period ending ${lastApp.periodTo.toISOString().slice(0, 10)} requested $${lastApp.currentPaymentDue.toLocaleString()}.` : ""}`,
+          answer: `Contract value: $${contractValue.toLocaleString()} (includes $${cos.toLocaleString()} in approved change orders). Billed to date: $${billed.toLocaleString()} across ${project.payApplications.length} pay applications.${lastApp ? ` Most recent pay app period ending ${lastApp.periodTo.toISOString().slice(0, 10)} requested $${toNum(lastApp.currentPaymentDue).toLocaleString()}.` : ""}`,
           sources,
         };
       }
@@ -68,7 +69,7 @@ export async function answerOwnerQuestion(params: { question: string; projectId:
         const pending = project.changeOrders.filter((c) => c.status !== "APPROVED" && c.status !== "REJECTED");
         sources.push("ChangeOrder");
         return {
-          answer: `${project.changeOrders.length} change orders on file. ${approved.length} approved totaling $${approved.reduce((s, c) => s + c.amount, 0).toLocaleString()}. ${pending.length} pending review totaling $${pending.reduce((s, c) => s + c.amount, 0).toLocaleString()}. Total schedule impact from approved COs: ${approved.reduce((s, c) => s + c.scheduleImpactDays, 0)} days.`,
+          answer: `${project.changeOrders.length} change orders on file. ${approved.length} approved totaling $${sumMoney(approved.map((c) => c.amount)).toLocaleString()}. ${pending.length} pending review totaling $${sumMoney(pending.map((c) => c.amount)).toLocaleString()}. Total schedule impact from approved COs: ${approved.reduce((s, c) => s + c.scheduleImpactDays, 0)} days.`,
           sources,
         };
       }

@@ -7,6 +7,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney } from "@/lib/money";
 
 export default async function SubInvoicesPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -17,9 +18,9 @@ export default async function SubInvoicesPage({ params }: { params: Promise<{ pr
   });
   if (!project) notFound();
 
-  const totalGross = project.subInvoices.reduce((s, i) => s + i.amount, 0);
-  const retainageHeld = project.subInvoices.reduce((s, i) => s + i.retainageHeld, 0);
-  const netDue = project.subInvoices.filter((i) => i.status !== "PAID").reduce((s, i) => s + i.netDue, 0);
+  const totalGross = sumMoney(project.subInvoices.map((i) => i.amount));
+  const retainageHeld = sumMoney(project.subInvoices.map((i) => i.retainageHeld));
+  const netDue = sumMoney(project.subInvoices.filter((i) => i.status !== "PAID").map((i) => i.netDue));
 
   return (
     <AppLayout eyebrow={`${project.code} · Sub invoices`} title={project.name} description="Subcontractor pay applications with retainage, compliance, and waiver tracking.">

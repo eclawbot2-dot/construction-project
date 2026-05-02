@@ -10,6 +10,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiCall, stableHash } from "@/lib/ai";
+import { toNum, sumMoney, type MoneyLike } from "@/lib/money";
 
 export type CoiFlag = { vendorId: string; vendorName: string; policyType: string; expiresAt: Date; daysUntilExpiry: number; emailDraft: string };
 
@@ -58,8 +59,8 @@ export async function extractContractClauses(contractId: string, tenantId: strin
     kind: "clause-extract",
     prompt: `Extract clauses from contract ${contract.contractNumber}. ${contractText ?? ""}`.slice(0, 2000),
     fallback: () => {
-      if (contractText && contractText.length > 200) return parseContractText(contractText, contract.originalValue);
-      return templateClauses(contract.originalValue);
+      if (contractText && contractText.length > 200) return parseContractText(contractText, toNum(contract.originalValue));
+      return templateClauses(toNum(contract.originalValue));
     },
   });
 }
@@ -228,7 +229,7 @@ export async function validateLienWaiver(waiverId: string, tenantId: string): Pr
       const findings: LienWaiverValidation["findings"] = [
         { field: "Claimant name present", status: waiver.partyName ? "PASS" : "FAIL", note: waiver.partyName ? `Party: ${waiver.partyName}` : "Missing claimant." },
         { field: "Project name / number matches", status: "PASS", note: `Project ${waiver.project.code} referenced.` },
-        { field: "Amount matches pay-app or CO", status: waiver.amount > 0 ? "PASS" : "FAIL", note: waiver.amount > 0 ? `Amount $${waiver.amount.toLocaleString()} on waiver.` : "No amount recorded." },
+        { field: "Amount matches pay-app or CO", status: toNum(waiver.amount) > 0 ? "PASS" : "FAIL", note: toNum(waiver.amount) > 0 ? `Amount $${toNum(waiver.amount).toLocaleString()} on waiver.` : "No amount recorded." },
         { field: "Through-date present and reasonable", status: waiver.throughDate ? "PASS" : "FAIL", note: waiver.throughDate ? `Through ${waiver.throughDate.toISOString().slice(0, 10)}.` : "No through-date recorded." },
         { field: "Waiver type matches payment status", status: "PASS", note: `Waiver type: ${waiver.waiverType}.` },
         { field: "Notarization / signature present", status: "PASS", note: "Assumed per workflow; verify PDF attached." },
@@ -261,9 +262,9 @@ export async function draftChangeOrderJustification(coId: string, tenantId: stri
       // Compute real cost breakdown by category from CO lines.
       const byCategory: Record<string, number> = {};
       for (const l of co.lines) {
-        byCategory[l.category] = (byCategory[l.category] ?? 0) + l.amount;
+        byCategory[l.category] = (byCategory[l.category] ?? 0) + toNum(l.amount);
       }
-      const subtotal = co.lines.reduce((s, l) => s + l.amount, 0);
+      const subtotal = sumMoney(co.lines.map((l) => l.amount));
       const markupAmount = subtotal * ((co.markupPct ?? 0) / 100);
       const grandTotal = subtotal + markupAmount;
 
@@ -276,7 +277,8 @@ export async function draftChangeOrderJustification(coId: string, tenantId: stri
       else if (/coord|conflict|clash/i.test(desc)) reasonClass = "Trade coordination resolution";
       else if (/accelerat|overtime|schedule/i.test(desc)) reasonClass = "Owner-directed acceleration";
 
-      const pctOfContract = (co.project.contractValue ?? 0) > 0 ? (co.amount / (co.project.contractValue ?? 1)) * 100 : 0;
+      const cv = toNum(co.project.contractValue);
+      const pctOfContract = cv > 0 ? (toNum(co.amount) / cv) * 100 : 0;
 
       let costBreakdownLines: string[] = [`Subtotal of direct costs: $${subtotal.toLocaleString()}`];
       for (const cat of ["LABOR", "MATERIAL", "EQUIPMENT", "SUB"]) {

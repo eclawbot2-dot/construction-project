@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { contractTypeLabel, formatCurrency, formatDate, formatPercent } from "@/lib/utils";
+import { sumMoney, subtractMoney } from "@/lib/money";
 
 export default async function ContractsPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -21,9 +22,9 @@ export default async function ContractsPage({ params }: { params: Promise<{ proj
   });
   if (!project) notFound();
 
-  const totalContracted = project.contracts.reduce((s, c) => s + c.currentValue, 0);
-  const invoiced = project.contracts.reduce((s, c) => s + c.commitments.reduce((a, cm) => a + cm.invoicedToDate, 0), 0);
-  const paid = project.contracts.reduce((s, c) => s + c.commitments.reduce((a, cm) => a + cm.paidToDate, 0), 0);
+  const totalContracted = sumMoney(project.contracts.map((c) => c.currentValue));
+  const invoiced = sumMoney(project.contracts.flatMap((c) => c.commitments.map((cm) => cm.invoicedToDate)));
+  const paid = sumMoney(project.contracts.flatMap((c) => c.commitments.map((cm) => cm.paidToDate)));
 
   return (
     <AppLayout eyebrow={`${project.code} · Contracts`} title={project.name} description="Prime contracts, subcontracts, purchase orders — with cost commitments and billed/paid positions.">
@@ -38,9 +39,9 @@ export default async function ContractsPage({ params }: { params: Promise<{ proj
         </section>
 
         {project.contracts.map((c) => {
-          const committed = c.commitments.reduce((s, cm) => s + cm.committedAmount, 0);
-          const cInvoiced = c.commitments.reduce((s, cm) => s + cm.invoicedToDate, 0);
-          const cPaid = c.commitments.reduce((s, cm) => s + cm.paidToDate, 0);
+          const committed = sumMoney(c.commitments.map((cm) => cm.committedAmount));
+          const cInvoiced = sumMoney(c.commitments.map((cm) => cm.invoicedToDate));
+          const cPaid = sumMoney(c.commitments.map((cm) => cm.paidToDate));
           const billedPct = committed === 0 ? 0 : (cInvoiced / committed) * 100;
           return (
             <section key={c.id} className="card p-5">
@@ -83,7 +84,7 @@ export default async function ContractsPage({ params }: { params: Promise<{ proj
                           <td className="table-cell">{formatCurrency(cm.committedAmount)}</td>
                           <td className="table-cell">{formatCurrency(cm.invoicedToDate)}</td>
                           <td className="table-cell">{formatCurrency(cm.paidToDate)}</td>
-                          <td className="table-cell">{formatCurrency(cm.committedAmount - cm.invoicedToDate)}</td>
+                          <td className="table-cell">{formatCurrency(subtractMoney(cm.committedAmount, cm.invoicedToDate))}</td>
                         </tr>
                       ))}
                     </tbody>

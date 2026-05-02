@@ -16,6 +16,7 @@ import {
   JournalEntryType,
   XeroConnectionStatus,
 } from "@prisma/client";
+import { sumMoney, toNum } from "@/lib/money";
 
 export async function connectXeroDemo(tenantId: string) {
   const existing = await prisma.xeroConnection.findUnique({ where: { tenantId } });
@@ -213,12 +214,12 @@ export async function refreshProjectPnl(tenantId: string) {
     const changeOrders = await prisma.changeOrder.findMany({ where: { projectId: project.id } });
     const journals = await prisma.journalEntryRow.findMany({ where: { projectId: project.id } });
 
-    const contractValue = contracts.filter((c) => c.type === "PRIME_OWNER").reduce((s, c) => s + c.originalValue, 0) || project.contractValue || 0;
-    const approvedCOValue = changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").reduce((s, c) => s + c.amount, 0);
+    const contractValue = sumMoney(contracts.filter((c) => c.type === "PRIME_OWNER").map((c) => c.originalValue)) || toNum(project.contractValue);
+    const approvedCOValue = sumMoney(changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").map((c) => c.amount));
     const totalContractValue = contractValue + approvedCOValue;
-    const billedToDate = contracts.flatMap((c) => c.payApplications).reduce((s, p) => s + p.workCompletedToDate, 0);
+    const billedToDate = sumMoney(contracts.flatMap((c) => c.payApplications).map((p) => p.workCompletedToDate));
     const costsToDate = Math.abs(journals.filter((j) => j.entryType === "COST_OF_GOODS").reduce((s, j) => s + j.amount, 0));
-    const committedCost = contracts.flatMap((c) => c.commitments).reduce((s, c) => s + c.committedAmount, 0);
+    const committedCost = sumMoney(contracts.flatMap((c) => c.commitments).map((c) => c.committedAmount));
     const percentComplete = totalContractValue > 0 ? Math.min(100, (billedToDate / totalContractValue) * 100) : 0;
     const forecastFinalCost = costsToDate + Math.max(0, committedCost - costsToDate);
     const forecastGrossMargin = totalContractValue - forecastFinalCost;

@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, lienWaiverTypeLabel } from "@/lib/utils";
+import { sumMoney } from "@/lib/money";
 
 export default async function LienWaiversPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -18,8 +19,8 @@ export default async function LienWaiversPage({ params }: { params: Promise<{ pr
 
   const received = project.lienWaivers.filter((w) => w.status === "RECEIVED").length;
   const pending = project.lienWaivers.filter((w) => w.status === "PENDING").length;
-  const receivedAmount = project.lienWaivers.filter((w) => w.status === "RECEIVED").reduce((s, w) => s + w.amount, 0);
-  const pendingAmount = project.lienWaivers.filter((w) => w.status === "PENDING").reduce((s, w) => s + w.amount, 0);
+  const receivedAmount = sumMoney(project.lienWaivers.filter((w) => w.status === "RECEIVED").map((w) => w.amount));
+  const pendingAmount = sumMoney(project.lienWaivers.filter((w) => w.status === "PENDING").map((w) => w.amount));
 
   return (
     <AppLayout eyebrow={`${project.code} · Lien waivers`} title={project.name} description="Conditional and unconditional waivers by party, tied to pay applications.">

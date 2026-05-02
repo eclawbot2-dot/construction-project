@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { addMoney, toNum } from "@/lib/money";
 
 function bucketize(days: number): "current" | "1-30" | "31-60" | "61-90" | "90+" {
   if (days <= 0) return "current";
@@ -28,7 +29,7 @@ export default async function ApAgingPage() {
     const due = i.dueDate ?? i.invoiceDate;
     const daysPast = Math.floor((today.getTime() - new Date(due).getTime()) / (1000 * 60 * 60 * 24));
     const bucket = bucketize(daysPast);
-    totals[bucket] += i.netDue;
+    totals[bucket] = addMoney(totals[bucket], i.netDue);
     return { ...i, daysPast, bucket };
   });
   const totalOutstanding = Object.values(totals).reduce((s, v) => s + v, 0);

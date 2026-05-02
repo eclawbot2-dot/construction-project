@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, formatPercent, contractTypeLabel, changeOrderKindLabel } from "@/lib/utils";
+import { sumMoney } from "@/lib/money";
 
 export default async function CommercialPage() {
   const tenant = await requireTenant();
@@ -16,12 +17,12 @@ export default async function CommercialPage() {
     prisma.lienWaiver.findMany({ where: projectScope, include: { project: true, contract: true }, orderBy: { createdAt: "desc" } }),
   ]);
 
-  const contractedValue = contracts.reduce((s, c) => s + c.currentValue, 0);
-  const coApproved = changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").reduce((s, c) => s + c.amount, 0);
-  const coPending = changeOrders.filter((c) => c.status === "PENDING" || c.status === "DRAFT").reduce((s, c) => s + c.amount, 0);
-  const billedToDate = payApps.reduce((s, p) => s + p.workCompletedToDate, 0);
-  const retainageHeld = payApps.reduce((s, p) => s + p.retainageHeld, 0);
-  const pendingPayment = payApps.filter((p) => p.status !== "PAID").reduce((s, p) => s + p.currentPaymentDue, 0);
+  const contractedValue = sumMoney(contracts.map((c) => c.currentValue));
+  const coApproved = sumMoney(changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").map((c) => c.amount));
+  const coPending = sumMoney(changeOrders.filter((c) => c.status === "PENDING" || c.status === "DRAFT").map((c) => c.amount));
+  const billedToDate = sumMoney(payApps.map((p) => p.workCompletedToDate));
+  const retainageHeld = sumMoney(payApps.map((p) => p.retainageHeld));
+  const pendingPayment = sumMoney(payApps.filter((p) => p.status !== "PAID").map((p) => p.currentPaymentDue));
   const waiverPending = lienWaivers.filter((w) => w.status === "PENDING").length;
 
   return (

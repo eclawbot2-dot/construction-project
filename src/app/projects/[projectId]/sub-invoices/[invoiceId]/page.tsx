@@ -9,6 +9,7 @@ import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { listComments } from "@/lib/approvals";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 
 export default async function SubInvoiceDetailPage({ params }: { params: Promise<{ projectId: string; invoiceId: string }> }) {
   const { projectId, invoiceId } = await params;
@@ -65,9 +66,9 @@ export default async function SubInvoiceDetailPage({ params }: { params: Promise
         <section className="card p-6">
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit invoice</div>
           <form action={`/api/sub-invoices/${inv.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
-            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={inv.amount} className="form-input" /></div>
-            <div><label className="form-label">Retainage held ($)</label><input name="retainageHeld" type="number" step="0.01" defaultValue={inv.retainageHeld} className="form-input" /></div>
-            <div><label className="form-label">Net due ($)</label><input name="netDue" type="number" step="0.01" defaultValue={inv.netDue} className="form-input" /></div>
+            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={toNum(inv.amount)} className="form-input" /></div>
+            <div><label className="form-label">Retainage held ($)</label><input name="retainageHeld" type="number" step="0.01" defaultValue={toNum(inv.retainageHeld)} className="form-input" /></div>
+            <div><label className="form-label">Net due ($)</label><input name="netDue" type="number" step="0.01" defaultValue={toNum(inv.netDue)} className="form-input" /></div>
             <div className="md:col-span-3"><label className="form-label">Notes</label><input name="notes" defaultValue={inv.notes ?? ""} className="form-input" /></div>
             <div className="md:col-span-3"><button className="btn-primary">Save</button></div>
           </form>

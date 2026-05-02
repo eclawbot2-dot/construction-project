@@ -7,6 +7,7 @@ import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { listComments } from "@/lib/approvals";
 import { formatCurrency, formatDate, lienWaiverTypeLabel } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 
 export default async function LienWaiverDetailPage({ params }: { params: Promise<{ projectId: string; waiverId: string }> }) {
   const { projectId, waiverId } = await params;
@@ -58,7 +59,7 @@ export default async function LienWaiverDetailPage({ params }: { params: Promise
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit waiver</div>
           <form action={`/api/lien-waivers/${waiver.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="md:col-span-2"><label className="form-label">Party name</label><input name="partyName" defaultValue={waiver.partyName} className="form-input" /></div>
-            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={waiver.amount} className="form-input" /></div>
+            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={toNum(waiver.amount)} className="form-input" /></div>
             <div><label className="form-label">Through date</label><input name="throughDate" type="date" defaultValue={throughIso} className="form-input" /></div>
             <div className="md:col-span-2"><label className="form-label">Notes</label><input name="notes" defaultValue={waiver.notes ?? ""} className="form-input" /></div>
             <div className="md:col-span-3"><button className="btn-primary">Save</button></div>

@@ -14,7 +14,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { sumMoney, subtractMoney, multiplyMoney } from "@/lib/money";
+import { sumMoney, subtractMoney, multiplyMoney, toNum } from "@/lib/money";
 
 // ─── R1 — Surety-grade WIP report ──────────────────────────────────
 
@@ -39,7 +39,7 @@ export async function wipReport(tenantId: string, _asOf: Date = new Date()): Pro
   });
   return projects.map((p) => {
     const snap = p.pnlSnapshot;
-    const contract = snap?.totalContractValue ?? p.contractValue ?? 0;
+    const contract = snap?.totalContractValue ?? toNum(p.contractValue);
     const billed = snap?.billedToDate ?? 0;
     const cost = snap?.costsToDate ?? 0;
     const efc = snap?.forecastFinalCost ?? cost;
@@ -189,7 +189,7 @@ export async function estimateAccuracyReport(tenantId: string): Promise<Estimate
   });
   return projects.map((p) => {
     const snap = p.pnlSnapshot;
-    const bid = p.contractValue ?? 0;
+    const bid = toNum(p.contractValue);
     const actual = snap?.forecastFinalCost ?? snap?.costsToDate ?? 0;
     const variance = actual - bid;
     const pct = bid > 0 ? variance / bid : 0;

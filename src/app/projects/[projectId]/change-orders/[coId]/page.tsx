@@ -8,6 +8,7 @@ import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { listComments } from "@/lib/approvals";
 import { changeOrderKindLabel, formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney, multiplyMoney, addMoney, toNum } from "@/lib/money";
 
 export default async function ChangeOrderDetailPage({ params }: { params: Promise<{ projectId: string; coId: string }> }) {
   const { projectId, coId } = await params;
@@ -20,10 +21,10 @@ export default async function ChangeOrderDetailPage({ params }: { params: Promis
   if (!co) notFound();
   const comments = await listComments(tenant.id, "ChangeOrder", co.id);
 
-  const subtotal = co.lines.reduce((s, l) => s + l.amount, 0);
-  const markup = subtotal * (co.markupPct / 100);
-  const calculated = subtotal + markup;
-  const byCategory = co.lines.reduce<Record<string, number>>((acc, l) => { acc[l.category] = (acc[l.category] ?? 0) + l.amount; return acc; }, {});
+  const subtotal = sumMoney(co.lines.map((l) => l.amount));
+  const markup = multiplyMoney(subtotal, co.markupPct / 100);
+  const calculated = addMoney(subtotal, markup);
+  const byCategory = co.lines.reduce<Record<string, number>>((acc, l) => { acc[l.category] = addMoney(acc[l.category] ?? 0, l.amount); return acc; }, {});
 
   const actions: Array<{ name: string; label: string; tone: "primary" | "outline" | "danger"; requireReason?: boolean; formAction: string }> = [];
   if ((co.status === "DRAFT" || co.status === "REJECTED") && actor.canEdit) actions.push({ name: "submit", label: "Submit for approval", tone: "primary", formAction: `/api/change-orders/${co.id}/submit` });
@@ -88,7 +89,7 @@ export default async function ChangeOrderDetailPage({ params }: { params: Promis
           {(co.status === "APPROVED" || co.status === "EXECUTED") ? <div className="mt-2 text-xs text-amber-300">Editing an {co.status.toLowerCase()} CO reverts it to PENDING for re-approval.</div> : null}
           <form action={`/api/change-orders/${co.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
             <div><label className="form-label">Title</label><input name="title" defaultValue={co.title} className="form-input" /></div>
-            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={co.amount} className="form-input" /></div>
+            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={toNum(co.amount)} className="form-input" /></div>
             <div><label className="form-label">Schedule impact (days)</label><input name="scheduleImpactDays" type="number" defaultValue={co.scheduleImpactDays} className="form-input" /></div>
             <div><label className="form-label">Markup %</label><input name="markupPct" type="number" step="0.01" defaultValue={co.markupPct} className="form-input" /></div>
             <div className="md:col-span-2"><label className="form-label">Reason</label><input name="reason" defaultValue={co.reason ?? ""} className="form-input" /></div>

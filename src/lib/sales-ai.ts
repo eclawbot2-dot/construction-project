@@ -13,6 +13,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiCall, pickStable, rangeStable, stableHash } from "@/lib/ai";
+import { toNum } from "@/lib/money";
 
 export type ScoreResult = {
   recommendation: "BID" | "NO_BID" | "CONDITIONAL";
@@ -104,11 +105,11 @@ export async function tailorProposalThemes(draftId: string): Promise<TailoredPro
 
       // Pick the top 3 most-relevant past projects for past-performance references.
       const relevant = pastProjects
-        .map((p) => ({ ...p, score: (draft.opportunityId && p.ownerName === draft.rfpListing?.agency ? 50 : 0) + (p.contractValue ?? 0) / 1_000_000 }))
+        .map((p) => ({ ...p, score: (draft.opportunityId && p.ownerName === draft.rfpListing?.agency ? 50 : 0) + toNum(p.contractValue) / 1_000_000 }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 3);
       const pastPerfBlock = relevant.length > 0
-        ? relevant.map((p) => `  • ${p.code} — ${p.name} (${p.ownerName ?? "private owner"}, $${(p.contractValue ?? 0).toLocaleString()})`).join("\n")
+        ? relevant.map((p) => `  • ${p.code} — ${p.name} (${p.ownerName ?? "private owner"}, $${toNum(p.contractValue).toLocaleString()})`).join("\n")
         : "  • [Attach past-performance matrix to final proposal]";
 
       const repeatClient = relevant.some((p) => p.ownerName && draft.rfpListing?.agency && p.ownerName.toLowerCase().includes(draft.rfpListing.agency.toLowerCase().slice(0, 12)));
