@@ -6,12 +6,30 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-export default async function RfpListingsPage({ searchParams }: { searchParams: Promise<{ status?: string; sourceId?: string; showBlocked?: string }> }) {
+export default async function RfpListingsPage({ searchParams }: { searchParams: Promise<{ status?: string; sourceId?: string; showBlocked?: string; q?: string }> }) {
   const tenant = await requireTenant();
   const sp = await searchParams;
   const where: Record<string, unknown> = { tenantId: tenant.id };
   if (sp.status) where.status = sp.status;
   if (sp.sourceId) where.sourceId = sp.sourceId;
+  // Free-text search across the fields most operators recall by:
+  // title, agency, solicitation number. SQLite's LIKE is case-
+  // insensitive by default for ASCII, which covers virtually all
+  // procurement portal data.
+  if (sp.q && sp.q.trim()) {
+    const needle = sp.q.trim();
+    where.AND = [
+      ...(Array.isArray(where.AND) ? (where.AND as unknown[]) : []),
+      {
+        OR: [
+          { title: { contains: needle } },
+          { agency: { contains: needle } },
+          { solicitationNo: { contains: needle } },
+          { naicsCode: { contains: needle } },
+        ],
+      },
+    ];
+  }
   // By default hide auto-blocked listings (score capped at ≤25 by a
   // matching blockKeyword on the tenant's bid profile). They're not
   // valuable triage candidates — the operator already said never bid.
@@ -42,7 +60,15 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
           <StatTile label="Submitted" value={counts.submitted} href="/bids/listings?status=SUBMITTED" />
         </section>
         <section className="card p-0 overflow-hidden">
-          <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 flex items-center justify-between">
+          <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 flex items-center justify-between flex-wrap gap-3">
+            <form method="get" className="flex items-center gap-2">
+              <input type="text" name="q" defaultValue={sp.q ?? ""} placeholder="search title / agency / sol#" className="form-input text-xs w-64 normal-case tracking-normal" />
+              {sp.status ? <input type="hidden" name="status" value={sp.status} /> : null}
+              {sp.sourceId ? <input type="hidden" name="sourceId" value={sp.sourceId} /> : null}
+              {sp.showBlocked ? <input type="hidden" name="showBlocked" value={sp.showBlocked} /> : null}
+              <button type="submit" className="btn-outline text-xs normal-case tracking-normal">Search</button>
+              {sp.q ? <Link href={preserveQuery(sp, { q: undefined })} className="text-[10px] text-slate-500 hover:text-cyan-300 normal-case tracking-normal">clear</Link> : null}
+            </form>
             <div className="flex items-center gap-3">
               <span>Recent listings</span>
               {blockedCount > 0 ? (
@@ -132,9 +158,14 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
 // the rest. Empty/undefined values drop the parameter from the URL so
 // /bids/listings stays clean when toggles are off.
 function preserveQuery(current: Record<string, string | undefined>, overrides: Record<string, string | undefined>): string {
-  const merged = { ...current, ...overrides };
+  // Whitelist the query params we care about so accidentally-typed
+  // junk doesn't survive a clear/toggle. Drops keys whose final value
+  // is undefined or empty, leaving the URL clean for shareability.
+  const allowed = ["status", "sourceId", "showBlocked", "q"];
+  const merged: Record<string, string | undefined> = { ...current, ...overrides };
   const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(merged)) {
+  for (const k of allowed) {
+    const v = merged[k];
     if (v) params.set(k, v);
   }
   const qs = params.toString();
