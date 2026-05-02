@@ -21,6 +21,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/rfp-geo";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 type AiCallParams<T> = {
   kind: string;
@@ -132,6 +133,21 @@ export async function aiCall<T>(p: AiCallParams<T>): Promise<T> {
   if (!p.parse) return await p.fallback();
   const { provider, apiKey } = await resolveKey(p.tenantId);
   if (provider === "none" || !apiKey) return await p.fallback();
+  // Per-tenant rate limit on AI calls — protects the customer's API
+  // budget from runaway loops (e.g., a recursive autopilot path or a
+  // bug that fires aiCall in a tight retry). 60 calls/minute per
+  // tenant is generous for normal interactive use; a sweep that
+  // scores 100 listings takes ~2 minutes which is fine. When the
+  // limit fires we fall back to deterministic mock rather than
+  // erroring — the user gets a result that's marked as not-LLM in
+  // AiRunLog.source and can re-trigger after the window.
+  if (p.tenantId) {
+    const rl = consumeRateLimit(`ai:${p.tenantId}`, { limit: 60, windowMs: 60_000 });
+    if (!rl.allowed) {
+      console.warn(`[ai] rate-limit hit for tenant=${p.tenantId} kind=${p.kind}; falling back to mock`);
+      return await p.fallback();
+    }
+  }
   try {
     const text = provider === "openai"
       ? await callOpenAi({ prompt: p.prompt, system: p.system, maxTokens: p.maxTokens, apiKey })

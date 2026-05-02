@@ -68,10 +68,69 @@ npm run dev
 
 App runs on http://localhost:3101 — you'll be redirected to `/login`.
 
-`AUTH_SECRET` is required (NextAuth refuses to mint sessions without
-one). `AUTH_TRUST_HOST=true` lets the credentials provider work behind
-the local Cloudflare tunnel; remove it for a stricter production
-deployment that runs on a known public hostname.
+### Required env vars
+
+| Var | Purpose |
+| --- | --- |
+| `AUTH_SECRET` | NextAuth JWT signing — required |
+| `AUTH_TRUST_HOST` | `true` for local Cloudflare tunnel; remove in strict prod |
+| `BCON_VAULT_KEY` | Per-tenant secret encryption salt for credentials + LLM keys |
+| `CRON_SECRET` | Bearer token for `/api/cron/*` endpoints |
+
+### Optional env vars
+
+| Var | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` + `ENABLE_LLM_CALLS=true` | Platform-wide AI fallback when a tenant hasn't set their own key |
+| `ANTHROPIC_API_KEY` + `ENABLE_LLM_CALLS=true` | Same as above for Claude |
+| `SAM_GOV_API_KEY` | Free key from open.gsa.gov; without it, all federal scraper subscriptions fail loudly with a clear message |
+
+## Bid pipeline (pass-12+)
+
+The platform watches federal + SE construction procurement portals and
+auto-drafts bids on listings that match each tenant's bid profile.
+
+- 234-portal catalog (`prisma/portal-catalog*.ts`) — federal +
+  AL/AR/FL/GA/KY/LA/MS/NC/SC/TN/VA/WV state procurement, DOTs, top
+  counties + cities, port + transit authorities, USACE districts,
+  NAVFAC SE/Mid-Atl, NASA centers, VA VISNs, AF bases, Army posts.
+- 4 working scrapers in `src/lib/scrapers/` (sam-gov, generic-html,
+  generic-rss, defense-news). Catalog rows that don't have a real
+  scraper are explicitly marked `MANUAL` — the system never
+  fabricates listings.
+- `/admin/portal-coverage` shows scraper status across all 234 rows;
+  weekly `/api/cron/verify-portals` refreshes URL telemetry.
+- `/bids/portfolio` for BD pipeline overview;
+  `/bids/listings/[id]` for full detail with score breakdown bars.
+
+## Cron endpoints (bearer `CRON_SECRET`)
+
+| Endpoint | Cadence | Purpose |
+| --- | --- | --- |
+| `/api/cron/backup` | daily | Per-tenant JSON dump + integrity check + OneDrive sync |
+| `/api/cron/rfp-sweep` | daily 6× | Sweep all RfpSources, score listings, fire auto-draft |
+| `/api/cron/verify-portals` | weekly | Refresh portal-coverage telemetry |
+| `/api/cron/audit-prune` | monthly | Delete AuditEvent rows >365 days old (50k circuit breaker) |
+| `/api/cron/alert-scan` | hourly | Generate AlertEvent rows from current state |
+
+Register on Windows via the PowerShell scripts in `scripts/`:
+`register-backup-task.ps1`, `register-portal-verify-task.ps1`.
+
+## Customer onboarding
+
+`docs/onboarding-checklist.md` is the playbook. Section 7 covers the
+pass-12+ flow (per-tenant LLM key, bid profile, portal subscriptions,
+SAM.gov key, first sweep, auto-draft policy).
+
+## Test gates
+
+```bash
+npx tsc --noEmit             # type checks (must be 0 errors)
+npx vitest run               # unit + integration tests (71 passing)
+npx tsx prisma/seed-portals.ts   # idempotent catalog refresh smoke check
+```
+
+GitHub Actions CI runs all three on push/PR (`.github/workflows/ci.yml`).
 
 ## Demo login users
 
