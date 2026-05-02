@@ -34,9 +34,15 @@ const COMMANDS: Command[] = [
   { label: "Daily logs", href: "/projects?tab=daily-logs", keywords: "daily log report field", group: "Projects" },
   // Settings
   { label: "Tenant settings", href: "/settings", keywords: "settings tenant config modes", group: "Settings" },
+  { label: "Company compliance", href: "/settings/company", keywords: "company licenses insurance bonds certifications safety emr", group: "Settings" },
+  { label: "Cost codes", href: "/settings/cost-codes", keywords: "cost codes csi masterformat chart of accounts", group: "Settings" },
   { label: "AI keys", href: "/settings#ai-keys", keywords: "openai anthropic api keys ai", group: "Settings" },
+  { label: "API tokens & webhooks", href: "/settings/api", keywords: "api tokens webhooks integrations", group: "Settings" },
+  { label: "Guest accounts", href: "/settings/guests", keywords: "guest accounts owner architect inspector magic link", group: "Settings" },
   { label: "Tenant audit log", href: "/settings/audit", keywords: "audit history compliance changes", group: "Settings" },
   { label: "People directory", href: "/people", keywords: "people users team members", group: "Settings" },
+  // Reports
+  { label: "Reports", href: "/reports", keywords: "reports wip cost-to-complete win-rate bonding margin", group: "Other" },
   // Admin (super admin sees these regardless; non-super-admin gets 403)
   { label: "Admin home", href: "/admin", keywords: "admin platform super", group: "Admin" },
   { label: "Tenant management", href: "/admin/tenants", keywords: "admin tenants list", group: "Admin" },

@@ -1,9 +1,17 @@
 import { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { requireTenant } from "@/lib/tenant";
 import { auth } from "@/lib/auth";
 import { issueApiToken } from "@/lib/api-token";
 
+/**
+ * Issue a new API token. The full secret is shown EXACTLY ONCE on the
+ * redirect target page. To avoid leaking it via URL (browser history,
+ * server logs, referer headers), we stash it in a short-lived
+ * HttpOnly cookie that the next render reads and clears. URL stays
+ * clean.
+ */
 export async function POST(req: NextRequest) {
   const tenant = await requireTenant();
   const form = await req.formData();
@@ -15,5 +23,17 @@ export async function POST(req: NextRequest) {
     .filter(Boolean);
   const session = await auth();
   const issued = await issueApiToken({ tenantId: tenant.id, name: name!, scopes, createdById: session?.userId });
-  redirect(`/settings/api?issued=${encodeURIComponent(issued.fullToken)}`);
+
+  const jar = await cookies();
+  jar.set({
+    name: "bcon-issued-token",
+    value: issued.fullToken,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 5 * 60,
+    path: "/settings/api",
+  });
+
+  redirect("/settings/api?ok=Token+issued");
 }

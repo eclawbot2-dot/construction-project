@@ -1,11 +1,22 @@
+import { cookies } from "next/headers";
 import { AppLayout } from "@/components/layout/app-layout";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatDateTime } from "@/lib/utils";
 
-export default async function ApiTokensPage({ searchParams }: { searchParams: Promise<{ issued?: string }> }) {
+export default async function ApiTokensPage() {
   const tenant = await requireTenant();
-  const sp = await searchParams;
+  // Pass-43: read the freshly-issued token from a short-lived HttpOnly
+  // cookie (set by /api/tenant/api-tokens/create) instead of a query
+  // param. Prevents the secret from landing in browser history /
+  // server logs / referer headers. Cookie is cleared after read so a
+  // refresh doesn't re-show it.
+  const jar = await cookies();
+  const justIssued = jar.get("bcon-issued-token")?.value ?? null;
+  if (justIssued) {
+    jar.delete({ name: "bcon-issued-token", path: "/settings/api" });
+  }
+  const sp = { issued: justIssued };
   const tokens = await prisma.apiToken.findMany({
     where: { tenantId: tenant.id },
     orderBy: { createdAt: "desc" },

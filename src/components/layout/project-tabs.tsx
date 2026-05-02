@@ -25,6 +25,7 @@ export const PROJECT_TABS: Tab[] = [
   { slug: "timesheets", label: "Timesheets" },
   { slug: "permits", label: "Permits" },
   { slug: "inspections", label: "Inspections" },
+  { slug: "compliance", label: "Compliance" },
   { slug: "safety", label: "Safety", modes: VERTICAL_OR_CIVIL },
   { slug: "financials", label: "P&L" },
   { slug: "punch-list", label: "Punch List" },

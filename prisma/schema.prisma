@@ -455,6 +455,16 @@ model Tenant {
   vendor1099Records    Vendor1099Record[]
   qualityChecklistTemplates QualityChecklistTemplate[]
   capitalPrograms      CapitalProgram[]
+  consolidatedReports  ConsolidatedReport[]
+  // Company compliance — tenant's own licensing, insurance, bonding,
+  // certifications, safety record. Distinct from Vendor* records,
+  // which are about subs. Surfaces in /settings/company.
+  companyProfile       CompanyProfile?
+  companyLicenses      CompanyLicense[]
+  companyInsurances    CompanyInsurance[]
+  companyBonds         CompanyBond[]
+  companyCertifications CompanyCertification[]
+  companySafetyMetrics CompanySafetyMetric[]
 }
 
 model BusinessUnit {
@@ -496,6 +506,7 @@ model BusinessUnit {
 model ConsolidatedReport {
   id           String   @id @default(cuid())
   tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   periodLabel  String
   periodStart  DateTime
   periodEnd    DateTime
@@ -665,6 +676,8 @@ model Project {
   ncrs                 NonConformanceReport[]
   closeoutPackage      CloseoutPackage?
   capitalPrograms      CapitalProgramProject[]
+  bonds                CompanyBond[]
+  complianceLinks      ProjectComplianceLink[]
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
   crewAssignments      CrewAssignment[]
@@ -2388,7 +2401,8 @@ model SubBid {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  lines SubBidLine[]
+  lines           SubBidLine[]
+  awardedScopes   BidLevelingResult[]
 
   @@unique([bidPackageId, vendorId])
   @@index([bidPackageId])
@@ -2431,6 +2445,7 @@ model BidLevelingResult {
   bidPackage    BidPackage @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
   scopeItemKey  String
   awardedToSubBidId String
+  awardedToSubBid SubBid    @relation(fields: [awardedToSubBidId], references: [id], onDelete: Cascade)
   rationale     String?
   decidedAt     DateTime   @default(now())
   decidedBy     String?
@@ -4377,4 +4392,214 @@ model CrewAssignment {
   @@unique([projectId, assignedDate, crewName, costCode])
   @@index([projectId, assignedDate])
   @@index([dailyLogId])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// COMPANY COMPLIANCE — tenant-admin-only repository for the GC's
+// own licensing, insurance, bonding, certifications, and safety
+// record. Distinct from Vendor*/InsuranceCert which are for subs.
+// Surfaces in /settings/company. Per-project requirements link via
+// ProjectComplianceLink so each job shows which company records
+// cover it.
+// ─────────────────────────────────────────────────────────────────
+
+/// Company-wide profile — DBA, EIN, registered address, NAICS, SAM
+/// status. One row per tenant.
+model CompanyProfile {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  legalName       String
+  dbaName         String?
+  ein             String?
+  duns            String?
+  cageCode        String?
+  uei             String?
+  entityType      String?
+  yearFounded     Int?
+  primaryAddress  String?
+  city            String?
+  state           String?
+  postalCode      String?
+  country         String   @default("US")
+  naicsCodesJson  String   @default("[]")
+  samStatus       String?
+  samExpiresAt    DateTime?
+  primaryContactName  String?
+  primaryContactEmail String?
+  primaryContactPhone String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// Tenant company contractor / specialty / business license per
+/// state + jurisdiction.
+model CompanyLicense {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  licenseType     String
+  licenseNumber   String
+  jurisdictionLevel String @default("STATE")
+  state           String?
+  jurisdiction    String?
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  status          String   @default("ACTIVE")
+  scopeOfWork     String?
+  classification  String?
+  bondingRequired Boolean  @default(false)
+  documentUrl     String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  projectLinks ProjectComplianceLink[] @relation("ProjectLink_License")
+
+  @@unique([tenantId, licenseNumber, state])
+  @@index([tenantId])
+  @@index([expiresAt])
+}
+
+/// Tenant company insurance certificates — GL, WC, Auto, Pro,
+/// Umbrella, Builders Risk, Pollution, Cyber.
+model CompanyInsurance {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  policyType      String
+  carrier         String
+  policyNumber    String
+  effectiveDate   DateTime
+  expiresAt       DateTime
+  perOccurrenceLimit Float @default(0)
+  aggregateLimit  Float    @default(0)
+  deductible      Float    @default(0)
+  statesCoveredJson String @default("[]")
+  additionalInsuredsJson String @default("[]")
+  waiverOfSubrogation Boolean @default(false)
+  primaryAndNoncontributory Boolean @default(false)
+  documentUrl     String?
+  notes           String?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  projectLinks ProjectComplianceLink[] @relation("ProjectLink_Insurance")
+
+  @@unique([tenantId, policyNumber])
+  @@index([tenantId, policyType])
+  @@index([expiresAt])
+}
+
+/// Surety bonding capacity and per-project bonds.
+model CompanyBond {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bondType        String
+  surety          String
+  bondNumber      String?
+  capacityAggregate Float  @default(0)
+  capacitySingle  Float    @default(0)
+  bondAmount      Float    @default(0)
+  effectiveDate   DateTime?
+  expiresAt       DateTime?
+  premium         Float    @default(0)
+  rate            Float?
+  documentUrl     String?
+  notes           String?
+  status          String   @default("ACTIVE")
+  projectId       String?
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  projectLinks ProjectComplianceLink[] @relation("ProjectLink_Bond")
+
+  @@index([tenantId, bondType])
+  @@index([projectId])
+  @@index([expiresAt])
+}
+
+/// Set-aside certifications — DBE, MWBE, WBE, SDVOSB, HUBZONE,
+/// 8(a), Small Business, ESBE.
+model CompanyCertification {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  certificationType String
+  certifyingAgency String
+  certificateNumber String?
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  status          String   @default("ACTIVE")
+  state           String?
+  jurisdiction    String?
+  scope           String?
+  documentUrl     String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  projectLinks ProjectComplianceLink[] @relation("ProjectLink_Certification")
+
+  @@unique([tenantId, certificationType, certifyingAgency])
+  @@index([tenantId])
+  @@index([expiresAt])
+}
+
+/// Year-over-year safety metrics. EMR feeds prequalification scoring
+/// and insurance underwriting.
+model CompanySafetyMetric {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reportingYear   Int
+  emrRate         Float?
+  trirRate        Float?
+  dartRate        Float?
+  laborHours      Float?
+  recordableCount Int      @default(0)
+  fatalityCount   Int      @default(0)
+  oshaCitations   Int      @default(0)
+  oshaForm300aUrl String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, reportingYear])
+  @@index([tenantId])
+}
+
+/// Per-project compliance-requirement link. Each project's contract
+/// specifies what licensing/COIs/bonds/certs are required; this row
+/// attaches the company-level record that satisfies the requirement.
+/// Exactly ONE of the four FK fields is non-null per row.
+model ProjectComplianceLink {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requirementType String
+  companyLicenseId       String?
+  companyLicense         CompanyLicense? @relation("ProjectLink_License", fields: [companyLicenseId], references: [id], onDelete: SetNull)
+  companyInsuranceId     String?
+  companyInsurance       CompanyInsurance? @relation("ProjectLink_Insurance", fields: [companyInsuranceId], references: [id], onDelete: SetNull)
+  companyBondId          String?
+  companyBond            CompanyBond? @relation("ProjectLink_Bond", fields: [companyBondId], references: [id], onDelete: SetNull)
+  companyCertificationId String?
+  companyCertification   CompanyCertification? @relation("ProjectLink_Certification", fields: [companyCertificationId], references: [id], onDelete: SetNull)
+  requirementText String?
+  satisfied       Boolean  @default(false)
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@index([projectId, requirementType])
+  @@index([companyLicenseId])
+  @@index([companyInsuranceId])
+  @@index([companyBondId])
+  @@index([companyCertificationId])
 }

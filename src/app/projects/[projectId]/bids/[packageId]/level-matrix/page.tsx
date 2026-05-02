@@ -11,14 +11,14 @@ import { formatCurrency } from "@/lib/utils";
  * lowest non-excluded amount per row is highlighted; the GC can
  * record awards via the form.
  */
-export default async function BidLevelingPage({ params }: { params: Promise<{ projectId: string; bidPackageId: string }> }) {
-  const { projectId, bidPackageId } = await params;
+export default async function BidLevelingPage({ params }: { params: Promise<{ projectId: string; packageId: string }> }) {
+  const { projectId, packageId } = await params;
   const tenant = await requireTenant();
   const project = await prisma.project.findFirst({ where: { id: projectId, tenantId: tenant.id } });
   if (!project) notFound();
 
   const pkg = await prisma.bidPackage.findFirst({
-    where: { id: bidPackageId, projectId },
+    where: { id: packageId, projectId },
     include: {
       subBids: {
         include: {

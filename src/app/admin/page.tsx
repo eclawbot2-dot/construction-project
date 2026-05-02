@@ -67,6 +67,7 @@ export default async function AdminHomePage() {
           <Tile href="/admin/tenants" title="Tenant management" body="Create tenants, edit identity & modes, see per-tenant project counts, disable or delete." />
           <Tile href="/admin/users" title="User management" body="All users across the platform. Promote/demote super admin. Deactivate." />
           <Tile href="/admin/portal-coverage" title="Portal coverage" body="234 SE/federal procurement portals. Refresh telemetry, see which need scrapers next." />
+          <Tile href="/admin/capital-programs" title="Capital programs" body="Multi-project umbrella for owner / agency capital plans (CIP, bond program, institutional)." />
           <Tile href="/admin/audit" title="Audit log" body="Platform-wide audit events. Filter by actor, tenant, entity type." />
           <Tile href="/admin/tenants/new" title="+ New tenant" body="Spin up a new tenant with a primary mode, enabled modes, and an ADMIN user." />
           <Tile href="/settings" title="← Back to my tenant" body="Return to tenant-scoped settings for whichever tenant you currently have active." />

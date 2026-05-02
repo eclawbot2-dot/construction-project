@@ -1,0 +1,290 @@
+import Link from "next/link";
+import { AppLayout } from "@/components/layout/app-layout";
+import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
+/**
+ * Company compliance dashboard — tenant-admin only repository for the
+ * company's own licensing, insurance, bonding, certifications, and
+ * safety record. Distinct from Vendor* records (those are subs).
+ *
+ * Counts expiring-within-60-days items at the top so admins see what
+ * needs renewal. Per-project linkage via /projects/[id]/compliance
+ * for which company records cover which job.
+ */
+export default async function CompanyCompliancePage() {
+  const tenant = await requireTenant();
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 60);
+
+  const [profile, licenses, insurances, bonds, certifications, safetyMetrics] = await Promise.all([
+    prisma.companyProfile.findUnique({ where: { tenantId: tenant.id } }),
+    prisma.companyLicense.findMany({ where: { tenantId: tenant.id }, orderBy: [{ status: "asc" }, { expiresAt: "asc" }] }),
+    prisma.companyInsurance.findMany({ where: { tenantId: tenant.id }, orderBy: [{ status: "asc" }, { expiresAt: "asc" }] }),
+    prisma.companyBond.findMany({ where: { tenantId: tenant.id }, orderBy: [{ status: "asc" }, { expiresAt: "asc" }], include: { project: true } }),
+    prisma.companyCertification.findMany({ where: { tenantId: tenant.id }, orderBy: [{ status: "asc" }, { expiresAt: "asc" }] }),
+    prisma.companySafetyMetric.findMany({ where: { tenantId: tenant.id }, orderBy: { reportingYear: "desc" } }),
+  ]);
+
+  const expiringLicenses = licenses.filter((l) => l.expiresAt && l.expiresAt < soon).length;
+  const expiringInsurance = insurances.filter((i) => i.expiresAt < soon).length;
+  const expiringBonds = bonds.filter((b) => b.expiresAt && b.expiresAt < soon).length;
+  const expiringCerts = certifications.filter((c) => c.expiresAt && c.expiresAt < soon).length;
+
+  const aggregateBondCapacity = bonds.find((b) => b.bondNumber == null && b.bondType.includes("PAYMENT"))?.capacityAggregate ?? 0;
+  const singleBondCapacity = bonds.find((b) => b.bondNumber == null && b.bondType.includes("PAYMENT"))?.capacitySingle ?? 0;
+  const latestEmr = safetyMetrics[0]?.emrRate;
+  const latestTrir = safetyMetrics[0]?.trirRate;
+
+  return (
+    <AppLayout
+      eyebrow="Settings · Company"
+      title="Company compliance"
+      description="Your company's licensing, insurance, bonding, certifications, and safety record. Surfaced per-project under /projects/[id]/compliance."
+    >
+      <div className="grid gap-6">
+        <section className="grid gap-4 md:grid-cols-4">
+          <Tile label="Expiring soon (60d)" value={expiringLicenses + expiringInsurance + expiringBonds + expiringCerts} tone={(expiringLicenses + expiringInsurance + expiringBonds + expiringCerts) > 0 ? "warn" : "good"} sub="Licenses + COIs + Bonds + Certs" />
+          <Tile label="Bonding capacity (agg)" value={formatCurrency(aggregateBondCapacity)} sub={`single project max: ${formatCurrency(singleBondCapacity)}`} />
+          <Tile label="EMR (current year)" value={latestEmr != null ? latestEmr.toFixed(2) : "—"} tone={latestEmr != null && latestEmr > 1 ? "warn" : "good"} />
+          <Tile label="TRIR" value={latestTrir != null ? latestTrir.toFixed(2) : "—"} sub="per 200k labor hours" />
+        </section>
+
+        {!profile ? (
+          <section className="card p-6 border-amber-500/40 bg-amber-500/5">
+            <div className="text-xs uppercase tracking-[0.2em] text-amber-300">Set up company profile</div>
+            <p className="mt-2 text-sm text-slate-300">Your tenant has no CompanyProfile yet. Create one before subscribing to federal solicitations — SAM.gov, set-aside certs, and prequalification submissions need this data.</p>
+            <form action="/api/tenant/company/profile" method="post" className="mt-4 grid gap-3 md:grid-cols-[2fr_2fr_1fr_auto]">
+              <input name="legalName" required placeholder="Legal company name" className="form-input" />
+              <input name="dbaName" placeholder="DBA (if different)" className="form-input" />
+              <input name="ein" placeholder="EIN" className="form-input" />
+              <button className="btn-primary">Create</button>
+            </form>
+          </section>
+        ) : (
+          <section className="card p-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Company profile</div>
+                <h2 className="mt-1 text-xl font-semibold text-white">{profile.legalName}</h2>
+                {profile.dbaName ? <div className="text-sm text-slate-400">DBA: {profile.dbaName}</div> : null}
+                <div className="mt-2 grid gap-1 text-xs text-slate-400">
+                  {profile.ein ? <div>EIN: <span className="font-mono">{profile.ein}</span></div> : null}
+                  {profile.duns ? <div>DUNS: <span className="font-mono">{profile.duns}</span></div> : null}
+                  {profile.cageCode ? <div>CAGE: <span className="font-mono">{profile.cageCode}</span></div> : null}
+                  {profile.uei ? <div>SAM UEI: <span className="font-mono">{profile.uei}</span></div> : null}
+                  {profile.entityType ? <div>Entity type: {profile.entityType}</div> : null}
+                  {profile.yearFounded ? <div>Founded: {profile.yearFounded}</div> : null}
+                </div>
+              </div>
+              <Link href="/api/tenant/company/profile/edit" className="btn-outline text-xs">Edit</Link>
+            </div>
+            {profile.samStatus ? (
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
+                SAM: {profile.samStatus}{profile.samExpiresAt ? ` · expires ${formatDate(profile.samExpiresAt)}` : ""}
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        <CompanySection
+          id="licenses"
+          title="Contractor licenses"
+          description="State + jurisdiction licensing the company holds for legal work performance."
+          createPath="/api/tenant/company/licenses/create"
+          rows={licenses.map((l) => ({
+            id: l.id,
+            primary: l.licenseType,
+            secondary: `${l.licenseNumber}${l.state ? ` · ${l.state}` : ""}${l.jurisdiction ? ` · ${l.jurisdiction}` : ""}`,
+            expires: l.expiresAt,
+            status: l.status,
+            notes: l.scopeOfWork,
+          }))}
+          createFields={[
+            { name: "licenseType", placeholder: "Type (e.g. GENERAL_CONTRACTOR)", required: true },
+            { name: "licenseNumber", placeholder: "License number", required: true },
+            { name: "state", placeholder: "State (e.g. SC)" },
+            { name: "expiresAt", placeholder: "Expires (YYYY-MM-DD)", type: "date" },
+          ]}
+        />
+
+        <CompanySection
+          id="insurance"
+          title="Insurance certificates"
+          description="Active COIs the company maintains. Owners + GCs request these before contracts execute."
+          createPath="/api/tenant/company/insurance/create"
+          rows={insurances.map((i) => ({
+            id: i.id,
+            primary: i.policyType,
+            secondary: `${i.carrier} · #${i.policyNumber}`,
+            expires: i.expiresAt,
+            status: i.status,
+            notes: `Per-occ ${formatCurrency(i.perOccurrenceLimit)} / Agg ${formatCurrency(i.aggregateLimit)}`,
+          }))}
+          createFields={[
+            { name: "policyType", placeholder: "Type (GENERAL_LIABILITY / WORKERS_COMP / ...)", required: true },
+            { name: "carrier", placeholder: "Carrier", required: true },
+            { name: "policyNumber", placeholder: "Policy #", required: true },
+            { name: "effectiveDate", placeholder: "Effective", type: "date", required: true },
+            { name: "expiresAt", placeholder: "Expires", type: "date", required: true },
+          ]}
+        />
+
+        <CompanySection
+          id="bonds"
+          title="Bonding"
+          description="Surety bonds in force. Aggregate + single-project capacity drive what jobs the company can pursue."
+          createPath="/api/tenant/company/bonds/create"
+          rows={bonds.map((b) => ({
+            id: b.id,
+            primary: b.bondType,
+            secondary: `${b.surety}${b.bondNumber ? ` · #${b.bondNumber}` : ""}${b.project ? ` · ${b.project.name}` : ""}`,
+            expires: b.expiresAt,
+            status: b.status,
+            notes: b.bondAmount > 0 ? `Bond ${formatCurrency(b.bondAmount)}` : `Capacity ${formatCurrency(b.capacityAggregate)} agg / ${formatCurrency(b.capacitySingle)} single`,
+          }))}
+          createFields={[
+            { name: "bondType", placeholder: "BID / PAYMENT / PERFORMANCE / ...", required: true },
+            { name: "surety", placeholder: "Surety company", required: true },
+            { name: "bondAmount", placeholder: "Bond amount $ (or blank for capacity)", type: "number" },
+            { name: "expiresAt", placeholder: "Expires", type: "date" },
+          ]}
+        />
+
+        <CompanySection
+          id="certifications"
+          title="Set-aside certifications"
+          description="DBE / MWBE / SDVOSB / HUBZONE / 8(a) / Small Business / ESBE."
+          createPath="/api/tenant/company/certifications/create"
+          rows={certifications.map((c) => ({
+            id: c.id,
+            primary: c.certificationType,
+            secondary: `${c.certifyingAgency}${c.certificateNumber ? ` · #${c.certificateNumber}` : ""}${c.state ? ` · ${c.state}` : ""}`,
+            expires: c.expiresAt,
+            status: c.status,
+            notes: c.scope,
+          }))}
+          createFields={[
+            { name: "certificationType", placeholder: "Type (DBE / MWBE / SDVOSB / ...)", required: true },
+            { name: "certifyingAgency", placeholder: "Agency (SBA / DOT / State)", required: true },
+            { name: "certificateNumber", placeholder: "Cert number" },
+            { name: "expiresAt", placeholder: "Expires", type: "date" },
+          ]}
+        />
+
+        <section id="safety" className="card p-6 scroll-mt-20">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Safety record</div>
+              <p className="mt-1 text-xs text-slate-400">Annual EMR / TRIR / DART. Drives prequalification scoring + insurance underwriting.</p>
+            </div>
+          </div>
+          <form action="/api/tenant/company/safety/create" method="post" className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]">
+            <input name="reportingYear" type="number" required placeholder="Year" className="form-input" />
+            <input name="emrRate" type="number" step="0.01" placeholder="EMR" className="form-input" />
+            <input name="trirRate" type="number" step="0.01" placeholder="TRIR" className="form-input" />
+            <input name="dartRate" type="number" step="0.01" placeholder="DART" className="form-input" />
+            <input name="laborHours" type="number" placeholder="Labor hours" className="form-input" />
+            <button className="btn-primary text-xs">Add year</button>
+          </form>
+          <table className="mt-4 min-w-full divide-y divide-white/10 text-sm">
+            <thead className="text-xs uppercase tracking-[0.16em] text-slate-500">
+              <tr>
+                <th className="py-2 pr-4 text-left">Year</th>
+                <th className="py-2 pr-4 text-right">EMR</th>
+                <th className="py-2 pr-4 text-right">TRIR</th>
+                <th className="py-2 pr-4 text-right">DART</th>
+                <th className="py-2 pr-4 text-right">Labor hrs</th>
+                <th className="py-2 pr-4 text-right">Recordable</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {safetyMetrics.map((s) => (
+                <tr key={s.id}>
+                  <td className="py-2 pr-4 text-white">{s.reportingYear}</td>
+                  <td className="py-2 pr-4 text-right">{s.emrRate?.toFixed(2) ?? "—"}</td>
+                  <td className="py-2 pr-4 text-right">{s.trirRate?.toFixed(2) ?? "—"}</td>
+                  <td className="py-2 pr-4 text-right">{s.dartRate?.toFixed(2) ?? "—"}</td>
+                  <td className="py-2 pr-4 text-right">{s.laborHours?.toLocaleString() ?? "—"}</td>
+                  <td className="py-2 pr-4 text-right">{s.recordableCount}</td>
+                </tr>
+              ))}
+              {safetyMetrics.length === 0 ? <tr><td colSpan={6} className="py-3 text-center text-slate-500">No years recorded yet.</td></tr> : null}
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </AppLayout>
+  );
+}
+
+type Field = { name: string; placeholder: string; required?: boolean; type?: string };
+type Row = { id: string; primary: string; secondary: string; expires: Date | null; status: string; notes?: string | null };
+
+function CompanySection({ id, title, description, rows, createPath, createFields }: { id: string; title: string; description: string; rows: Row[]; createPath: string; createFields: Field[] }) {
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 60);
+  return (
+    <section id={id} className="card p-6 scroll-mt-20">
+      <div>
+        <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">{title}</div>
+        <p className="mt-1 text-xs text-slate-400">{description}</p>
+      </div>
+      <form action={createPath} method="post" className="mt-3 flex flex-wrap gap-2">
+        {createFields.map((f) => (
+          <input
+            key={f.name}
+            name={f.name}
+            type={f.type ?? "text"}
+            required={f.required}
+            placeholder={f.placeholder}
+            className="form-input flex-1 min-w-[140px]"
+          />
+        ))}
+        <button className="btn-primary text-xs">Add</button>
+      </form>
+      <table className="mt-4 min-w-full divide-y divide-white/10 text-sm">
+        <thead className="text-xs uppercase tracking-[0.16em] text-slate-500">
+          <tr>
+            <th className="py-2 pr-4 text-left">Type</th>
+            <th className="py-2 pr-4 text-left">Detail</th>
+            <th className="py-2 pr-4 text-left">Expires</th>
+            <th className="py-2 pr-4 text-left">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {rows.map((r) => {
+            const expSoon = r.expires && r.expires < soon;
+            return (
+              <tr key={r.id}>
+                <td className="py-2 pr-4 text-white">{r.primary}</td>
+                <td className="py-2 pr-4 text-slate-300">
+                  <div>{r.secondary}</div>
+                  {r.notes ? <div className="text-xs text-slate-500">{r.notes}</div> : null}
+                </td>
+                <td className={`py-2 pr-4 text-xs ${expSoon ? "text-amber-300" : "text-slate-400"}`}>
+                  {r.expires ? formatDate(r.expires) : "—"}
+                  {expSoon ? <span className="ml-1">⚠</span> : null}
+                </td>
+                <td className="py-2 pr-4 text-xs">{r.status}</td>
+              </tr>
+            );
+          })}
+          {rows.length === 0 ? <tr><td colSpan={4} className="py-3 text-center text-slate-500">No records yet — add above.</td></tr> : null}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function Tile({ label, value, sub, tone }: { label: string; value: string | number; sub?: string; tone?: "good" | "warn" }) {
+  const color = tone === "warn" ? "text-amber-300" : tone === "good" ? "text-emerald-300" : "text-white";
+  return (
+    <div className="card p-5">
+      <div className="text-xs uppercase tracking-[0.2em] text-slate-400">{label}</div>
+      <div className={`mt-2 text-2xl font-semibold ${color}`}>{value}</div>
+      {sub ? <div className="mt-1 text-xs text-slate-500">{sub}</div> : null}
+    </div>
+  );
+}
