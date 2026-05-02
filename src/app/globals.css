@@ -126,6 +126,41 @@ html[data-sunlight="true"] .border-white\/20 {
   }
 }
 
+/* Responsive table-to-cards. Add `data-mobile-cards` to a <table>
+ * to stack each <tr> as a card on narrow viewports — header text
+ * comes from the corresponding <th>, surfaced as a data-* attribute
+ * by the rendering page (since CSS can't read sibling DOM).
+ *
+ * For tables that don't opt in, the default pattern remains an
+ * overflow-x-auto wrapper that horizontally scrolls.
+ */
+@media (max-width: 768px) {
+  table[data-mobile-cards] thead { display: none; }
+  table[data-mobile-cards] tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    background: var(--card-bg);
+  }
+  table[data-mobile-cards] td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0;
+    border: none !important;
+  }
+  table[data-mobile-cards] td::before {
+    content: attr(data-label);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--faint);
+    align-self: center;
+  }
+}
+
 /* Field tap-target floor — WCAG 2.2 + glove tolerance. Apply on
  * mobile/touch viewports; desktop falls back to default sizing. */
 @media (max-width: 768px) {

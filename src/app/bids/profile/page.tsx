@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatTile } from "@/components/ui/stat-tile";
+import { ChipInput } from "@/components/ui/chip-input";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { AgencyTier } from "@prisma/client";
@@ -62,13 +63,13 @@ export default async function BidProfilePage() {
           <form action="/api/bid-profile/save" method="post" className="mt-4 grid gap-4">
             <div>
               <label htmlFor="bp-naics" className="form-label">Target NAICS codes (prefix-matched)</label>
-              <textarea id="bp-naics" name="targetNaics" rows={2} defaultValue={targetNaics.join(", ")} placeholder="236220, 237310, 237990" className="form-textarea font-mono text-xs" />
+              <ChipInput name="targetNaics" defaultValue={targetNaics.join("\n")} placeholder="Add NAICS code (e.g. 236220)…" />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="bp-sa" className="form-label">Set-asides we qualify for</label>
-                <input id="bp-sa" name="qualifiedSetAsides" defaultValue={qualifiedSetAsides.join(", ")} placeholder="SDVOSB, EIGHT_A, HUBZONE, WOSB, SMALL_BUSINESS" className="form-input font-mono text-xs" />
+                <ChipInput name="qualifiedSetAsides" defaultValue={qualifiedSetAsides.join("\n")} placeholder="Add set-aside (e.g. SDVOSB)…" />
                 <p className="mt-1 text-xs" style={{ color: "var(--faint)" }}>Listings restricted to set-asides we don't hold drop to 0 score on this signal. Unrestricted listings still score 0.7.</p>
               </div>
               <div>
@@ -83,11 +84,11 @@ export default async function BidProfilePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="bp-states" className="form-label">Target states</label>
-                <input id="bp-states" name="targetStates" defaultValue={targetStates.join(", ")} placeholder="SC, NC, GA, FL" className="form-input font-mono text-xs" />
+                <ChipInput name="targetStates" defaultValue={targetStates.join("\n")} placeholder="Add state (e.g. NC)…" />
               </div>
               <div>
                 <label htmlFor="bp-cities" className="form-label">Target cities (optional)</label>
-                <input id="bp-cities" name="targetCities" defaultValue={targetCities.join(", ")} placeholder="Charleston, Columbia, Atlanta" className="form-input" />
+                <ChipInput name="targetCities" defaultValue={targetCities.join("\n")} placeholder="Add city (e.g. Charleston)…" />
               </div>
             </div>
 
@@ -105,12 +106,12 @@ export default async function BidProfilePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="bp-boost" className="form-label">Boost keywords</label>
-                <textarea id="bp-boost" name="boostKeywords" rows={2} defaultValue={boostKeywords.join(", ")} placeholder="design-build, MATOC, JOC" className="form-textarea" />
+                <ChipInput name="boostKeywords" defaultValue={boostKeywords.join("\n")} placeholder="Add keyword (e.g. design-build)…" />
                 <p className="mt-1 text-xs" style={{ color: "var(--faint)" }}>Listings whose title or summary contains any of these gain points.</p>
               </div>
               <div>
                 <label htmlFor="bp-block" className="form-label">Block keywords</label>
-                <textarea id="bp-block" name="blockKeywords" rows={2} defaultValue={blockKeywords.join(", ")} placeholder="demolition only, environmental remediation" className="form-textarea" />
+                <ChipInput name="blockKeywords" defaultValue={blockKeywords.join("\n")} placeholder="Add keyword (e.g. demolition only)…" />
                 <p className="mt-1 text-xs" style={{ color: "var(--faint)" }}>Any match drives the keyword fit to 0 — useful for scopes you don't pursue.</p>
               </div>
             </div>

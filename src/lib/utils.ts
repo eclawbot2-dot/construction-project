@@ -5,16 +5,23 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string | null | undefined): string {
+/**
+ * Locale + currency utilities. Per-tenant settings live on
+ * Tenant.locale + Tenant.currency (defaults en-US + USD). Server
+ * components that already have the tenant on hand can pass them
+ * explicitly; helpers are tenant-agnostic so any caller works.
+ */
+
+export function formatDate(date: Date | string | null | undefined, locale: string = "en-US"): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function formatDateTime(date: Date | string | null | undefined): string {
+export function formatDateTime(date: Date | string | null | undefined, locale: string = "en-US"): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleString("en-US", {
+  return d.toLocaleString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -23,11 +30,11 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   });
 }
 
-export function formatCurrency(value: number | null | undefined): string {
+export function formatCurrency(value: number | null | undefined, currency: string = "USD", locale: string = "en-US"): string {
   if (value === null || value === undefined) return "—";
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
     maximumFractionDigits: 0,
   }).format(value);
 }

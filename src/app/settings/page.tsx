@@ -40,7 +40,21 @@ export default async function SettingsPage() {
           <StatTile label="Other tenants" value={allTenants.length - 1} sub="switch via header" />
         </section>
 
-        <section className="card p-6">
+        {/* Quick-jump TOC — anchors to the section ids below. Sticky on
+            desktop so the user can jump as they scroll the long page. */}
+        <nav className="card p-3 lg:sticky lg:top-2 lg:z-10" aria-label="Settings sections">
+          <ul className="flex flex-wrap gap-2 text-xs">
+            <li><a href="#modes" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Modes</a></li>
+            <li><a href="#tenants" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">All tenants</a></li>
+            <li><a href="#team" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Team</a></li>
+            <li><a href="#sso" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">SSO</a></li>
+            <li><a href="#ai-keys" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">AI keys</a></li>
+            <li><a href="#audit" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Audit</a></li>
+            <li><a href="#backup" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Backup</a></li>
+          </ul>
+        </nav>
+
+        <section id="modes" className="card p-6 scroll-mt-20">
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Operating modes</div>
           <p className="mt-1 text-sm text-slate-400">Companies typically grow across modes. Enable the ones this organization actually uses and pick the primary — most dashboards default to the primary mode&apos;s layout.</p>
           <form action="/api/tenant/config" method="post" className="mt-5 grid gap-6">
@@ -89,7 +103,7 @@ export default async function SettingsPage() {
           </form>
         </section>
 
-        <section className="card p-6">
+        <section id="tenants" className="card p-6 scroll-mt-20">
           <div className="text-xs uppercase tracking-[0.2em] text-slate-400">All tenants on this platform</div>
           <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
             <table className="min-w-full divide-y divide-white/10">
@@ -129,7 +143,7 @@ export default async function SettingsPage() {
           <p className="mt-3 text-xs text-slate-500">Use the tenant switcher in the header to jump between companies. Each tenant sees only its own projects, vendors, contracts, and financials.</p>
         </section>
 
-        <section className="card p-6">
+        <section id="team" className="card p-6 scroll-mt-20">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Team + role management</div>
@@ -176,7 +190,7 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section className="card p-6">
+        <section id="sso" className="card p-6 scroll-mt-20">
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Identity provider (SSO)</div>
           <p className="mt-1 text-sm text-slate-400">bcon ships with local password auth. For production tenants, hook an external OIDC provider here.</p>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -191,7 +205,7 @@ export default async function SettingsPage() {
           <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-slate-500">SSO wiring is scaffolded but not live — contact support to enable for production.</p>
         </section>
 
-        <section className="card p-6">
+        <section id="ai-keys" className="card p-6 scroll-mt-20">
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">AI provider keys</div>
           <p className="mt-1 text-sm text-slate-400">Plug in your own OpenAI or Anthropic API key to bill AI usage to your account. Keys are encrypted with a per-tenant salt before being persisted; the cleartext is never stored. Leave blank to use the platform default.</p>
           <form action="/api/tenant/llm-keys" method="post" className="mt-4 grid gap-4">
@@ -252,7 +266,7 @@ export default async function SettingsPage() {
           ) : null}
         </section>
 
-        <section className="card p-6">
+        <section id="audit" className="card p-6 scroll-mt-20">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Audit log</div>
@@ -262,7 +276,7 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section className="card p-6">
+        <section id="backup" className="card p-6 scroll-mt-20">
           <div className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--accent, #67e8f9)" }}>Backup status</div>
           <p className="mt-2 text-sm" style={{ color: "var(--faint)" }}>
             Read-only view of this tenant's nightly backup. Configuration (enabled flag, external directory, run-now) lives on the super-admin tenant page.

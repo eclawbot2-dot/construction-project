@@ -395,6 +395,11 @@ model Tenant {
   openaiKeyEnc      String?
   anthropicKeyEnc   String?
   preferredProvider String?  @default("openai")
+  // Display preferences (pass-25). Per-tenant currency + locale lets
+  // a non-US customer see their numbers as €/£/CA$ etc. Defaults to
+  // USD + en-US so existing US tenants are unchanged.
+  currency        String      @default("USD")
+  locale          String      @default("en-US")
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
