@@ -453,6 +453,7 @@ model Tenant {
   payrollRuns          PayrollRun[]
   certifiedPayroll     CertifiedPayrollRecord[]
   vendor1099Records    Vendor1099Record[]
+  qualityChecklistTemplates QualityChecklistTemplate[]
 }
 
 model BusinessUnit {
@@ -463,6 +464,18 @@ model BusinessUnit {
   code        String
   defaultMode ProjectMode
   region      String?
+  // Legal entity for consolidation — multiple BUs can roll up to one
+  // legal entity, multiple legal entities to one tenant. Drives
+  // consolidated GL + balance sheet across BUs.
+  legalEntityName String?
+  legalEntityEin  String?
+  // Inter-company eliminations — when transferring revenue/cost
+  // between BUs in the same legal entity, journal entries get tagged
+  // with this BU's intercompanyAccount for elimination at consolidation.
+  intercompanyAccount String?
+  // Per-BU reporting overrides
+  fiscalYearEndMonth Int   @default(12)  // 12 = December year-end
+  baseCurrency    String  @default("USD")
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -470,6 +483,30 @@ model BusinessUnit {
   projects    Project[]
 
   @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+/**
+ * Consolidated financial reporting across business units. The
+ * consolidation worker runs at month-end / period close and rolls up
+ * P&L by entity → consolidated tenant view, applying intercompany
+ * eliminations.
+ */
+model ConsolidatedReport {
+  id           String   @id @default(cuid())
+  tenantId     String
+  periodLabel  String
+  periodStart  DateTime
+  periodEnd    DateTime
+  reportType   String   // "PNL" | "BALANCE_SHEET" | "CASH_FLOW"
+  // Roll-up data — JSON per row to keep schema flexible; consumer
+  // unpacks based on reportType.
+  payloadJson  String
+  // Eliminations applied
+  intercompanyEliminationsCents Int @default(0)
+  generatedAt  DateTime @default(now())
+
+  @@unique([tenantId, periodLabel, reportType])
   @@index([tenantId])
 }
 
@@ -607,6 +644,11 @@ model Project {
   lookAheads           LookAheadCommitment[]
   cashFlowForecasts    CashFlowForecast[]
   fleetAssignments     FleetAssignment[]
+  toolboxTalks         SafetyToolboxTalk[]
+  jhas                 JobHazardAnalysis[]
+  safetyObservations   SafetyObservation[]
+  ncrs                 NonConformanceReport[]
+  closeoutPackage      CloseoutPackage?
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
   crewAssignments      CrewAssignment[]
@@ -1420,10 +1462,89 @@ model SafetyIncident {
   station           String?
   latitude          Float?
   longitude         Float?
+  // OSHA classification — ties into the 300/300A/301 export.
+  oshaClassification String?       // RECORDABLE | LOST_TIME | NEAR_MISS | FIRST_AID
+  bodyPart          String?
+  injuryNature      String?
+  rootCauseTreeJson String?         // 5-whys / fishbone analysis
+  daysAwayCount     Int             @default(0)
+  daysRestrictedCount Int           @default(0)
+  oshaCaseNumber    String?
+  reportedToOshaAt  DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime?      @updatedAt
 
   @@index([projectId])
+}
+
+/**
+ * Toolbox talk / safety-meeting record. Captures attendees + topic
+ * for compliance + trend reporting. Each project records weekly toolbox
+ * talks; OSHA may request these on inspection.
+ */
+model SafetyToolboxTalk {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  topic       String
+  conductedAt DateTime
+  conductedBy String?
+  attendeesJson String @default("[]")  // [{name, signature?}]
+  contentText String?
+  attachmentUrl String?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, conductedAt])
+}
+
+/**
+ * Job hazard analysis (JHA) / pre-task plan. Required before high-risk
+ * work. Steps + hazards + controls. Sign-off list captures everyone
+ * who reviewed it before the work started.
+ */
+model JobHazardAnalysis {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  taskDescription String?
+  preparedBy  String?
+  reviewedBy  String?
+  approvedAt  DateTime?
+  approvedBy  String?
+  stepsJson   String   @default("[]")  // [{step, hazard, control}]
+  signOffsJson String  @default("[]")  // [{name, signedAt}]
+  validFrom   DateTime?
+  validTo     DateTime?
+  attachmentUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+/**
+ * Safety observation — proactive near-miss / hazard report (BBS).
+ * Drives leading indicator metrics: observation rate, % positive,
+ * trend by area / trade.
+ */
+model SafetyObservation {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  observerName String?
+  observedAt  DateTime @default(now())
+  category    String   // "POSITIVE" | "AT_RISK" | "NEAR_MISS"
+  area        String?
+  trade       String?
+  description String
+  correctiveAction String?
+  followUpNeeded Boolean @default(false)
+  followUpClosedAt DateTime?
+  attachmentUrl String?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, observedAt])
 }
 
 model PunchItem {
@@ -1995,11 +2116,37 @@ model LienWaiver {
   approvalNote    String?
   documentUrl     String?
   notes           String?
+  // Sub-tier waiver chain — when a sub's lower-tier suppliers /
+  // sub-subs file their own waivers, they link upward via
+  // parentWaiverId. The pay app to the sub releases only when this
+  // chain is complete.
+  parentWaiverId  String?
+  parentWaiver    LienWaiver?      @relation("LienWaiverChain", fields: [parentWaiverId], references: [id], onDelete: SetNull)
+  childWaivers    LienWaiver[]     @relation("LienWaiverChain")
+  // Reference to the sub invoice this waiver covers — drives the
+  // conditional release logic ("don't pay until matching waiver
+  // received").
+  subInvoiceId    String?
+  subInvoice      SubInvoice?      @relation("LienWaiverSubInvoice", fields: [subInvoiceId], references: [id], onDelete: SetNull)
+  // State-specific compliance — some states require notarization or
+  // a specific statutory form. Capture which statute the waiver was
+  // produced under.
+  statutoryFormState String?       // "FL", "TX", "CA"
+  notarized       Boolean          @default(false)
+  notarizedAt     DateTime?
+  notaryName      String?
+  // Generation source — manual upload vs auto-generated by the
+  // platform. Auto-generation produces conditional waivers attached
+  // to pay-app submission and unconditional waivers attached to
+  // payment receipt.
+  generationSource String          @default("UPLOADED")  // UPLOADED | AUTO_GENERATED
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   @@index([projectId])
   @@index([contractId])
+  @@index([subInvoiceId])
+  @@index([parentWaiverId])
 }
 
 model Inspection {
@@ -2026,9 +2173,92 @@ model Inspection {
 
   checklistItems InspectionChecklistItem[]
   attachments    InspectionAttachment[]
+  ncrs           NonConformanceReport[]
 
   @@index([projectId])
   @@index([permitId])
+}
+
+/**
+ * Quality checklist template — a reusable inspection form per trade.
+ * Owners typically require signed checklists before pour, dry-in,
+ * substantial completion, etc. Tenant-scoped so each company can
+ * maintain its own templates.
+ */
+model QualityChecklistTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String   // "Concrete Pour Pre-Pour Checklist"
+  trade       String?
+  itemsJson   String   @default("[]")  // [{title, codeReference, requirement}]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/**
+ * Non-conformance report — defect found that doesn't meet spec.
+ * Captures category, severity, photos, root cause, and disposition
+ * (REWORK / USE_AS_IS / SCRAP / REPAIR). Auto-creates a corresponding
+ * RFI when disposition needs designer input.
+ */
+model NonConformanceReport {
+  id              String      @id @default(cuid())
+  projectId       String
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inspectionId    String?
+  inspection      Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  ncrNumber       String
+  title           String
+  category        String?     // "DIMENSIONAL" | "MATERIAL" | "WORKMANSHIP" | "DOCUMENTATION"
+  severity        String      @default("MAJOR") // MINOR | MAJOR | CRITICAL
+  description     String
+  rootCause       String?
+  disposition     String?     // REWORK | USE_AS_IS | SCRAP | REPAIR | RETURN_TO_VENDOR
+  correctiveAction String?
+  preventiveAction String?
+  attachmentUrl   String?
+  raisedById      String?
+  raisedAt        DateTime    @default(now())
+  closedAt        DateTime?
+  closedBy        String?
+  costImpact      Float       @default(0)
+  scheduleImpactDays Int      @default(0)
+  linkedRfiId     String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([projectId, ncrNumber])
+  @@index([projectId])
+}
+
+/**
+ * Closeout package — collection of warranty/O&M/as-built/lien-waiver
+ * docs assembled for owner handover. Status moves DRAFT → IN_REVIEW →
+ * APPROVED → DELIVERED. Tracks completeness percentage from a
+ * checklist of required deliverables.
+ */
+model CloseoutPackage {
+  id              String   @id @default(cuid())
+  projectId       String   @unique
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status          String   @default("DRAFT")
+  checklistJson   String   @default("[]")  // [{label, complete, evidenceUrl?}]
+  completionPct   Float    @default(0)
+  ownerAcceptedAt DateTime?
+  ownerAcceptedBy String?
+  punchListClosedAt DateTime?
+  warrantyStartAt DateTime?
+  warrantyEndAt   DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([projectId])
 }
 
 model Opportunity {
@@ -2215,9 +2445,53 @@ model SubInvoice {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
+  // Reference to the GC's purchase order (if any) for 3-way match.
+  // The 3-way-match worker compares lines[].amount against
+  // PurchaseOrderReceiptLine quantities × PurchaseOrderLine.unitPrice.
+  purchaseOrderId String?
+  matchStatus     String          @default("UNMATCHED")  // UNMATCHED | MATCHED | VARIANCE | DISPUTED
+  matchVarianceCents Int          @default(0)
+  // Joint check setup — if true, payment is co-payable to vendor and
+  // a third party (typically supplier or surety) and JointCheckParty
+  // captures the named co-payee.
+  isJointCheck    Boolean          @default(false)
+  jointPartyName  String?
+  jointPartyTaxId String?
+  // Sub default insurance — premium retained from each pay to fund
+  // sub-default coverage on this contract.
+  subDefaultPremium Float          @default(0)
+
+  lines    SubInvoiceLine[]
+  waivers  LienWaiver[]            @relation("LienWaiverSubInvoice")
+
   @@unique([projectId, invoiceNumber])
   @@index([projectId])
   @@index([vendorId])
+  @@index([purchaseOrderId])
+}
+
+/**
+ * Line-item detail on a sub invoice — required to do 3-way match
+ * against PO lines + receipt lines, and to drive G703-style invoice
+ * presentation back to the owner.
+ */
+model SubInvoiceLine {
+  id            String     @id @default(cuid())
+  subInvoiceId  String
+  subInvoice    SubInvoice @relation(fields: [subInvoiceId], references: [id], onDelete: Cascade)
+  lineNumber    Int
+  description   String
+  costCode      String?
+  quantity      Float?
+  unitPrice     Float?
+  amount        Float
+  poLineId      String?
+  retainage     Float      @default(0)
+  notes         String?
+  createdAt     DateTime   @default(now())
+
+  @@unique([subInvoiceId, lineNumber])
+  @@index([subInvoiceId])
 }
 
 model PurchaseOrder {
