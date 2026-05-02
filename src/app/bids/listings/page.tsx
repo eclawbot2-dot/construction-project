@@ -6,12 +6,24 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-export default async function RfpListingsPage({ searchParams }: { searchParams: Promise<{ status?: string; sourceId?: string }> }) {
+export default async function RfpListingsPage({ searchParams }: { searchParams: Promise<{ status?: string; sourceId?: string; showBlocked?: string }> }) {
   const tenant = await requireTenant();
   const sp = await searchParams;
   const where: Record<string, unknown> = { tenantId: tenant.id };
   if (sp.status) where.status = sp.status;
   if (sp.sourceId) where.sourceId = sp.sourceId;
+  // By default hide auto-blocked listings (score capped at ≤25 by a
+  // matching blockKeyword on the tenant's bid profile). They're not
+  // valuable triage candidates — the operator already said never bid.
+  // Operators can reveal them via showBlocked=1, useful for auditing
+  // whether the block list is overaggressive.
+  const showBlocked = sp.showBlocked === "1";
+  if (!showBlocked) {
+    where.OR = [{ score: null }, { score: { gt: 25 } }];
+  }
+  // SQL `score <= 25` excludes NULL automatically — only counts
+  // scored-and-capped listings, not unscored ones.
+  const blockedCount = await prisma.rfpListing.count({ where: { tenantId: tenant.id, score: { lte: 25 } } });
   const listings = await prisma.rfpListing.findMany({ where, include: { source: true, bidDrafts: true }, orderBy: { discoveredAt: "desc" }, take: 250 });
   const counts = {
     total: await prisma.rfpListing.count({ where: { tenantId: tenant.id } }),
@@ -31,7 +43,20 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
         </section>
         <section className="card p-0 overflow-hidden">
           <div className="px-5 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 flex items-center justify-between">
-            <div>Recent listings</div>
+            <div className="flex items-center gap-3">
+              <span>Recent listings</span>
+              {blockedCount > 0 ? (
+                showBlocked ? (
+                  <Link href={preserveQuery(sp, { showBlocked: undefined })} className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] normal-case tracking-normal text-rose-200 hover:bg-rose-500/20">
+                    showing {blockedCount} blocked · hide
+                  </Link>
+                ) : (
+                  <Link href={preserveQuery(sp, { showBlocked: "1" })} className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] normal-case tracking-normal text-slate-300 hover:bg-slate-500/20">
+                    {blockedCount} hidden by block keywords · show
+                  </Link>
+                )
+              ) : null}
+            </div>
             <div className="flex gap-2">
               <Link href="/bids/sources" className="btn-outline text-xs">Manage sources</Link>
               <Link href="/bids/discover" className="btn-primary text-xs">Discover new portals</Link>
@@ -100,4 +125,17 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
       </div>
     </AppLayout>
   );
+}
+
+// Build a query-string URL that toggles one parameter while preserving
+// the rest. Empty/undefined values drop the parameter from the URL so
+// /bids/listings stays clean when toggles are off.
+function preserveQuery(current: Record<string, string | undefined>, overrides: Record<string, string | undefined>): string {
+  const merged = { ...current, ...overrides };
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(merged)) {
+    if (v) params.set(k, v);
+  }
+  const qs = params.toString();
+  return qs ? `/bids/listings?${qs}` : "/bids/listings";
 }

@@ -191,6 +191,16 @@ export default async function SettingsPage() {
         </section>
 
         <section className="card p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Audit log</div>
+              <p className="mt-1 text-sm text-slate-400">Every change inside this tenant is recorded with actor, action, entity, and timestamp. Use this for compliance evidence and security review.</p>
+            </div>
+            <Link href="/settings/audit" className="btn-outline text-xs">Open audit log</Link>
+          </div>
+        </section>
+
+        <section className="card p-6">
           <div className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--accent, #67e8f9)" }}>Backup status</div>
           <p className="mt-2 text-sm" style={{ color: "var(--faint)" }}>
             Read-only view of this tenant's nightly backup. Configuration (enabled flag, external directory, run-now) lives on the super-admin tenant page.

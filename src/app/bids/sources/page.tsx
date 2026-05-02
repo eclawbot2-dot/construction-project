@@ -85,7 +85,23 @@ export default async function BidSourcesPage() {
                       })()}
                     </td>
                     <td className="table-cell text-slate-400">{formatDate(s.lastCheckedAt)}</td>
-                    <td className="table-cell text-xs text-slate-400">{s.lastCheckNote ?? "—"}</td>
+                    <td className="table-cell text-xs">
+                      {s.status === "ERROR" && s.lastCheckNote ? (
+                        <details className="cursor-pointer">
+                          <summary className="text-rose-300 hover:text-rose-200">
+                            {s.lastCheckNote.slice(0, 60)}{s.lastCheckNote.length > 60 ? "…" : ""}
+                          </summary>
+                          <div className="mt-2 max-w-md whitespace-pre-wrap rounded bg-rose-500/5 p-2 text-[11px] text-rose-100">
+                            {s.lastCheckNote}
+                            <div className="mt-2 text-[10px] text-rose-300/70">
+                              Common causes: SAM_GOV_API_KEY missing, portal URL moved, captcha or login wall, JS-rendered SPA.
+                            </div>
+                          </div>
+                        </details>
+                      ) : (
+                        <span className="text-slate-400">{s.lastCheckNote ?? "—"}</span>
+                      )}
+                    </td>
                     <td className="table-cell"><StatusBadge status={s.status} /></td>
                     <td className="table-cell">
                       <form action={`/api/rfp/sources/${s.id}/auto-draft`} method="post" className="flex items-center gap-1">
