@@ -84,7 +84,7 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
               ) : null}
             </div>
             <div className="flex gap-2">
-              <a href={`/api/rfp/listings/export${sp.status ? `?status=${sp.status}` : ""}`} className="btn-outline text-xs" download>Export CSV</a>
+              <a href={buildExportHref(sp)} className="btn-outline text-xs" download>Export CSV</a>
               <Link href="/bids/sources" className="btn-outline text-xs">Manage sources</Link>
               <Link href="/bids/discover" className="btn-primary text-xs">Discover new portals</Link>
             </div>
@@ -157,6 +157,24 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
 // Build a query-string URL that toggles one parameter while preserving
 // the rest. Empty/undefined values drop the parameter from the URL so
 // /bids/listings stays clean when toggles are off.
+/**
+ * Build the export-CSV URL with all current filters propagated so the
+ * file the user downloads matches what they're currently looking at.
+ * Maps showBlocked→includeBlocked because the export route uses the
+ * latter name.
+ */
+function buildExportHref(sp: { status?: string; sourceId?: string; showBlocked?: string; q?: string }): string {
+  const params = new URLSearchParams();
+  if (sp.status) params.set("status", sp.status);
+  if (sp.sourceId) params.set("sourceId", sp.sourceId);
+  if (sp.showBlocked === "1") params.set("includeBlocked", "1");
+  // q= isn't supported on the export route yet — title search would
+  // make the export non-deterministic for casual operators. Filtering
+  // by status/source on the export is the standard expectation.
+  const qs = params.toString();
+  return qs ? `/api/rfp/listings/export?${qs}` : "/api/rfp/listings/export";
+}
+
 function preserveQuery(current: Record<string, string | undefined>, overrides: Record<string, string | undefined>): string {
   // Whitelist the query params we care about so accidentally-typed
   // junk doesn't survive a clear/toggle. Drops keys whose final value

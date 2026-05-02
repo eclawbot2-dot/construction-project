@@ -40,6 +40,25 @@ export async function POST(req: NextRequest) {
   const days = Number.isFinite(requested) ? Math.max(30, Math.floor(requested)) : 365;
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
+  // Circuit breaker: count what would be deleted before doing the
+  // delete. If a leaked CRON_SECRET is being used to wipe the audit
+  // log, the attacker would have to issue many requests as ?days
+  // shrinks toward 30 — but a single request that would obliterate
+  // years of evidence (>50k rows) refuses to execute and returns 409.
+  // Operators with legitimate need can override via ?force=1.
+  const wouldDelete = await prisma.auditEvent.count({ where: { createdAt: { lt: cutoff } } });
+  const force = url.searchParams.get("force") === "1";
+  const MAX_BATCH = 50_000;
+  if (wouldDelete > MAX_BATCH && !force) {
+    return NextResponse.json({
+      ok: false,
+      error: `would delete ${wouldDelete} events, exceeds safety cap ${MAX_BATCH}. Pass ?force=1 to override.`,
+      cutoff: cutoff.toISOString(),
+      retentionDays: days,
+      wouldDelete,
+    }, { status: 409 });
+  }
+
   const result = await prisma.auditEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
   return NextResponse.json({
     ok: true,

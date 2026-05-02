@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { csvField } from "@/lib/csv";
 
 /**
  * Streams a CSV of the tenant's RFP listings. Filters mirror the
@@ -89,11 +90,4 @@ export async function GET(req: NextRequest) {
   });
 }
 
-/**
- * Quote a CSV field so commas, quotes, and newlines survive Excel and
- * any RFC 4180 reader. Always wrap in double-quotes; double up internal
- * double-quotes per the spec.
- */
-function csvField(s: string): string {
-  return `"${s.replace(/"/g, '""')}"`;
-}
+// csvField imported from @/lib/csv — formula-injection defense lives there.

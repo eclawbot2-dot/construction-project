@@ -1804,6 +1804,7 @@ model RfpListing {
   @@index([sourceId])
   @@index([tenantId, score])
   @@index([tenantId, dueAt])
+  @@index([tenantId, status])
   // Prevent double-ingest from concurrent sweeps. SQLite treats NULL
   // values as distinct in unique indexes (per SQL standard), so
   // listings without a solicitationNo can still co-exist — but
