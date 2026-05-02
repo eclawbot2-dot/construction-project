@@ -444,6 +444,10 @@ model Tenant {
   apiTokens            ApiToken[]
   webhookEndpoints     WebhookEndpoint[]
   emailDigests         EmailDigest[]
+  accountingPeriods    AccountingPeriod[]
+  balanceSheetSnapshots BalanceSheetSnapshot[]
+  cashFlowForecasts    CashFlowForecast[]
+  cashFlowStatements   CashFlowStatement[]
 }
 
 model BusinessUnit {
@@ -596,6 +600,7 @@ model Project {
   photoAlbums          ProjectPhotoAlbum[]
   scheduleBaselines    ScheduleBaseline[]
   lookAheads           LookAheadCommitment[]
+  cashFlowForecasts    CashFlowForecast[]
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
   crewAssignments      CrewAssignment[]
@@ -1276,12 +1281,32 @@ model ChangeOrder {
   executedAt         DateTime?
   linkedRfiId        String?
   linkedSubmittalId  String?
+  // Sub CO carry-down — when an owner CO is approved, child sub COs
+  // are auto-created against the affected sub contracts. This field
+  // is null on owner-tier COs and set on sub-tier ones to reference
+  // the parent.
+  parentChangeOrderId String?
+  parentChangeOrder   ChangeOrder?  @relation("ChangeOrderParent", fields: [parentChangeOrderId], references: [id], onDelete: SetNull)
+  childChangeOrders   ChangeOrder[] @relation("ChangeOrderParent")
+  // Vendor reference for sub CO. Null on owner COs; set when the
+  // sub is the counterparty.
+  vendorId           String?
+  vendor             Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  // Dollar split — captures labor / material / equipment for proper
+  // job-cost allocation. Sum should match `amount` after markup.
+  laborAmount        Float             @default(0)
+  materialAmount     Float             @default(0)
+  equipmentAmount    Float             @default(0)
+  subAmount          Float             @default(0)
+  ohpAmount          Float             @default(0)  // overhead+profit
   lines              ChangeOrderLine[]
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
   @@unique([projectId, coNumber])
   @@index([projectId, status])
+  @@index([parentChangeOrderId])
+  @@index([vendorId])
 }
 
 model ChangeOrderLine {
@@ -1820,6 +1845,7 @@ model Vendor {
   subInvoices    SubInvoice[]
   purchaseOrders PurchaseOrder[]
   prequals       VendorPrequalification[]
+  changeOrders   ChangeOrder[]
 }
 
 model InsuranceCert {
@@ -1979,9 +2005,79 @@ model PurchaseOrder {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  lines    PurchaseOrderLine[]
+  receipts PurchaseOrderReceipt[]
+
   @@unique([projectId, poNumber])
   @@index([projectId])
   @@index([vendorId])
+}
+
+/**
+ * One scope line within a purchase order. PO totals are the sum of
+ * line amounts (qty × unit price). Receipts and invoices match against
+ * lines to enforce 3-way match.
+ */
+model PurchaseOrderLine {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  lineNumber      Int
+  description     String
+  costCode        String?
+  quantity        Float
+  uom             String?       // unit of measure
+  unitPrice       Float
+  amount          Float
+  receivedQty     Float         @default(0)
+  invoicedQty     Float         @default(0)
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  receiptLines PurchaseOrderReceiptLine[]
+
+  @@unique([purchaseOrderId, lineNumber])
+  @@index([purchaseOrderId])
+}
+
+/**
+ * Goods-receipt note. Field signs receipt of materials; the receipt
+ * lines tie back to PO lines, which the AP-side invoice matches
+ * against (PO line ↔ Receipt line ↔ SubInvoice line). Three-way
+ * match flags exceptions when any leg's amount/quantity differs.
+ */
+model PurchaseOrderReceipt {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  receiptNumber   String
+  receivedAt      DateTime
+  receivedBy      String?
+  carrier         String?
+  trackingNumber  String?
+  damageNoted     Boolean       @default(false)
+  damageNotes     String?
+  attachmentUrl   String?       // signed delivery ticket
+  createdAt       DateTime      @default(now())
+
+  lines PurchaseOrderReceiptLine[]
+
+  @@unique([purchaseOrderId, receiptNumber])
+  @@index([purchaseOrderId])
+}
+
+model PurchaseOrderReceiptLine {
+  id          String                @id @default(cuid())
+  receiptId   String
+  receipt     PurchaseOrderReceipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  poLineId    String
+  poLine      PurchaseOrderLine     @relation(fields: [poLineId], references: [id], onDelete: Cascade)
+  quantity    Float
+  notes       String?
+  createdAt   DateTime              @default(now())
+
+  @@index([receiptId])
+  @@index([poLineId])
 }
 
 model WarrantyItem {
@@ -2508,6 +2604,147 @@ model ComplianceItem {
 }
 
 // Xero / financial analytics / project P&L
+
+/**
+ * Accounting period close. Once a period is closed, all financial
+ * mutations dated on or before the close date are locked. Reopen
+ * requires super-admin + audit event. Drives the WIP / financial-
+ * statement reporting cycle.
+ */
+model AccountingPeriod {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  periodLabel   String   // "2026-04", "Q1 2026", "FY2026"
+  startDate     DateTime
+  endDate       DateTime
+  status        String   @default("OPEN")  // OPEN | CLOSING | CLOSED | REOPENED
+  closedAt      DateTime?
+  closedBy      String?
+  reopenedAt    DateTime?
+  reopenedBy    String?
+  reopenReason  String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  adjustingEntries AdjustingEntry[]
+
+  @@unique([tenantId, periodLabel])
+  @@index([tenantId, status])
+}
+
+/**
+ * Period-end adjusting / accrual entries. Created during close to
+ * recognize revenue not yet billed, accrue costs not yet invoiced,
+ * post depreciation, etc. Each entry has paired debit/credit lines.
+ */
+model AdjustingEntry {
+  id          String           @id @default(cuid())
+  periodId    String
+  period      AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  entryNumber String
+  description String
+  postedAt    DateTime         @default(now())
+  postedBy    String?
+  reversingDate DateTime?      // for accrual reversal in the next period
+  notes       String?
+  linesJson   String           @default("[]")  // [{accountCode, debit, credit, costCode}]
+  createdAt   DateTime         @default(now())
+
+  @@unique([periodId, entryNumber])
+  @@index([periodId])
+}
+
+/**
+ * Balance sheet snapshot — assets / liabilities / equity at a point
+ * in time. Calculated from GL balances at period close. Stored to
+ * give CFOs trended views without recomputing.
+ */
+model BalanceSheetSnapshot {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asOf           DateTime
+  // Assets
+  cash                     Float @default(0)
+  accountsReceivable       Float @default(0)
+  retainageReceivable      Float @default(0)
+  costsInExcess            Float @default(0)
+  inventory                Float @default(0)
+  fixedAssetsNet           Float @default(0)
+  otherAssets              Float @default(0)
+  totalAssets              Float @default(0)
+  // Liabilities
+  accountsPayable          Float @default(0)
+  retainagePayable         Float @default(0)
+  billingsInExcess         Float @default(0)
+  accruedExpenses          Float @default(0)
+  longTermDebt             Float @default(0)
+  otherLiabilities         Float @default(0)
+  totalLiabilities         Float @default(0)
+  // Equity
+  paidInCapital            Float @default(0)
+  retainedEarnings         Float @default(0)
+  currentEarnings          Float @default(0)
+  totalEquity              Float @default(0)
+  source                   String @default("manual")
+  createdAt                DateTime @default(now())
+
+  @@unique([tenantId, asOf])
+  @@index([tenantId])
+}
+
+/**
+ * Rolling 13-week cash-flow forecast row. One row per (week, project,
+ * category). Categories: revenue (pay-app inflow), AP (vendor
+ * outflow), labor (payroll outflow), retainage release. The forecast
+ * worker recalculates these from open pay apps + scheduled POs +
+ * payroll runs.
+ */
+model CashFlowForecast {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  weekStarting DateTime
+  category     String   // "INFLOW_BILLING" | "OUTFLOW_AP" | "OUTFLOW_LABOR" | "INFLOW_RETAINAGE_RELEASE"
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  amount       Float
+  confidence   Float    @default(1.0) // 0-1
+  scenario     String   @default("base")  // "base" | "best" | "worst"
+  notes        String?
+  source       String   @default("calc")  // "calc" | "manual" | "ai"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, weekStarting])
+  @@index([projectId])
+}
+
+/**
+ * Cash flow + WIP statement runs — periodic statement of cash flows
+ * generated from journal entries. Stored so CFOs can trend.
+ */
+model CashFlowStatement {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  periodLabel     String
+  periodStart     DateTime
+  periodEnd       DateTime
+  operatingActivities Float @default(0)
+  investingActivities Float @default(0)
+  financingActivities Float @default(0)
+  netChange       Float    @default(0)
+  beginningCash   Float    @default(0)
+  endingCash      Float    @default(0)
+  source          String   @default("calc")
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, periodLabel])
+  @@index([tenantId])
+}
 
 model XeroConnection {
   id               String               @id @default(cuid())
