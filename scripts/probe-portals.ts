@@ -60,11 +60,36 @@ async function main() {
     console.log(`Probing ${portals.length} portals...`);
     // Run in batches of 6 to keep it polite.
     const batch = 6;
-    const out: Probe[] = [];
+    const out: Array<Probe & { id: string }> = [];
     for (let i = 0; i < portals.length; i += batch) {
       const slice = portals.slice(i, i + batch);
       const results = await Promise.all(slice.map((p) => probe(p.name, p.url)));
-      out.push(...results);
+      const now = new Date();
+      // Persist URL-reachability telemetry on EVERY catalog row,
+      // including MANUAL ones — gives /admin/portal-coverage a
+      // complete picture of which URLs are still alive. The
+      // verify-html-scrapers script will overwrite lastVerifiedNote
+      // for auto-scraper rows with scraper-specific output, but
+      // until then the URL probe result is the best telemetry we
+      // have.
+      for (let j = 0; j < slice.length; j++) {
+        const portal = slice[j]!;
+        const r = results[j]!;
+        const ok = typeof r.status === "number" && r.status >= 200 && r.status < 400 && r.bodySize > 200;
+        const note = typeof r.status === "number"
+          ? `URL ${r.status} ${r.guess} ${r.bodySize}b`
+          : `URL ${String(r.status)}: ${r.detail?.slice(0, 100) ?? "no body"}`;
+        await prisma.solicitationPortalCatalog.update({
+          where: { id: portal.id },
+          data: {
+            lastVerifiedAt: now,
+            lastVerifiedOk: ok,
+            lastVerifiedCount: 0,
+            lastVerifiedNote: note,
+          },
+        });
+        out.push({ ...r, id: portal.id });
+      }
     }
     for (const p of out) {
       const status = typeof p.status === "number" ? String(p.status) : p.status.toUpperCase();

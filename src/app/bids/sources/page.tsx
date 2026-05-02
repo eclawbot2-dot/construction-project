@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { TestSourceButton } from "@/components/bids/test-source-button";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatDate } from "@/lib/utils";
@@ -122,9 +123,12 @@ export default async function BidSourcesPage() {
                       </form>
                     </td>
                     <td className="table-cell">
-                      <form action={`/api/rfp/sources/${s.id}/refresh`} method="post">
-                        <button type="submit" className="btn-outline text-xs">Refresh</button>
-                      </form>
+                      <div className="flex flex-col gap-1">
+                        <form action={`/api/rfp/sources/${s.id}/refresh`} method="post">
+                          <button type="submit" className="btn-outline text-xs">Refresh</button>
+                        </form>
+                        <TestSourceButton sourceId={s.id} />
+                      </div>
                     </td>
                   </tr>
                 ))}
