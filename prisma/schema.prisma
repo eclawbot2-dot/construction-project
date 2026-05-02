@@ -436,6 +436,8 @@ model Tenant {
   captureRecords       CaptureRecord[]
   onboardingPaths      OnboardingPath[]
   bidProfile           TenantBidProfile?
+  contractorLicenses   ContractorLicense[]
+  documentTransmittals DocumentTransmittal[]
 }
 
 model BusinessUnit {
@@ -787,10 +789,47 @@ model Document {
   folderPath    String?
   versionLabel  String        @default("v1")
   metadataJson  String        @default("{}")
+  // Lifecycle tracking — when this document expires (insurance certs,
+  // permits, prequalifications) and when it should be archived.
+  // Cron scans documents nearing expiry (60d) and emits AlertEvent.
+  effectiveAt   DateTime?
+  expiresAt     DateTime?
+  archivedAt    DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  transmittals  DocumentTransmittal[]
+
   @@index([projectId])
+  @@index([expiresAt])
+}
+
+/**
+ * Transmittal log — formal record of who received which version of
+ * which document, when, and via what channel. Required for any
+ * litigation-resilient document control program.
+ */
+model DocumentTransmittal {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentId      String
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  transmittalNo   String
+  recipientName   String
+  recipientEmail  String?
+  recipientCompany String?
+  versionLabel    String
+  channel         String   @default("EMAIL")
+  notes           String?
+  sentAt          DateTime @default(now())
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, transmittalNo])
+  @@index([documentId])
+  @@index([tenantId, sentAt])
 }
 
 model RFI {
@@ -1589,8 +1628,64 @@ model Permit {
 
   inspections Inspection[] @relation("PermitInspections")
 
+  // Prerequisite chain — a permit can require other permits to be
+  // issued or finaled before this one can be applied for. Captures
+  // typical sequencing like Foundation → Framing → MEP → C of O.
+  prerequisites PermitPrerequisite[] @relation("PermitDependent")
+  dependents    PermitPrerequisite[] @relation("PermitRequired")
+
   @@unique([projectId, permitNumber])
   @@index([projectId])
+}
+
+/**
+ * Permit prerequisite relationship. requiredPermit must reach
+ * `requiredStatus` (default ISSUED) before dependentPermit can leave
+ * PLANNED. UI reads this to render a blocked-by chip and to compute
+ * critical-path delays when a prereq slips.
+ */
+model PermitPrerequisite {
+  id                  String       @id @default(cuid())
+  dependentPermitId   String
+  dependentPermit     Permit       @relation("PermitDependent", fields: [dependentPermitId], references: [id], onDelete: Cascade)
+  requiredPermitId    String
+  requiredPermit      Permit       @relation("PermitRequired",  fields: [requiredPermitId],  references: [id], onDelete: Cascade)
+  requiredStatus      PermitStatus @default(ISSUED)
+  notes               String?
+  createdAt           DateTime     @default(now())
+
+  @@unique([dependentPermitId, requiredPermitId])
+  @@index([dependentPermitId])
+  @@index([requiredPermitId])
+}
+
+/**
+ * Contractor license verification — pulled from state license boards
+ * (NMLS, state contractor license verification systems). Surfaced on
+ * permit detail to confirm the contractor pulling the permit holds a
+ * valid license at this jurisdiction.
+ */
+model ContractorLicense {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractorName  String
+  licenseNumber   String
+  licenseType     String
+  jurisdiction    String
+  state           String
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  status          String    @default("UNKNOWN")
+  lastVerifiedAt  DateTime?
+  verifySourceUrl String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([tenantId, licenseNumber, jurisdiction])
+  @@index([tenantId])
+  @@index([expiresAt])
 }
 
 model InspectionChecklistItem {

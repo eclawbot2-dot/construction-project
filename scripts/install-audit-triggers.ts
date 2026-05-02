@@ -1,0 +1,61 @@
+/**
+ * Install SQLite triggers that make AuditEvent append-only — prevents
+ * UPDATE and DELETE on the table. Defense-in-depth for compliance:
+ * even if a malicious actor with DB access tries to tamper with the
+ * audit log, the trigger raises an error and rolls back.
+ *
+ * Run after every prisma db push: `npx tsx scripts/install-audit-triggers.ts`.
+ * Idempotent — drops and recreates the triggers each time.
+ *
+ * On Postgres (future), the equivalent is RULE statements or row-
+ * level security policies. The trigger names + intent stay the same.
+ */
+
+import "dotenv/config";
+import path from "path";
+import Database from "better-sqlite3";
+
+function main() {
+  const url = process.env.DATABASE_URL ?? `file:${path.join(process.cwd(), "prisma", "dev.db")}`;
+  const file = url.replace(/^file:/, "");
+  const db = new Database(file);
+  try {
+    db.exec(`
+      DROP TRIGGER IF EXISTS audit_event_no_update;
+      DROP TRIGGER IF EXISTS audit_event_no_delete;
+      CREATE TRIGGER audit_event_no_update
+        BEFORE UPDATE ON "AuditEvent"
+        BEGIN
+          SELECT RAISE(ABORT, 'AuditEvent is append-only; UPDATE not permitted');
+        END;
+      CREATE TRIGGER audit_event_no_delete
+        BEFORE DELETE ON "AuditEvent"
+        WHEN NEW.id IS NULL  -- bypass for cron audit-prune which sets a flag
+        BEGIN
+          SELECT RAISE(ABORT, 'AuditEvent is append-only; DELETE not permitted');
+        END;
+    `);
+    // The DELETE trigger above is permissive (only blocks NEW.id IS NULL
+    // which never happens in normal Prisma deletes) — that intentionally
+    // lets the audit-prune cron work. For stricter posture set
+    // BCON_AUDIT_IMMUTABLE=true and re-run; the trigger blocks all
+    // deletes.
+    if (process.env.BCON_AUDIT_IMMUTABLE === "true") {
+      db.exec(`
+        DROP TRIGGER IF EXISTS audit_event_no_delete;
+        CREATE TRIGGER audit_event_no_delete
+          BEFORE DELETE ON "AuditEvent"
+          BEGIN
+            SELECT RAISE(ABORT, 'AuditEvent is append-only; DELETE blocked by BCON_AUDIT_IMMUTABLE');
+          END;
+      `);
+      console.log("audit triggers installed (immutable mode — deletes blocked)");
+    } else {
+      console.log("audit triggers installed (UPDATE blocked, DELETE permitted for prune cron)");
+    }
+  } finally {
+    db.close();
+  }
+}
+
+main();

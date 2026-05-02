@@ -46,3 +46,20 @@ jobs:
 
       - name: Seed portal catalog (smoke check)
         run: npx tsx prisma/seed-portals.ts
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json || echo "SBOM generation skipped"
+        continue-on-error: true
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.cdx.json
+          if-no-files-found: ignore
