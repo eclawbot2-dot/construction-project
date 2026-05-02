@@ -55,6 +55,7 @@ const navGroups: NavGroup[] = [
       { href: "/finance/inbox", label: "Invoice ingest", icon: Mail },
       { href: "/finance/commissions", label: "Commissions", icon: Coins },
       { href: "/finance/ai", label: "Finance AI", icon: Bot },
+      { href: "/reports", label: "Reports", icon: Gauge },
       { href: "/commercial", label: "Commercial", icon: Gauge },
       { href: "/imports", label: "Imports", icon: Upload },
     ],
