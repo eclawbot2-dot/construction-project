@@ -24,6 +24,35 @@ async function loadEvents(tenantId: string, where: Record<string, unknown>) {
   });
 }
 
+/**
+ * Pull the distinct entityType + action values that have ever been
+ * recorded for this tenant. Lets the filter UI offer a real dropdown
+ * instead of a guess-the-string textarea. Cheap query — auditEvent has
+ * a (tenantId, createdAt) index and we're grouping a small column.
+ */
+async function loadFilterOptions(tenantId: string) {
+  const [entityTypes, actions] = await Promise.all([
+    prisma.auditEvent.findMany({
+      where: { tenantId },
+      distinct: ["entityType"],
+      select: { entityType: true },
+      orderBy: { entityType: "asc" },
+      take: 100,
+    }),
+    prisma.auditEvent.findMany({
+      where: { tenantId },
+      distinct: ["action"],
+      select: { action: true },
+      orderBy: { action: "asc" },
+      take: 200,
+    }),
+  ]);
+  return {
+    entityTypes: entityTypes.map((r) => r.entityType).filter(Boolean),
+    actions: actions.map((r) => r.action).filter(Boolean),
+  };
+}
+
 export default async function TenantAuditPage({ searchParams }: { searchParams: Promise<{ entityType?: string; action?: string }> }) {
   const tenant = await requireTenant();
   const sp = await searchParams;
@@ -32,9 +61,10 @@ export default async function TenantAuditPage({ searchParams }: { searchParams: 
   if (sp.entityType) where.entityType = sp.entityType;
   if (sp.action) where.action = sp.action;
 
-  const [events, total] = await Promise.all([
+  const [events, total, options] = await Promise.all([
     loadEvents(tenant.id, where),
     prisma.auditEvent.count({ where: { tenantId: tenant.id } }),
+    loadFilterOptions(tenant.id),
   ]);
 
   const columns: DataTableColumn<EventRow>[] = [
@@ -59,11 +89,21 @@ export default async function TenantAuditPage({ searchParams }: { searchParams: 
         </section>
         <section className="card p-5">
           <form method="get" className="grid gap-3 md:grid-cols-3">
-            <label htmlFor="audit-entity" className="sr-only">Entity type</label>
-            <input id="audit-entity" name="entityType" defaultValue={sp.entityType ?? ""} placeholder="Entity type (e.g. Project, BidDraft)" className="form-input" />
-            <label htmlFor="audit-action" className="sr-only">Action</label>
-            <input id="audit-action" name="action" defaultValue={sp.action ?? ""} placeholder="Action (e.g. PROJECT_CREATED)" className="form-input" />
-            <div className="flex gap-2">
+            <label className="block">
+              <span className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-400">Entity type</span>
+              <select name="entityType" defaultValue={sp.entityType ?? ""} className="form-select">
+                <option value="">All entity types</option>
+                {options.entityTypes.map((et) => <option key={et} value={et}>{et}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-400">Action</span>
+              <select name="action" defaultValue={sp.action ?? ""} className="form-select">
+                <option value="">All actions</option>
+                {options.actions.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </label>
+            <div className="flex gap-2 items-end">
               <button className="btn-primary flex-1">Filter</button>
               <Link href="/settings/audit" className="btn-outline">Clear</Link>
             </div>

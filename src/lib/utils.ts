@@ -67,6 +67,29 @@ export function modeLabel(mode: string): string {
   return map[mode] ?? mode.replaceAll("_", " ");
 }
 
+/**
+ * Mode-specific color tokens for visual scannability. Pass in a Tailwind
+ * variant of color (border / bg / text) and the mode; returns the right
+ * class string. Use modeBadge() for the standard pill format.
+ */
+export function modeColor(mode: string, kind: "border" | "bg" | "text" = "text"): string {
+  const palette: Record<string, { border: string; bg: string; text: string }> = {
+    SIMPLE:      { border: "border-sky-500/40",     bg: "bg-sky-500/10",     text: "text-sky-200" },
+    VERTICAL:    { border: "border-violet-500/40",  bg: "bg-violet-500/10",  text: "text-violet-200" },
+    HEAVY_CIVIL: { border: "border-amber-500/40",   bg: "bg-amber-500/10",   text: "text-amber-200" },
+  };
+  return palette[mode]?.[kind] ?? (kind === "text" ? "text-slate-300" : kind === "bg" ? "bg-slate-500/10" : "border-slate-500/40");
+}
+
+/**
+ * Render a short mode label (3 letters) for tight spaces — list rows,
+ * cards, sidebars. Full label via modeLabel(). Color via modeColor().
+ */
+export function modeShort(mode: string): string {
+  const map: Record<string, string> = { SIMPLE: "SIM", VERTICAL: "VRT", HEAVY_CIVIL: "HCV" };
+  return map[mode] ?? mode.slice(0, 3).toUpperCase();
+}
+
 export function workflowStatusLabel(status: string): string {
   const map: Record<string, string> = {
     DRAFT: "Draft",

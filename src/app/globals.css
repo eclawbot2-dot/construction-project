@@ -63,6 +63,87 @@ body {
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* Sunlight mode — AAA contrast (7:1) for outdoor / field users on
+ * tablet or phone. Boosts text to pure white-on-near-black, increases
+ * font weight on body text, strengthens borders. Toggle by setting
+ * data-sunlight="true" on the html element (handled by the header
+ * toggle component; persisted in a cookie). Independent of theme
+ * (dark/light) so an outdoor user can still pick their preferred
+ * shell. */
+html[data-sunlight="true"] {
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --panel-2: #1a1a1a;
+  --line: rgba(255, 255, 255, 0.35);
+  --text: #ffffff;
+  --muted: #e8e8e8;
+  --heading: #ffffff;
+  --body: #ffffff;
+  --body-muted: #f1f1f1;
+  --faint: #d4d4d4;
+  --border: rgba(255, 255, 255, 0.4);
+  --border-strong: rgba(255, 255, 255, 0.6);
+  --input-bg: #000000;
+  --input-text: #ffffff;
+}
+html[data-sunlight="true"] body {
+  font-weight: 500; /* +100 weight to bolden body text */
+}
+html[data-sunlight="true"] .text-slate-300,
+html[data-sunlight="true"] .text-slate-400,
+html[data-sunlight="true"] .text-slate-500,
+html[data-sunlight="true"] .text-slate-600 {
+  color: #f1f1f1 !important;
+}
+html[data-sunlight="true"] .bg-white\/5,
+html[data-sunlight="true"] .bg-white\/\[0\.04\],
+html[data-sunlight="true"] .bg-white\/\[0\.02\] {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+html[data-sunlight="true"] .border-white\/5,
+html[data-sunlight="true"] .border-white\/10,
+html[data-sunlight="true"] .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Mobile sidebar drawer. The sidebar is server-rendered and lives in
+ * normal document flow on desktop; on narrow viewports it's a fixed-
+ * position slide-in. The MobileNavToggle component toggles
+ * data-mobile-nav on <body>; CSS handles visibility + transform.
+ */
+@media (max-width: 1023px) {
+  aside[class*="sticky"] {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    width: 18rem !important;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
+  }
+  body[data-mobile-nav="open"] aside[class*="sticky"] {
+    transform: translateX(0);
+  }
+}
+
+/* Field tap-target floor — WCAG 2.2 + glove tolerance. Apply on
+ * mobile/touch viewports; desktop falls back to default sizing. */
+@media (max-width: 768px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline,
+  button[type="submit"],
+  a.btn-primary,
+  a.btn-outline {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .form-input,
+  .form-select {
+    min-height: 44px;
+  }
+}
+
 a {
   color: inherit;
   text-decoration: none;

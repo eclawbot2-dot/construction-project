@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppLayout } from "@/components/layout/app-layout";
 import { getDashboardData } from "@/lib/dashboard";
-import { formatCurrency, formatPercent, modeLabel } from "@/lib/utils";
+import { formatCurrency, formatPercent, modeLabel, modeColor, modeShort } from "@/lib/utils";
 
 export default async function ProjectsPage() {
   const data = await getDashboardData();
@@ -29,8 +29,11 @@ export default async function ProjectsPage() {
           <section key={project.id} className="card p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">{modeLabel(project.mode)}</div>
-                <h2 className="mt-1 text-2xl font-semibold text-white">{project.name}</h2>
+                <div className={`inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${modeColor(project.mode, "border")} ${modeColor(project.mode, "bg")} ${modeColor(project.mode, "text")}`}>
+                  <span>{modeShort(project.mode)}</span>
+                  <span className="opacity-70">{modeLabel(project.mode)}</span>
+                </div>
+                <h2 className="mt-2 text-2xl font-semibold text-white">{project.name}</h2>
                 <div className="mt-2 text-sm text-slate-400">{project.code} · {project.contractType} · {project.address}</div>
                 <div className="mt-2 text-sm text-slate-400">Owner: {project.ownerName}</div>
               </div>

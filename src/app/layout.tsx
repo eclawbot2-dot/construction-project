@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { FlashToast } from "@/components/ui/flash-toast";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -30,12 +32,15 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('bcon-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
+            __html: `try{var t=localStorage.getItem('bcon-theme')||'dark';document.documentElement.setAttribute('data-theme',t);var s=localStorage.getItem('bcon-sunlight')==='true';if(s)document.documentElement.setAttribute('data-sunlight','true');}catch(e){}`,
           }}
         />
       </head>
       <body>
         <Providers>{children}</Providers>
+        <Suspense fallback={null}>
+          <FlashToast />
+        </Suspense>
       </body>
     </html>
   );

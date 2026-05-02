@@ -30,15 +30,18 @@ export default async function LoginPage({
           <p>Sign in to your tenant workspace.</p>
         </header>
         <LoginForm callbackUrl={callbackUrl} initialError={errorMessage} />
-        <footer>
-          <p>Demo accounts (password: <code>demo1234</code>)</p>
-          <ul>
-            <li>admin@construction.local</li>
-            <li>exec@construction.local</li>
-            <li>pm@construction.local</li>
-            <li>super@construction.local</li>
-          </ul>
-        </footer>
+        {process.env.NODE_ENV !== "production" ? (
+          <footer>
+            <p>Demo accounts (password: <code>demo1234</code>)</p>
+            <ul>
+              <li>admin@construction.local</li>
+              <li>exec@construction.local</li>
+              <li>pm@construction.local</li>
+              <li>super@construction.local</li>
+            </ul>
+            <p style={{ marginTop: "0.75rem", fontSize: "0.625rem", opacity: 0.5 }}>Hidden in production builds.</p>
+          </footer>
+        ) : null}
       </div>
     </main>
   );

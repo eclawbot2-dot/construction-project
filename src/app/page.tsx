@@ -25,17 +25,72 @@ export default async function Home() {
       <AppLayout
         eyebrow="Welcome"
         title={data.tenant.name}
-        description="Your tenant is set up. Start by creating your first project — every other workflow flows from there."
+        description="A few quick steps unlock the full workflow surface."
       >
-        <div className="card p-8 text-center">
-          <h2 className="text-lg font-semibold" style={{ color: "var(--heading)" }}>No projects yet</h2>
-          <p className="mt-2 max-w-md mx-auto text-sm" style={{ color: "var(--faint)" }}>
-            Projects are the unit of work in Construction OS. Once you create one, you'll get RFIs, submittals, daily logs, change orders, and the full mode-aware workspace.
-          </p>
-          <div className="mt-6 flex justify-center gap-3">
-            <Link href="/projects/create" className="btn-primary">Create your first project</Link>
-            <Link href="/bids/profile" className="btn-outline">Set up bid profile</Link>
-          </div>
+        <div className="grid gap-6">
+          <section className="card p-8 border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 to-slate-950">
+            <h2 className="text-2xl font-semibold text-white">Welcome, let's get you set up</h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300">
+              Construction OS supports simple PM, vertical building, and heavy civil teams in one workspace. Most onboardings finish in under 15 minutes.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/projects/create" className="btn-primary text-sm">Create your first project</Link>
+              <Link href="/settings" className="btn-outline text-sm">Tenant settings</Link>
+            </div>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <ChecklistTile
+              step="1"
+              done={true}
+              title="Tenant created"
+              body="Your workspace is ready."
+              href="/settings"
+              cta="View settings"
+            />
+            <ChecklistTile
+              step="2"
+              done={false}
+              title="Create a project"
+              body="The unit of work — drives RFIs, daily logs, budgets, drawings."
+              href="/projects/create"
+              cta="Create project"
+            />
+            <ChecklistTile
+              step="3"
+              done={false}
+              title="Invite teammates"
+              body="Add the people who'll log into this tenant. Roles control what they can see."
+              href="/settings#team"
+              cta="Invite team"
+            />
+            <ChecklistTile
+              step="4"
+              done={false}
+              title="Set up bid pipeline"
+              body="Define your bid profile so the system can score federal & SE solicitations against your fit."
+              href="/bids/profile"
+              cta="Set bid profile"
+            />
+          </section>
+
+          <section className="card p-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Optional next steps</div>
+            <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm text-slate-300">
+              <Link href="/bids/discover" className="panel p-4 hover:border-cyan-500/40">
+                <div className="font-medium text-white">Subscribe to portals</div>
+                <p className="mt-1 text-xs text-slate-400">234 federal + SE procurement portals to pick from.</p>
+              </Link>
+              <Link href="/settings#ai-keys" className="panel p-4 hover:border-cyan-500/40">
+                <div className="font-medium text-white">Plug in your OpenAI key</div>
+                <p className="mt-1 text-xs text-slate-400">Bill AI usage to your own provider account.</p>
+              </Link>
+              <Link href="/admin/portal-coverage" className="panel p-4 hover:border-cyan-500/40">
+                <div className="font-medium text-white">Portal coverage status</div>
+                <p className="mt-1 text-xs text-slate-400">See which scrapers are live + verified working.</p>
+              </Link>
+            </div>
+          </section>
         </div>
       </AppLayout>
     );
@@ -162,5 +217,20 @@ export default async function Home() {
         </section>
       </div>
     </AppLayout>
+  );
+}
+
+function ChecklistTile({ step, done, title, body, href, cta }: { step: string; done: boolean; title: string; body: string; href: string; cta: string }) {
+  return (
+    <Link href={href} className={`card p-5 transition ${done ? "border-emerald-500/30 bg-emerald-500/5" : "hover:border-cyan-500/40"}`}>
+      <div className="flex items-center gap-2">
+        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold ${done ? "bg-emerald-500 text-emerald-950" : "bg-white/10 text-white"}`}>
+          {done ? "✓" : step}
+        </span>
+        <span className="text-sm font-medium text-white">{title}</span>
+      </div>
+      <p className="mt-2 text-xs text-slate-400">{body}</p>
+      <div className="mt-3 text-[10px] uppercase tracking-[0.22em] text-cyan-300">{cta} →</div>
+    </Link>
   );
 }
