@@ -23,7 +23,7 @@ jobs:
       # Per-tenant secret encryption key — stable across CI runs.
       BCON_VAULT_KEY: ci-vault-key-not-for-production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
