@@ -191,6 +191,59 @@ export default async function SettingsPage() {
         </section>
 
         <section className="card p-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">AI provider keys</div>
+          <p className="mt-1 text-sm text-slate-400">Plug in your own OpenAI or Anthropic API key to bill AI usage to your account. Keys are encrypted with a per-tenant salt before being persisted; the cleartext is never stored. Leave blank to use the platform default.</p>
+          <form action="/api/tenant/llm-keys" method="post" className="mt-4 grid gap-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-400">OpenAI API key</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    name="openaiKey"
+                    type="password"
+                    placeholder={tenant.openaiKeyEnc ? "••• key on file — leave blank to keep" : "sk-..."}
+                    autoComplete="off"
+                    className="form-input flex-1"
+                  />
+                  {tenant.openaiKeyEnc ? (
+                    <label className="flex items-center gap-1 text-xs text-rose-300" title="Wipe the saved OpenAI key">
+                      <input type="checkbox" name="clearOpenai" value="1" /> clear
+                    </label>
+                  ) : null}
+                </div>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-400">Anthropic API key</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    name="anthropicKey"
+                    type="password"
+                    placeholder={tenant.anthropicKeyEnc ? "••• key on file — leave blank to keep" : "sk-ant-..."}
+                    autoComplete="off"
+                    className="form-input flex-1"
+                  />
+                  {tenant.anthropicKeyEnc ? (
+                    <label className="flex items-center gap-1 text-xs text-rose-300" title="Wipe the saved Anthropic key">
+                      <input type="checkbox" name="clearAnthropic" value="1" /> clear
+                    </label>
+                  ) : null}
+                </div>
+              </label>
+            </div>
+            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+              <label className="block">
+                <span className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-400">Preferred provider</span>
+                <select name="preferredProvider" defaultValue={tenant.preferredProvider ?? "openai"} className="form-select">
+                  <option value="openai">OpenAI (GPT)</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                </select>
+              </label>
+              <button className="btn-primary">Save AI keys</button>
+            </div>
+          </form>
+        </section>
+
+        <section className="card p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Audit log</div>

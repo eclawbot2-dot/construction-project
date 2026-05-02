@@ -386,6 +386,15 @@ model Tenant {
   lastBackupAt    DateTime?
   lastBackupBytes Int?
   lastBackupError String?
+  // Per-tenant LLM keys (pass-14). When set, aiCall reads from the
+  // tenant's key first, falling back to the platform's env-var key
+  // only when the tenant hasn't configured one. Stored encrypted at
+  // rest using KMS_SECRET; decrypted only when constructing the
+  // outbound API request. Setting these lets each customer plug in
+  // their own OpenAI/Anthropic billing.
+  openaiKeyEnc      String?
+  anthropicKeyEnc   String?
+  preferredProvider String?  @default("openai")
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
