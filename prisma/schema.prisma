@@ -448,6 +448,11 @@ model Tenant {
   balanceSheetSnapshots BalanceSheetSnapshot[]
   cashFlowForecasts    CashFlowForecast[]
   cashFlowStatements   CashFlowStatement[]
+  fleetAssets          FleetAsset[]
+  employees            Employee[]
+  payrollRuns          PayrollRun[]
+  certifiedPayroll     CertifiedPayrollRecord[]
+  vendor1099Records    Vendor1099Record[]
 }
 
 model BusinessUnit {
@@ -601,6 +606,7 @@ model Project {
   scheduleBaselines    ScheduleBaseline[]
   lookAheads           LookAheadCommitment[]
   cashFlowForecasts    CashFlowForecast[]
+  fleetAssignments     FleetAssignment[]
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
   crewAssignments      CrewAssignment[]
@@ -760,6 +766,240 @@ model EquipmentRecord {
   createdAt        DateTime @default(now())
 
   @@index([projectId])
+}
+
+/**
+ * Tenant-level fleet asset. Distinct from per-project EquipmentRecord
+ * (which is the assignment ledger). FleetAsset captures depreciation,
+ * internal rental rate, maintenance accrual, and tracks which project
+ * the asset is currently committed to via FleetAssignment.
+ */
+model FleetAsset {
+  id                String   @id @default(cuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetTag          String
+  description       String
+  category          String?    // "Excavator", "Crane", "Truck", "Generator"
+  serialNumber      String?
+  purchaseDate      DateTime?
+  purchasePrice     Float?
+  salvageValue      Float    @default(0)
+  usefulLifeMonths  Int?
+  depreciationMethod String  @default("STRAIGHT_LINE")
+  accumulatedDepreciation Float @default(0)
+  // Internal cost-per-hour for charge-back when used on a project.
+  internalRateHour  Float?
+  internalRateDay   Float?
+  internalRateWeek  Float?
+  internalRateMonth Float?
+  active            Boolean  @default(true)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  assignments  FleetAssignment[]
+  maintenance  FleetMaintenance[]
+
+  @@unique([tenantId, assetTag])
+  @@index([tenantId])
+}
+
+/**
+ * Asset → project commitment with hours tracked. Charges flow to job
+ * cost via internalRate × hours. Reverts to "available" when ended.
+ */
+model FleetAssignment {
+  id          String     @id @default(cuid())
+  fleetAssetId String
+  fleetAsset  FleetAsset @relation(fields: [fleetAssetId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  startedAt   DateTime
+  endedAt     DateTime?
+  hoursLogged Float      @default(0)
+  costAccrued Float      @default(0)
+  notes       String?
+  createdAt   DateTime   @default(now())
+
+  @@index([fleetAssetId])
+  @@index([projectId])
+}
+
+/**
+ * Maintenance event — preventive (oil change, inspection) or
+ * corrective (repair). Drives maintenance accrual + downtime tracking.
+ */
+model FleetMaintenance {
+  id          String     @id @default(cuid())
+  fleetAssetId String
+  fleetAsset  FleetAsset @relation(fields: [fleetAssetId], references: [id], onDelete: Cascade)
+  kind        String     // "PREVENTIVE" | "CORRECTIVE" | "INSPECTION"
+  scheduledAt DateTime?
+  completedAt DateTime?
+  cost        Float      @default(0)
+  vendorName  String?
+  description String
+  hoursDownTime Float    @default(0)
+  notes       String?
+  createdAt   DateTime   @default(now())
+
+  @@index([fleetAssetId])
+}
+
+/**
+ * Direct-hire employee record — distinct from User (login) and
+ * Membership (tenant role). Used for payroll. Pay rate, tax setup,
+ * union local, classification all live here.
+ */
+model Employee {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId          String?  // optional link to a User row when employee can also log in
+  employeeNumber  String
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  hireDate        DateTime?
+  terminationDate DateTime?
+  // Classification
+  classification  String?   // "JOURNEYMAN_CARPENTER", "LABORER", "PROJECT_MANAGER"
+  unionLocal      String?
+  craftCode       String?   // BLS / DBE craft code
+  // Pay
+  payType         String   @default("HOURLY")  // HOURLY | SALARY | UNION
+  baseRate        Float    @default(0)
+  fringeRate      Float    @default(0)         // hourly fringes for union/prevailing wage
+  perDiemRate     Float    @default(0)
+  burdenRate      Float    @default(0)         // employer taxes + benefits as % of base
+  // Tax / withholding setup (high-level; details in payroll system)
+  w4Filing        String?
+  state           String?
+  // Status
+  active          Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payrollRuns PayrollRunLine[]
+
+  @@unique([tenantId, employeeNumber])
+  @@index([tenantId])
+}
+
+/**
+ * Payroll run header. One run per pay period. Generates lines from
+ * approved TimeEntry rows + Employee setup. Status moves CALCULATED →
+ * APPROVED → POSTED.
+ */
+model PayrollRun {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runLabel    String
+  periodFrom  DateTime
+  periodTo    DateTime
+  payDate     DateTime
+  status      String   @default("CALCULATED")
+  totalHours  Float    @default(0)
+  totalGross  Float    @default(0)
+  totalNet    Float    @default(0)
+  totalBurden Float    @default(0)
+  isCertifiedPayroll Boolean @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lines PayrollRunLine[]
+
+  @@unique([tenantId, runLabel])
+  @@index([tenantId])
+}
+
+/**
+ * Per-employee payroll line within a run. Captures regular/OT/DT
+ * hours, gross + fringe + per-diem + burden, and the project + cost
+ * code split.
+ */
+model PayrollRunLine {
+  id            String     @id @default(cuid())
+  payrollRunId  String
+  payrollRun    PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectId     String?
+  costCode      String?
+  regularHours  Float      @default(0)
+  otHours       Float      @default(0)
+  dtHours       Float      @default(0)
+  baseRate      Float      @default(0)
+  fringeRate    Float      @default(0)
+  grossPay      Float      @default(0)
+  fringeAmount  Float      @default(0)
+  perDiem       Float      @default(0)
+  burden        Float      @default(0)
+  totalCost     Float      @default(0)  // gross + fringe + per-diem + burden — what hits job cost
+  notes         String?
+  createdAt     DateTime   @default(now())
+
+  @@index([payrollRunId])
+  @@index([employeeId])
+}
+
+/**
+ * Certified payroll output — Davis-Bacon WH-347 weekly report. Each
+ * row corresponds to one employee on one project for one week. Used
+ * to satisfy federal/state prevailing-wage reporting.
+ */
+model CertifiedPayrollRecord {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId       String?
+  weekEnding      DateTime
+  employeeId      String?
+  employeeName    String
+  classification  String
+  craftCode       String?
+  ssnLast4        String?  // form WH-347 expects last-4 only
+  hoursStRegular  Float    @default(0)
+  hoursStOt       Float    @default(0)
+  rateBase        Float    @default(0)
+  rateFringe      Float    @default(0)
+  grossPay        Float    @default(0)
+  deductions      Float    @default(0)
+  netPay          Float    @default(0)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, weekEnding])
+}
+
+/**
+ * Annual 1099-NEC reporting per vendor. Aggregates the year's payments
+ * by 1099 box for tax filing. Status FILED on submission.
+ */
+model Vendor1099Record {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendorId      String
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  taxYear       Int
+  recipientTin  String?
+  box1NonemployeeComp Float @default(0)
+  box4FedTaxWithheld  Float @default(0)
+  box6PaymentsForServices Float @default(0)
+  totalPaid     Float    @default(0)
+  status        String   @default("DRAFT")  // DRAFT | FILED
+  filedAt       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, vendorId, taxYear])
+  @@index([tenantId, taxYear])
 }
 
 model MaterialRecord {
@@ -1846,6 +2086,7 @@ model Vendor {
   purchaseOrders PurchaseOrder[]
   prequals       VendorPrequalification[]
   changeOrders   ChangeOrder[]
+  vendor1099s    Vendor1099Record[]
 }
 
 model InsuranceCert {
