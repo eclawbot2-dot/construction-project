@@ -454,6 +454,7 @@ model Tenant {
   certifiedPayroll     CertifiedPayrollRecord[]
   vendor1099Records    Vendor1099Record[]
   qualityChecklistTemplates QualityChecklistTemplate[]
+  capitalPrograms      CapitalProgram[]
 }
 
 model BusinessUnit {
@@ -663,6 +664,7 @@ model Project {
   safetyObservations   SafetyObservation[]
   ncrs                 NonConformanceReport[]
   closeoutPackage      CloseoutPackage?
+  capitalPrograms      CapitalProgramProject[]
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
   crewAssignments      CrewAssignment[]
@@ -2361,7 +2363,8 @@ model BidPackage {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  subBids SubBid[]
+  subBids        SubBid[]
+  levelingResults BidLevelingResult[]
 
   @@index([projectId, status])
 }
@@ -2376,14 +2379,113 @@ model SubBid {
   daysToComplete Int?
   inclusions     String?
   exclusions     String?
+  // Bid clarification questions raised by this sub during bidding +
+  // overall qualifications/voluntary alternates.
+  clarifications String?
+  voluntaryAlternates String?
   status         SubBidStatus @default(INVITED)
   submittedAt    DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  lines SubBidLine[]
+
   @@unique([bidPackageId, vendorId])
   @@index([bidPackageId])
   @@index([vendorId])
+}
+
+/**
+ * Line-item detail in a sub bid — tied to the bid package's scope
+ * sheet so multiple subs' lines can be compared apples-to-apples in
+ * the leveling matrix. scopeItemKey is shared across all bidders'
+ * lines for the same scope item; the leveling UI groups by it.
+ */
+model SubBidLine {
+  id            String   @id @default(cuid())
+  subBidId      String
+  subBid        SubBid   @relation(fields: [subBidId], references: [id], onDelete: Cascade)
+  scopeItemKey  String
+  description   String
+  quantity      Float?
+  uom           String?
+  unitPrice     Float?
+  amount        Float
+  costCode      String?
+  inclusion     Boolean  @default(true)  // false = exclusion
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@index([subBidId])
+  @@index([scopeItemKey])
+}
+
+/**
+ * Bid leveling result — the awarded line allocation across bidders
+ * after analysis. Stored so the GC has a record of why each line went
+ * to which sub.
+ */
+model BidLevelingResult {
+  id            String     @id @default(cuid())
+  bidPackageId  String
+  bidPackage    BidPackage @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
+  scopeItemKey  String
+  awardedToSubBidId String
+  rationale     String?
+  decidedAt     DateTime   @default(now())
+  decidedBy     String?
+
+  @@unique([bidPackageId, scopeItemKey])
+  @@index([bidPackageId])
+}
+
+/**
+ * Capital program — multi-project umbrella owned by the customer
+ * (private GC's portfolio, public agency's CIP, etc.). Drives owner-
+ * dashboard rollups across projects in the program.
+ */
+model CapitalProgram {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  ownerName     String?
+  ownerType     String?  // "PRIVATE" | "PUBLIC_AGENCY" | "INSTITUTIONAL"
+  totalBudget   Float?
+  contingency   Float?
+  fundingSource String?
+  startDate     DateTime?
+  endDate       DateTime?
+  status        String   @default("ACTIVE")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  projects CapitalProgramProject[]
+
+  @@index([tenantId])
+}
+
+/**
+ * Many-to-many between a capital program and its constituent projects.
+ * A project can belong to multiple programs (e.g., a school district
+ * lists a project under both "Bond 2024" and "Annual Capital Plan").
+ */
+model CapitalProgramProject {
+  id              String         @id @default(cuid())
+  capitalProgramId String
+  capitalProgram  CapitalProgram @relation(fields: [capitalProgramId], references: [id], onDelete: Cascade)
+  projectId       String
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  programBudget   Float?
+  drawSchedule    String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+
+  @@unique([capitalProgramId, projectId])
+  @@index([capitalProgramId])
+  @@index([projectId])
 }
 
 model TimeEntry {
