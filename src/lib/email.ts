@@ -83,10 +83,13 @@ async function sendViaSendgrid(msg: EmailMessage, from: string) {
   return { ok: true, transport: "sendgrid", id: res.headers.get("x-message-id") ?? undefined };
 }
 
-async function sendViaSmtp(_msg: EmailMessage, _from: string): Promise<{ ok: boolean; transport: string }> {
-  // Native SMTP without nodemailer is non-trivial. Stubbed for now —
-  // when an operator wants SMTP, wire nodemailer in this file.
-  throw new Error("EMAIL_TRANSPORT=smtp not implemented; install nodemailer and replace this stub");
+async function sendViaSmtp(_msg: EmailMessage, _from: string): Promise<{ ok: boolean; transport: string; error?: string }> {
+  // Native SMTP without nodemailer is non-trivial. Returning a
+  // structured failure rather than throwing so callers don't crash
+  // if EMAIL_TRANSPORT is misconfigured to "smtp" at runtime — they
+  // get { ok: false } and can fall back. Wire nodemailer here when
+  // an operator actually wants SMTP.
+  return { ok: false, transport: "smtp", error: "smtp transport not wired; install nodemailer and replace this stub" };
 }
 
 function arr(v: string | string[]): string[] {

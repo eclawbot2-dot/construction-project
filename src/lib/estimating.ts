@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { BidDraft, RfpListing } from "@prisma/client";
+import { sumMoney, multiplyMoney, addMoney, percentOf } from "@/lib/money";
 
 type Assembly = {
   costCode: string;
@@ -68,9 +69,11 @@ export async function generateEstimateForDraft(draftId: string): Promise<{ ok: b
   let pos = 0;
   let raw = 0;
   for (const a of assemblies) {
-    const direct = a.unitLabor + a.unitMaterial + a.unitEquipment + a.unitSub;
-    const amount = direct * a.qtyPerUnit;
-    raw += amount;
+    // sumMoney + multiplyMoney avoid IEEE-754 drift across hundreds
+    // of line items at penny precision.
+    const direct = sumMoney([a.unitLabor, a.unitMaterial, a.unitEquipment, a.unitSub]);
+    const amount = multiplyMoney(direct, a.qtyPerUnit);
+    raw = addMoney(raw, amount);
     await prisma.bidDraftLineItem.create({
       data: {
         draftId,
@@ -81,20 +84,23 @@ export async function generateEstimateForDraft(draftId: string): Promise<{ ok: b
         quantity: a.qtyPerUnit,
         unit: a.unit,
         unitCost: direct,
-        laborCost: a.unitLabor * a.qtyPerUnit,
-        materialCost: a.unitMaterial * a.qtyPerUnit,
-        equipmentCost: a.unitEquipment * a.qtyPerUnit,
-        subCost: a.unitSub * a.qtyPerUnit,
+        laborCost: multiplyMoney(a.unitLabor, a.qtyPerUnit),
+        materialCost: multiplyMoney(a.unitMaterial, a.qtyPerUnit),
+        equipmentCost: multiplyMoney(a.unitEquipment, a.qtyPerUnit),
+        subCost: multiplyMoney(a.unitSub, a.qtyPerUnit),
         amount,
       },
     });
     pos += 1;
   }
 
-  const withOverhead = raw * (1 + draft.overheadPct / 100);
-  const withProfit = withOverhead * (1 + draft.profitPct / 100);
-  await prisma.bidDraft.update({ where: { id: draftId }, data: { totalValue: Math.round(withProfit) } });
-  return { ok: true, lineItems: pos, total: Math.round(withProfit) };
+  const overheadAmt = percentOf(raw, draft.overheadPct);
+  const withOverhead = addMoney(raw, overheadAmt);
+  const profitAmt = percentOf(withOverhead, draft.profitPct);
+  const withProfit = addMoney(withOverhead, profitAmt);
+  const totalCents = Math.round(withProfit);
+  await prisma.bidDraft.update({ where: { id: draftId }, data: { totalValue: totalCents } });
+  return { ok: true, lineItems: pos, total: totalCents };
 }
 
 void (null as unknown as BidDraft);

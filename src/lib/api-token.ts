@@ -13,6 +13,7 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { parseStringList } from "@/lib/json-schema";
 
 export type IssuedToken = {
   id: string;
@@ -75,9 +76,7 @@ export async function verifyApiToken(rawHeader: string | null): Promise<Authenti
   // Best-effort lastUsedAt update; don't await.
   prisma.apiToken.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
 
-  let scopes: string[] = [];
-  try { scopes = JSON.parse(row.scopesJson); } catch { /* invalid scopes JSON */ }
-
+  const scopes = parseStringList(row.scopesJson, "ApiToken.scopesJson");
   return { tokenId: row.id, tenantId: row.tenantId, scopes };
 }
 

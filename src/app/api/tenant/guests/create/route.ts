@@ -10,8 +10,14 @@ export async function POST(req: NextRequest) {
   const tenant = await requireTenant();
   const form = await req.formData();
   const email = (form.get("email") as string | null)?.trim().toLowerCase();
-  if (!email || !email.includes("@")) redirect("/settings/guests?error=email+required");
-  const name = (form.get("name") as string | null)?.trim() || null;
+  // Email validation tighter than .includes("@") to block SMTP
+  // header injection. Strict regex disallows whitespace (newlines,
+  // CR, tabs that could smuggle "BCC:" / "Subject:" headers).
+  // Length cap 254 per RFC 5321.
+  if (!email || email.length > 254 || !/^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/.test(email)) {
+    redirect("/settings/guests?error=valid+email+required");
+  }
+  const name = ((form.get("name") as string | null)?.trim() || null)?.replace(/[\r\n]+/g, " ") ?? null;
   const role = (form.get("role") as string | null) ?? "OWNER_REVIEWER";
 
   // Generate magic-link token (24-hour TTL).

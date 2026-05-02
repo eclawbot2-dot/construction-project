@@ -46,17 +46,42 @@ export async function middleware(req: NextRequest) {
   });
 
   if (token?.userId) {
-    return NextResponse.next();
+    return withSecurityHeaders(NextResponse.next());
   }
 
   const isApi = req.nextUrl.pathname.startsWith("/api/");
   if (isApi) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return withSecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
   }
 
   const loginUrl = new URL("/login", req.url);
   loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname + req.nextUrl.search);
-  return NextResponse.redirect(loginUrl);
+  return withSecurityHeaders(NextResponse.redirect(loginUrl));
+}
+
+/**
+ * Stamp baseline security response headers — applied to every
+ * authenticated response that flows through middleware.
+ *
+ *   Strict-Transport-Security: 1y + subdomains. Browsers refuse
+ *     downgrades to HTTP for the duration.
+ *   X-Content-Type-Options: nosniff. Browsers won't override the
+ *     server's content-type with a guessed one.
+ *   X-Frame-Options: SAMEORIGIN. Click-jacking defense. (Modern
+ *     equivalent CSP frame-ancestors is also fine; this works in
+ *     more browsers + proxies.)
+ *   Referrer-Policy: strict-origin-when-cross-origin. Doesn't leak
+ *     query-string contents to outbound links / external resources.
+ *   Permissions-Policy: minimal allowlist (camera, microphone,
+ *     geolocation, etc. for the photo + dictation features).
+ */
+function withSecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
+  res.headers.set("x-content-type-options", "nosniff");
+  res.headers.set("x-frame-options", "SAMEORIGIN");
+  res.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+  res.headers.set("permissions-policy", "camera=(self), microphone=(self), geolocation=(self)");
+  return res;
 }
 
 export const config = {

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { requireTenant } from "@/lib/tenant";
 import { auth } from "@/lib/auth";
 import { issueApiToken } from "@/lib/api-token";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * Issue a new API token. The full secret is shown EXACTLY ONCE on the
@@ -23,6 +24,17 @@ export async function POST(req: NextRequest) {
     .filter(Boolean);
   const session = await auth();
   const issued = await issueApiToken({ tenantId: tenant.id, name: name!, scopes, createdById: session?.userId });
+
+  await recordAudit({
+    tenantId: tenant.id,
+    actorId: session?.userId ?? null,
+    actorName: session?.user?.name ?? null,
+    entityType: "ApiToken",
+    entityId: issued.id,
+    action: "API_TOKEN_ISSUED",
+    after: { name: name!, prefix: issued.prefix, scopes },
+    source: "settings/api",
+  });
 
   const jar = await cookies();
   jar.set({

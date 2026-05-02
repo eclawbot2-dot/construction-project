@@ -5,6 +5,10 @@ import { getStorage } from "@/lib/storage";
 import { recordAudit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { publish } from "@/lib/sse";
+import { sniffMime } from "@/lib/mime-sniff";
+
+const MAX_PHOTO_BYTES = 25 * 1024 * 1024; // 25 MB / file
+const MAX_PHOTOS_PER_REQUEST = 25;
 
 /**
  * Upload one or more photos to a project. Multipart form-data; each
@@ -22,6 +26,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ projectId:
   const form = await req.formData();
   const files = form.getAll("file") as File[];
   if (files.length === 0) return NextResponse.json({ error: "no files" }, { status: 422 });
+  if (files.length > MAX_PHOTOS_PER_REQUEST) {
+    return NextResponse.json({ error: `too many files (max ${MAX_PHOTOS_PER_REQUEST} per request)` }, { status: 413 });
+  }
 
   const albumId = (form.get("albumId") as string | null) || null;
   const caption = (form.get("caption") as string | null) || null;
@@ -35,13 +42,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ projectId:
   const storage = getStorage();
   const created: { id: string; url: string }[] = [];
 
+  const rejected: { filename: string; reason: string }[] = [];
   for (const f of files) {
+    if (f.size > MAX_PHOTO_BYTES) {
+      rejected.push({ filename: f.name, reason: "exceeds 25 MB" });
+      continue;
+    }
     const buf = Buffer.from(await f.arrayBuffer());
+    // Magic-byte sniff — never trust client-supplied f.type. Reject
+    // if the actual bytes aren't a known image format. Defends
+    // against renamed-extension uploads (executable as image/jpeg).
+    const detected = sniffMime(buf);
+    if (!detected || !detected.startsWith("image/")) {
+      rejected.push({ filename: f.name, reason: `not a recognized image (sniffed: ${detected ?? "unknown"})` });
+      continue;
+    }
     const put = await storage.put({
       tenantId: tenant.id,
       filename: f.name,
       body: buf,
-      contentType: f.type || "image/jpeg",
+      contentType: detected,  // server-side classification, not client-supplied
     });
     const photo = await prisma.projectPhoto.create({
       data: {
@@ -73,5 +93,5 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ projectId:
 
   publish(tenant.id, "photos", { event: "photos.uploaded", projectId, count: created.length });
 
-  return NextResponse.json({ created });
+  return NextResponse.json({ created, rejected });
 }

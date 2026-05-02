@@ -367,25 +367,25 @@ enum DailyLogType {
 }
 
 model Tenant {
-  id              String      @id @default(cuid())
-  name            String
-  slug            String      @unique
-  primaryMode     ProjectMode
-  enabledModes    String      @default("[]")
-  featurePacks    String      @default("[]")
-  terminology     String      @default("{}")
-  brandingTheme   String?
+  id                String      @id @default(cuid())
+  name              String
+  slug              String      @unique
+  primaryMode       ProjectMode
+  enabledModes      String      @default("[]")
+  featurePacks      String      @default("[]")
+  terminology       String      @default("{}")
+  brandingTheme     String?
   // Backup config (PR #29). When backupEnabled is true the nightly cron
   // dumps this tenant's data graph to ./uploads/backups/<slug>/<date>.json
   // AND, if backupDirectory is set, copies the same file there. The
   // recommended setup is to point backupDirectory at a OneDrive or
   // Google Drive sync folder so the host's desktop client uploads it
   // off-machine automatically.
-  backupEnabled   Boolean     @default(true)
-  backupDirectory String?
-  lastBackupAt    DateTime?
-  lastBackupBytes Int?
-  lastBackupError String?
+  backupEnabled     Boolean     @default(true)
+  backupDirectory   String?
+  lastBackupAt      DateTime?
+  lastBackupBytes   Int?
+  lastBackupError   String?
   // Per-tenant LLM keys (pass-14). When set, aiCall reads from the
   // tenant's key first, falling back to the platform's env-var key
   // only when the tenant hasn't configured one. Stored encrypted at
@@ -394,101 +394,101 @@ model Tenant {
   // their own OpenAI/Anthropic billing.
   openaiKeyEnc      String?
   anthropicKeyEnc   String?
-  preferredProvider String?  @default("openai")
+  preferredProvider String?     @default("openai")
   // Display preferences (pass-25). Per-tenant currency + locale lets
   // a non-US customer see their numbers as €/£/CA$ etc. Defaults to
   // USD + en-US so existing US tenants are unchanged.
-  currency        String      @default("USD")
-  locale          String      @default("en-US")
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  currency          String      @default("USD")
+  locale            String      @default("en-US")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
-  businessUnits        BusinessUnit[]
-  memberships          Membership[]
-  projects             Project[]
-  companies            Company[]
-  contacts             Contact[]
-  auditEvents          AuditEvent[]
-  workflowTemplates    WorkflowTemplate[]
-  notificationRules    NotificationRule[]
-  historicalEstimates  HistoricalEstimate[]
-  opportunities        Opportunity[]
-  vendors              Vendor[]
-  rfpSources           RfpSource[]
-  rfpListings          RfpListing[]
-  bidDrafts            BidDraft[]
-  xeroConnection       XeroConnection?
-  qboConnection        QboConnection?
-  chartOfAccounts      ChartOfAccount[]
-  financialStatements  FinancialStatement[]
-  journalEntries       JournalEntryRow[]
-  invoiceInbox         InvoiceInboxConnection?
-  invoiceInboxMessages InvoiceInboxMessage[]
-  alertRules           AlertRule[]
-  alertEvents          AlertEvent[]
-  historicalImports    HistoricalImport[]
-  aiRuns               AiRunLog[]
-  recordComments       RecordComment[]
-  candidates           Candidate[]
-  jobRequisitions      JobRequisition[]
-  commissionRules      CommissionRule[]
-  commissionAccruals   CommissionAccrual[]
-  captureRecords       CaptureRecord[]
-  onboardingPaths      OnboardingPath[]
-  bidProfile           TenantBidProfile?
-  contractorLicenses   ContractorLicense[]
-  documentTransmittals DocumentTransmittal[]
-  costCodes            CostCode[]
-  vendorPrequals       VendorPrequalification[]
-  guestAccounts        GuestAccount[]
-  apiTokens            ApiToken[]
-  webhookEndpoints     WebhookEndpoint[]
-  emailDigests         EmailDigest[]
-  accountingPeriods    AccountingPeriod[]
-  balanceSheetSnapshots BalanceSheetSnapshot[]
-  cashFlowForecasts    CashFlowForecast[]
-  cashFlowStatements   CashFlowStatement[]
-  fleetAssets          FleetAsset[]
-  employees            Employee[]
-  payrollRuns          PayrollRun[]
-  certifiedPayroll     CertifiedPayrollRecord[]
-  vendor1099Records    Vendor1099Record[]
+  businessUnits             BusinessUnit[]
+  memberships               Membership[]
+  projects                  Project[]
+  companies                 Company[]
+  contacts                  Contact[]
+  auditEvents               AuditEvent[]
+  workflowTemplates         WorkflowTemplate[]
+  notificationRules         NotificationRule[]
+  historicalEstimates       HistoricalEstimate[]
+  opportunities             Opportunity[]
+  vendors                   Vendor[]
+  rfpSources                RfpSource[]
+  rfpListings               RfpListing[]
+  bidDrafts                 BidDraft[]
+  xeroConnection            XeroConnection?
+  qboConnection             QboConnection?
+  chartOfAccounts           ChartOfAccount[]
+  financialStatements       FinancialStatement[]
+  journalEntries            JournalEntryRow[]
+  invoiceInbox              InvoiceInboxConnection?
+  invoiceInboxMessages      InvoiceInboxMessage[]
+  alertRules                AlertRule[]
+  alertEvents               AlertEvent[]
+  historicalImports         HistoricalImport[]
+  aiRuns                    AiRunLog[]
+  recordComments            RecordComment[]
+  candidates                Candidate[]
+  jobRequisitions           JobRequisition[]
+  commissionRules           CommissionRule[]
+  commissionAccruals        CommissionAccrual[]
+  captureRecords            CaptureRecord[]
+  onboardingPaths           OnboardingPath[]
+  bidProfile                TenantBidProfile?
+  contractorLicenses        ContractorLicense[]
+  documentTransmittals      DocumentTransmittal[]
+  costCodes                 CostCode[]
+  vendorPrequals            VendorPrequalification[]
+  guestAccounts             GuestAccount[]
+  apiTokens                 ApiToken[]
+  webhookEndpoints          WebhookEndpoint[]
+  emailDigests              EmailDigest[]
+  accountingPeriods         AccountingPeriod[]
+  balanceSheetSnapshots     BalanceSheetSnapshot[]
+  cashFlowForecasts         CashFlowForecast[]
+  cashFlowStatements        CashFlowStatement[]
+  fleetAssets               FleetAsset[]
+  employees                 Employee[]
+  payrollRuns               PayrollRun[]
+  certifiedPayroll          CertifiedPayrollRecord[]
+  vendor1099Records         Vendor1099Record[]
   qualityChecklistTemplates QualityChecklistTemplate[]
-  capitalPrograms      CapitalProgram[]
-  consolidatedReports  ConsolidatedReport[]
+  capitalPrograms           CapitalProgram[]
+  consolidatedReports       ConsolidatedReport[]
   // Company compliance — tenant's own licensing, insurance, bonding,
   // certifications, safety record. Distinct from Vendor* records,
   // which are about subs. Surfaces in /settings/company.
-  companyProfile       CompanyProfile?
-  companyLicenses      CompanyLicense[]
-  companyInsurances    CompanyInsurance[]
-  companyBonds         CompanyBond[]
-  companyCertifications CompanyCertification[]
-  companySafetyMetrics CompanySafetyMetric[]
+  companyProfile            CompanyProfile?
+  companyLicenses           CompanyLicense[]
+  companyInsurances         CompanyInsurance[]
+  companyBonds              CompanyBond[]
+  companyCertifications     CompanyCertification[]
+  companySafetyMetrics      CompanySafetyMetric[]
 }
 
 model BusinessUnit {
-  id          String      @id @default(cuid())
-  tenantId    String
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name        String
-  code        String
-  defaultMode ProjectMode
-  region      String?
+  id                  String      @id @default(cuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  code                String
+  defaultMode         ProjectMode
+  region              String?
   // Legal entity for consolidation — multiple BUs can roll up to one
   // legal entity, multiple legal entities to one tenant. Drives
   // consolidated GL + balance sheet across BUs.
-  legalEntityName String?
-  legalEntityEin  String?
+  legalEntityName     String?
+  legalEntityEin      String?
   // Inter-company eliminations — when transferring revenue/cost
   // between BUs in the same legal entity, journal entries get tagged
   // with this BU's intercompanyAccount for elimination at consolidation.
   intercompanyAccount String?
   // Per-BU reporting overrides
-  fiscalYearEndMonth Int   @default(12)  // 12 = December year-end
-  baseCurrency    String  @default("USD")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  fiscalYearEndMonth  Int         @default(12) // 12 = December year-end
+  baseCurrency        String      @default("USD")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   memberships Membership[]
   projects    Project[]
@@ -504,37 +504,37 @@ model BusinessUnit {
  * eliminations.
  */
 model ConsolidatedReport {
-  id           String   @id @default(cuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  periodLabel  String
-  periodStart  DateTime
-  periodEnd    DateTime
-  reportType   String   // "PNL" | "BALANCE_SHEET" | "CASH_FLOW"
+  id                            String   @id @default(cuid())
+  tenantId                      String
+  tenant                        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  periodLabel                   String
+  periodStart                   DateTime
+  periodEnd                     DateTime
+  reportType                    String // "PNL" | "BALANCE_SHEET" | "CASH_FLOW"
   // Roll-up data — JSON per row to keep schema flexible; consumer
   // unpacks based on reportType.
-  payloadJson  String
+  payloadJson                   String
   // Eliminations applied
-  intercompanyEliminationsCents Int @default(0)
-  generatedAt  DateTime @default(now())
+  intercompanyEliminationsCents Int      @default(0)
+  generatedAt                   DateTime @default(now())
 
   @@unique([tenantId, periodLabel, reportType])
   @@index([tenantId])
 }
 
 model User {
-  id          String    @id @default(cuid())
-  name        String
-  email       String    @unique
-  password    String
-  active      Boolean   @default(true)
-  superAdmin  Boolean   @default(false)
+  id                String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  password          String
+  active            Boolean   @default(true)
+  superAdmin        Boolean   @default(false)
   // MFA — TOTP secret encrypted at rest with the global vault key.
   // mfaEnrolledAt is null until enrollment completes; required for
   // sign-in once set.
   mfaSecretEnc      String?
   mfaEnrolledAt     DateTime?
-  mfaBackupCodesEnc String?    // JSON list of one-time-use codes, encrypted
+  mfaBackupCodesEnc String? // JSON list of one-time-use codes, encrypted
   // External-IdP sign-on linkage. provider+providerSubject is unique
   // across User; lookup on auth callback.
   ssoProvider       String?
@@ -543,9 +543,9 @@ model User {
   // JWT issued before it is treated as revoked. Bump on logout / role
   // demotion / suspected compromise.
   sessionsRevokedAt DateTime?
-  lastLoginAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   memberships Membership[]
   messages    ThreadMessage[]
@@ -846,31 +846,31 @@ model EquipmentRecord {
  * the asset is currently committed to via FleetAssignment.
  */
 model FleetAsset {
-  id                String   @id @default(cuid())
-  tenantId          String
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  assetTag          String
-  description       String
-  category          String?    // "Excavator", "Crane", "Truck", "Generator"
-  serialNumber      String?
-  purchaseDate      DateTime?
-  purchasePrice     Float?
-  salvageValue      Float    @default(0)
-  usefulLifeMonths  Int?
-  depreciationMethod String  @default("STRAIGHT_LINE")
-  accumulatedDepreciation Float @default(0)
+  id                      String    @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetTag                String
+  description             String
+  category                String? // "Excavator", "Crane", "Truck", "Generator"
+  serialNumber            String?
+  purchaseDate            DateTime?
+  purchasePrice           Float?
+  salvageValue            Float     @default(0)
+  usefulLifeMonths        Int?
+  depreciationMethod      String    @default("STRAIGHT_LINE")
+  accumulatedDepreciation Float     @default(0)
   // Internal cost-per-hour for charge-back when used on a project.
-  internalRateHour  Float?
-  internalRateDay   Float?
-  internalRateWeek  Float?
-  internalRateMonth Float?
-  active            Boolean  @default(true)
-  notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  internalRateHour        Float?
+  internalRateDay         Float?
+  internalRateWeek        Float?
+  internalRateMonth       Float?
+  active                  Boolean   @default(true)
+  notes                   String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  assignments  FleetAssignment[]
-  maintenance  FleetMaintenance[]
+  assignments FleetAssignment[]
+  maintenance FleetMaintenance[]
 
   @@unique([tenantId, assetTag])
   @@index([tenantId])
@@ -881,17 +881,17 @@ model FleetAsset {
  * cost via internalRate × hours. Reverts to "available" when ended.
  */
 model FleetAssignment {
-  id          String     @id @default(cuid())
+  id           String     @id @default(cuid())
   fleetAssetId String
-  fleetAsset  FleetAsset @relation(fields: [fleetAssetId], references: [id], onDelete: Cascade)
-  projectId   String
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  startedAt   DateTime
-  endedAt     DateTime?
-  hoursLogged Float      @default(0)
-  costAccrued Float      @default(0)
-  notes       String?
-  createdAt   DateTime   @default(now())
+  fleetAsset   FleetAsset @relation(fields: [fleetAssetId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  startedAt    DateTime
+  endedAt      DateTime?
+  hoursLogged  Float      @default(0)
+  costAccrued  Float      @default(0)
+  notes        String?
+  createdAt    DateTime   @default(now())
 
   @@index([fleetAssetId])
   @@index([projectId])
@@ -902,18 +902,18 @@ model FleetAssignment {
  * corrective (repair). Drives maintenance accrual + downtime tracking.
  */
 model FleetMaintenance {
-  id          String     @id @default(cuid())
-  fleetAssetId String
-  fleetAsset  FleetAsset @relation(fields: [fleetAssetId], references: [id], onDelete: Cascade)
-  kind        String     // "PREVENTIVE" | "CORRECTIVE" | "INSPECTION"
-  scheduledAt DateTime?
-  completedAt DateTime?
-  cost        Float      @default(0)
-  vendorName  String?
-  description String
-  hoursDownTime Float    @default(0)
-  notes       String?
-  createdAt   DateTime   @default(now())
+  id            String     @id @default(cuid())
+  fleetAssetId  String
+  fleetAsset    FleetAsset @relation(fields: [fleetAssetId], references: [id], onDelete: Cascade)
+  kind          String // "PREVENTIVE" | "CORRECTIVE" | "INSPECTION"
+  scheduledAt   DateTime?
+  completedAt   DateTime?
+  cost          Float      @default(0)
+  vendorName    String?
+  description   String
+  hoursDownTime Float      @default(0)
+  notes         String?
+  createdAt     DateTime   @default(now())
 
   @@index([fleetAssetId])
 }
@@ -924,10 +924,10 @@ model FleetMaintenance {
  * union local, classification all live here.
  */
 model Employee {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId          String?  // optional link to a User row when employee can also log in
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId          String? // optional link to a User row when employee can also log in
   employeeNumber  String
   firstName       String
   lastName        String
@@ -936,23 +936,23 @@ model Employee {
   hireDate        DateTime?
   terminationDate DateTime?
   // Classification
-  classification  String?   // "JOURNEYMAN_CARPENTER", "LABORER", "PROJECT_MANAGER"
+  classification  String? // "JOURNEYMAN_CARPENTER", "LABORER", "PROJECT_MANAGER"
   unionLocal      String?
-  craftCode       String?   // BLS / DBE craft code
+  craftCode       String? // BLS / DBE craft code
   // Pay
-  payType         String   @default("HOURLY")  // HOURLY | SALARY | UNION
-  baseRate        Float    @default(0)
-  fringeRate      Float    @default(0)         // hourly fringes for union/prevailing wage
-  perDiemRate     Float    @default(0)
-  burdenRate      Float    @default(0)         // employer taxes + benefits as % of base
+  payType         String    @default("HOURLY") // HOURLY | SALARY | UNION
+  baseRate        Float     @default(0)
+  fringeRate      Float     @default(0) // hourly fringes for union/prevailing wage
+  perDiemRate     Float     @default(0)
+  burdenRate      Float     @default(0) // employer taxes + benefits as % of base
   // Tax / withholding setup (high-level; details in payroll system)
   w4Filing        String?
   state           String?
   // Status
-  active          Boolean  @default(true)
+  active          Boolean   @default(true)
   notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   payrollRuns PayrollRunLine[]
 
@@ -966,22 +966,22 @@ model Employee {
  * APPROVED → POSTED.
  */
 model PayrollRun {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  runLabel    String
-  periodFrom  DateTime
-  periodTo    DateTime
-  payDate     DateTime
-  status      String   @default("CALCULATED")
-  totalHours  Float    @default(0)
-  totalGross  Float    @default(0)
-  totalNet    Float    @default(0)
-  totalBurden Float    @default(0)
-  isCertifiedPayroll Boolean @default(false)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runLabel           String
+  periodFrom         DateTime
+  periodTo           DateTime
+  payDate            DateTime
+  status             String   @default("CALCULATED")
+  totalHours         Float    @default(0)
+  totalGross         Float    @default(0)
+  totalNet           Float    @default(0)
+  totalBurden        Float    @default(0)
+  isCertifiedPayroll Boolean  @default(false)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   lines PayrollRunLine[]
 
@@ -995,25 +995,25 @@ model PayrollRun {
  * code split.
  */
 model PayrollRunLine {
-  id            String     @id @default(cuid())
-  payrollRunId  String
-  payrollRun    PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
-  employeeId    String
-  employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  projectId     String?
-  costCode      String?
-  regularHours  Float      @default(0)
-  otHours       Float      @default(0)
-  dtHours       Float      @default(0)
-  baseRate      Float      @default(0)
-  fringeRate    Float      @default(0)
-  grossPay      Float      @default(0)
-  fringeAmount  Float      @default(0)
-  perDiem       Float      @default(0)
-  burden        Float      @default(0)
-  totalCost     Float      @default(0)  // gross + fringe + per-diem + burden — what hits job cost
-  notes         String?
-  createdAt     DateTime   @default(now())
+  id           String     @id @default(cuid())
+  payrollRunId String
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectId    String?
+  costCode     String?
+  regularHours Float      @default(0)
+  otHours      Float      @default(0)
+  dtHours      Float      @default(0)
+  baseRate     Float      @default(0)
+  fringeRate   Float      @default(0)
+  grossPay     Float      @default(0)
+  fringeAmount Float      @default(0)
+  perDiem      Float      @default(0)
+  burden       Float      @default(0)
+  totalCost    Float      @default(0) // gross + fringe + per-diem + burden — what hits job cost
+  notes        String?
+  createdAt    DateTime   @default(now())
 
   @@index([payrollRunId])
   @@index([employeeId])
@@ -1025,25 +1025,25 @@ model PayrollRunLine {
  * to satisfy federal/state prevailing-wage reporting.
  */
 model CertifiedPayrollRecord {
-  id              String   @id @default(cuid())
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  projectId       String?
-  weekEnding      DateTime
-  employeeId      String?
-  employeeName    String
-  classification  String
-  craftCode       String?
-  ssnLast4        String?  // form WH-347 expects last-4 only
-  hoursStRegular  Float    @default(0)
-  hoursStOt       Float    @default(0)
-  rateBase        Float    @default(0)
-  rateFringe      Float    @default(0)
-  grossPay        Float    @default(0)
-  deductions      Float    @default(0)
-  netPay          Float    @default(0)
-  notes           String?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId      String?
+  weekEnding     DateTime
+  employeeId     String?
+  employeeName   String
+  classification String
+  craftCode      String?
+  ssnLast4       String? // form WH-347 expects last-4 only
+  hoursStRegular Float    @default(0)
+  hoursStOt      Float    @default(0)
+  rateBase       Float    @default(0)
+  rateFringe     Float    @default(0)
+  grossPay       Float    @default(0)
+  deductions     Float    @default(0)
+  netPay         Float    @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
 
   @@index([tenantId, weekEnding])
 }
@@ -1053,21 +1053,21 @@ model CertifiedPayrollRecord {
  * by 1099 box for tax filing. Status FILED on submission.
  */
 model Vendor1099Record {
-  id            String   @id @default(cuid())
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  vendorId      String
-  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  taxYear       Int
-  recipientTin  String?
-  box1NonemployeeComp Float @default(0)
-  box4FedTaxWithheld  Float @default(0)
-  box6PaymentsForServices Float @default(0)
-  totalPaid     Float    @default(0)
-  status        String   @default("DRAFT")  // DRAFT | FILED
-  filedAt       DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                      String    @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendorId                String
+  vendor                  Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  taxYear                 Int
+  recipientTin            String?
+  box1NonemployeeComp     Float     @default(0)
+  box4FedTaxWithheld      Float     @default(0)
+  box6PaymentsForServices Float     @default(0)
+  totalPaid               Float     @default(0)
+  status                  String    @default("DRAFT") // DRAFT | FILED
+  filedAt                 DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   @@unique([tenantId, vendorId, taxYear])
   @@index([tenantId, taxYear])
@@ -1124,7 +1124,7 @@ model Document {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  transmittals  DocumentTransmittal[]
+  transmittals DocumentTransmittal[]
 
   @@index([projectId])
   @@index([expiresAt])
@@ -1136,22 +1136,22 @@ model Document {
  * litigation-resilient document control program.
  */
 model DocumentTransmittal {
-  id              String   @id @default(cuid())
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  documentId      String
-  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  transmittalNo   String
-  recipientName   String
-  recipientEmail  String?
+  id               String    @id @default(cuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentId       String
+  document         Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  transmittalNo    String
+  recipientName    String
+  recipientEmail   String?
   recipientCompany String?
-  versionLabel    String
-  channel         String   @default("EMAIL")
-  notes           String?
-  sentAt          DateTime @default(now())
-  acknowledgedAt  DateTime?
-  acknowledgedBy  String?
-  createdAt       DateTime @default(now())
+  versionLabel     String
+  channel          String    @default("EMAIL")
+  notes            String?
+  sentAt           DateTime  @default(now())
+  acknowledgedAt   DateTime?
+  acknowledgedBy   String?
+  createdAt        DateTime  @default(now())
 
   @@unique([tenantId, transmittalNo])
   @@index([documentId])
@@ -1159,16 +1159,16 @@ model DocumentTransmittal {
 }
 
 model RFI {
-  id              String         @id @default(cuid())
-  projectId       String
-  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  number          String
-  subject         String
-  question        String?
-  response        String?
-  status          WorkflowStatus @default(DRAFT)
-  dueDate         DateTime?
-  ballInCourt     String?
+  id                   String         @id @default(cuid())
+  projectId            String
+  project              Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  number               String
+  subject              String
+  question             String?
+  response             String?
+  status               WorkflowStatus @default(DRAFT)
+  dueDate              DateTime?
+  ballInCourt          String?
   // Reviewer chain — current step in the routing sequence. Sequential
   // routing: each reviewer must respond before the RFI moves to the
   // next. Response SLA aging tracked from sentToReviewerAt.
@@ -1181,58 +1181,61 @@ model RFI {
   scheduleImpactDays   Int?
   // Drawing pin reference for spatial context; one RFI can pin to N
   // drawing sheets (see RfiDrawingPin below).
-  submittedAt     DateTime?
-  submittedBy     String?
-  respondedAt     DateTime?
-  respondedBy     String?
-  approvedAt      DateTime?
-  approvedBy      String?
-  rejectedAt      DateTime?
-  rejectedBy      String?
-  rejectionReason String?
-  approvalNote    String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  submittedAt          DateTime?
+  submittedBy          String?
+  respondedAt          DateTime?
+  respondedBy          String?
+  approvedAt           DateTime?
+  approvedBy           String?
+  rejectedAt           DateTime?
+  rejectedBy           String?
+  rejectionReason      String?
+  approvalNote         String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
-  reviewers       RfiReviewer[]
-  responses       RfiResponse[]
-  drawingPins     RfiDrawingPin[]
+  reviewers   RfiReviewer[]
+  responses   RfiResponse[]
+  drawingPins RfiDrawingPin[]
+  linkedChangeOrders ChangeOrder[] @relation("RfiLinkedChangeOrders")
+  linkedNcrs         NonConformanceReport[] @relation("RfiLinkedNcrs")
 
   @@unique([projectId, number])
   @@index([projectId])
 }
 
 model Submittal {
-  id              String         @id @default(cuid())
-  projectId       String
-  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  number          String
-  title           String
-  specSection     String?
-  status          WorkflowStatus @default(DRAFT)
-  longLead        Boolean        @default(false)
+  id                    String         @id @default(cuid())
+  projectId             String
+  project               Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  number                String
+  title                 String
+  specSection           String?
+  status                WorkflowStatus @default(DRAFT)
+  longLead              Boolean        @default(false)
   // Resubmittal tracking — every reject increments resubmittalCount;
   // status flips back to DRAFT and the row remains so the history is
   // preserved.
-  resubmittalCount     Int            @default(0)
+  resubmittalCount      Int            @default(0)
   // Reviewer routing — sequential chain via SubmittalReviewer rows.
-  currentReviewerEmail String?
-  sentToReviewerAt     DateTime?
-  scheduleFloatDaysUsed Int?          // float consumed waiting on review
-  submittedAt     DateTime?
-  submittedBy     String?
-  approvedAt      DateTime?
-  approvedBy      String?
-  rejectedAt      DateTime?
-  rejectedBy      String?
-  rejectionReason String?
-  approvalNote    String?
-  notes           String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  currentReviewerEmail  String?
+  sentToReviewerAt      DateTime?
+  scheduleFloatDaysUsed Int? // float consumed waiting on review
+  submittedAt           DateTime?
+  submittedBy           String?
+  approvedAt            DateTime?
+  approvedBy            String?
+  rejectedAt            DateTime?
+  rejectedBy            String?
+  rejectionReason       String?
+  approvalNote          String?
+  notes                 String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
-  reviewers       SubmittalReviewer[]
-  cycles          SubmittalCycle[]
+  reviewers SubmittalReviewer[]
+  cycles    SubmittalCycle[]
+  linkedChangeOrders ChangeOrder[] @relation("SubmittalLinkedChangeOrders")
 
   @@unique([projectId, number])
   @@index([projectId])
@@ -1250,10 +1253,10 @@ model RfiReviewer {
   position      Int
   reviewerEmail String
   reviewerName  String?
-  reviewerRole  String?    // e.g. "Architect", "Structural Engineer"
+  reviewerRole  String? // e.g. "Architect", "Structural Engineer"
   isRequired    Boolean   @default(true)
   decidedAt     DateTime?
-  decision      String?    // "APPROVED" | "REJECTED" | "HELD"
+  decision      String? // "APPROVED" | "REJECTED" | "HELD"
   holdReason    String?
   responseText  String?
   createdAt     DateTime  @default(now())
@@ -1267,14 +1270,14 @@ model RfiReviewer {
  * the history is in this table for audit and to render a thread.
  */
 model RfiResponse {
-  id          String    @id @default(cuid())
-  rfiId       String
-  rfi         RFI       @relation(fields: [rfiId], references: [id], onDelete: Cascade)
-  respondedBy String
-  respondedAt DateTime  @default(now())
-  responseText String
+  id            String   @id @default(cuid())
+  rfiId         String
+  rfi           RFI      @relation(fields: [rfiId], references: [id], onDelete: Cascade)
+  respondedBy   String
+  respondedAt   DateTime @default(now())
+  responseText  String
   attachmentUrl String?
-  createdAt   DateTime  @default(now())
+  createdAt     DateTime @default(now())
 
   @@index([rfiId])
 }
@@ -1285,15 +1288,15 @@ model RfiResponse {
  * drawing sheet as the index; this is the bridge.
  */
 model RfiDrawingPin {
-  id            String       @id @default(cuid())
-  rfiId         String
-  rfi           RFI          @relation(fields: [rfiId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  rfiId          String
+  rfi            RFI          @relation(fields: [rfiId], references: [id], onDelete: Cascade)
   drawingSheetId String
-  drawingSheet  DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
-  xRatio        Float        // 0..1 normalized within the sheet
-  yRatio        Float
-  note          String?
-  createdAt     DateTime     @default(now())
+  drawingSheet   DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
+  xRatio         Float // 0..1 normalized within the sheet
+  yRatio         Float
+  note           String?
+  createdAt      DateTime     @default(now())
 
   @@index([rfiId])
   @@index([drawingSheetId])
@@ -1330,19 +1333,19 @@ model SubmittalReviewer {
  * the architect kept rejecting it."
  */
 model SubmittalCycle {
-  id          String    @id @default(cuid())
-  submittalId String
-  submittal   Submittal @relation(fields: [submittalId], references: [id], onDelete: Cascade)
-  cycleNumber Int
-  submittedAt DateTime?
-  submittedBy String?
-  decidedAt   DateTime?
-  decision    String?    // "APPROVED" | "APPROVED_AS_NOTED" | "REVISE_AND_RESUBMIT" | "REJECTED"
-  decidedBy   String?
-  holdReason  String?
-  responseText String?
+  id            String    @id @default(cuid())
+  submittalId   String
+  submittal     Submittal @relation(fields: [submittalId], references: [id], onDelete: Cascade)
+  cycleNumber   Int
+  submittedAt   DateTime?
+  submittedBy   String?
+  decidedAt     DateTime?
+  decision      String? // "APPROVED" | "APPROVED_AS_NOTED" | "REVISE_AND_RESUBMIT" | "REJECTED"
+  decidedBy     String?
+  holdReason    String?
+  responseText  String?
   attachmentUrl String?
-  createdAt   DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   @@unique([submittalId, cycleNumber])
   @@index([submittalId])
@@ -1468,40 +1471,40 @@ model Ticket {
 }
 
 model SafetyIncident {
-  id                String         @id @default(cuid())
-  projectId         String
-  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title             String
-  severity          String
-  description       String?
-  status            WorkflowStatus @default(DRAFT)
-  occurredAt        DateTime
-  submittedAt       DateTime?
-  submittedBy       String?
-  approvedAt        DateTime?
-  approvedBy        String?
-  rejectedAt        DateTime?
-  rejectedBy        String?
-  rejectionReason   String?
-  approvalNote      String?
-  correctiveActions String?
+  id                  String         @id @default(cuid())
+  projectId           String
+  project             Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title               String
+  severity            String
+  description         String?
+  status              WorkflowStatus @default(DRAFT)
+  occurredAt          DateTime
+  submittedAt         DateTime?
+  submittedBy         String?
+  approvedAt          DateTime?
+  approvedBy          String?
+  rejectedAt          DateTime?
+  rejectedBy          String?
+  rejectionReason     String?
+  approvalNote        String?
+  correctiveActions   String?
   // Geotagging (req §7.24): safety reporting often needs precise location
   // for OSHA filings and trend mapping by area / station / utility run.
-  segment           String?
-  station           String?
-  latitude          Float?
-  longitude         Float?
+  segment             String?
+  station             String?
+  latitude            Float?
+  longitude           Float?
   // OSHA classification — ties into the 300/300A/301 export.
-  oshaClassification String?       // RECORDABLE | LOST_TIME | NEAR_MISS | FIRST_AID
-  bodyPart          String?
-  injuryNature      String?
-  rootCauseTreeJson String?         // 5-whys / fishbone analysis
-  daysAwayCount     Int             @default(0)
-  daysRestrictedCount Int           @default(0)
-  oshaCaseNumber    String?
-  reportedToOshaAt  DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime?      @updatedAt
+  oshaClassification  String? // RECORDABLE | LOST_TIME | NEAR_MISS | FIRST_AID
+  bodyPart            String?
+  injuryNature        String?
+  rootCauseTreeJson   String? // 5-whys / fishbone analysis
+  daysAwayCount       Int            @default(0)
+  daysRestrictedCount Int            @default(0)
+  oshaCaseNumber      String?
+  reportedToOshaAt    DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime?      @updatedAt
 
   @@index([projectId])
 }
@@ -1512,16 +1515,16 @@ model SafetyIncident {
  * talks; OSHA may request these on inspection.
  */
 model SafetyToolboxTalk {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  topic       String
-  conductedAt DateTime
-  conductedBy String?
-  attendeesJson String @default("[]")  // [{name, signature?}]
-  contentText String?
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  topic         String
+  conductedAt   DateTime
+  conductedBy   String?
+  attendeesJson String   @default("[]") // [{name, signature?}]
+  contentText   String?
   attachmentUrl String?
-  createdAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   @@index([projectId, conductedAt])
 }
@@ -1532,22 +1535,22 @@ model SafetyToolboxTalk {
  * who reviewed it before the work started.
  */
 model JobHazardAnalysis {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title       String
+  id              String    @id @default(cuid())
+  projectId       String
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String
   taskDescription String?
-  preparedBy  String?
-  reviewedBy  String?
-  approvedAt  DateTime?
-  approvedBy  String?
-  stepsJson   String   @default("[]")  // [{step, hazard, control}]
-  signOffsJson String  @default("[]")  // [{name, signedAt}]
-  validFrom   DateTime?
-  validTo     DateTime?
-  attachmentUrl String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  preparedBy      String?
+  reviewedBy      String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  stepsJson       String    @default("[]") // [{step, hazard, control}]
+  signOffsJson    String    @default("[]") // [{name, signedAt}]
+  validFrom       DateTime?
+  validTo         DateTime?
+  attachmentUrl   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([projectId])
 }
@@ -1558,20 +1561,20 @@ model JobHazardAnalysis {
  * trend by area / trade.
  */
 model SafetyObservation {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  observerName String?
-  observedAt  DateTime @default(now())
-  category    String   // "POSITIVE" | "AT_RISK" | "NEAR_MISS"
-  area        String?
-  trade       String?
-  description String
+  id               String    @id @default(cuid())
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  observerName     String?
+  observedAt       DateTime  @default(now())
+  category         String // "POSITIVE" | "AT_RISK" | "NEAR_MISS"
+  area             String?
+  trade            String?
+  description      String
   correctiveAction String?
-  followUpNeeded Boolean @default(false)
+  followUpNeeded   Boolean   @default(false)
   followUpClosedAt DateTime?
-  attachmentUrl String?
-  createdAt   DateTime @default(now())
+  attachmentUrl    String?
+  createdAt        DateTime  @default(now())
 
   @@index([projectId, observedAt])
 }
@@ -1646,52 +1649,57 @@ model AuditEvent {
 }
 
 model ChangeOrder {
-  id                 String            @id @default(cuid())
-  projectId          String
-  project            Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  coNumber           String
-  kind               ChangeOrderKind   @default(PCO)
-  title              String
-  description        String?
-  reason             String?
-  amount             Float             @default(0)
-  markupPct          Float             @default(0)
-  scheduleImpactDays Int               @default(0)
-  status             ChangeOrderStatus @default(DRAFT)
-  requestedById      String?
-  approvedById       String?
-  requestedAt        DateTime?
-  approvedAt         DateTime?
-  submittedBy        String?
-  approvedBy         String?
-  rejectedAt         DateTime?
-  rejectedBy         String?
-  rejectionReason    String?
-  approvalNote       String?
-  executedAt         DateTime?
-  linkedRfiId        String?
-  linkedSubmittalId  String?
+  id                  String            @id @default(cuid())
+  projectId           String
+  project             Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  coNumber            String
+  kind                ChangeOrderKind   @default(PCO)
+  title               String
+  description         String?
+  reason              String?
+  amount              Float             @default(0)
+  markupPct           Float             @default(0)
+  scheduleImpactDays  Int               @default(0)
+  status              ChangeOrderStatus @default(DRAFT)
+  requestedById       String?
+  approvedById        String?
+  requestedAt         DateTime?
+  approvedAt          DateTime?
+  submittedBy         String?
+  approvedBy          String?
+  rejectedAt          DateTime?
+  rejectedBy          String?
+  rejectionReason     String?
+  approvalNote        String?
+  executedAt          DateTime?
+  // Linked source records — when an RFI response or submittal review
+  // prompts the CO. Optional + SetNull on parent delete so the CO
+  // record survives as an independent audit trail.
+  linkedRfiId         String?
+  linkedRfi           RFI?       @relation("RfiLinkedChangeOrders", fields: [linkedRfiId], references: [id], onDelete: SetNull)
+  linkedSubmittalId   String?
+  linkedSubmittal     Submittal? @relation("SubmittalLinkedChangeOrders", fields: [linkedSubmittalId], references: [id], onDelete: SetNull)
   // Sub CO carry-down — when an owner CO is approved, child sub COs
   // are auto-created against the affected sub contracts. This field
   // is null on owner-tier COs and set on sub-tier ones to reference
   // the parent.
   parentChangeOrderId String?
-  parentChangeOrder   ChangeOrder?  @relation("ChangeOrderParent", fields: [parentChangeOrderId], references: [id], onDelete: SetNull)
-  childChangeOrders   ChangeOrder[] @relation("ChangeOrderParent")
+  parentChangeOrder   ChangeOrder?      @relation("ChangeOrderParent", fields: [parentChangeOrderId], references: [id], onDelete: SetNull)
+  childChangeOrders   ChangeOrder[]     @relation("ChangeOrderParent")
   // Vendor reference for sub CO. Null on owner COs; set when the
   // sub is the counterparty.
-  vendorId           String?
-  vendor             Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorId            String?
+  vendor              Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   // Dollar split — captures labor / material / equipment for proper
   // job-cost allocation. Sum should match `amount` after markup.
-  laborAmount        Float             @default(0)
-  materialAmount     Float             @default(0)
-  equipmentAmount    Float             @default(0)
-  subAmount          Float             @default(0)
-  ohpAmount          Float             @default(0)  // overhead+profit
-  lines              ChangeOrderLine[]
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  laborAmount         Float             @default(0)
+  materialAmount      Float             @default(0)
+  equipmentAmount     Float             @default(0)
+  subAmount           Float             @default(0)
+  ohpAmount           Float             @default(0) // overhead+profit
+  lines               ChangeOrderLine[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@unique([projectId, coNumber])
   @@index([projectId, status])
@@ -1739,8 +1747,8 @@ model ScheduleTask {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  predecessors ScheduleDependency[] @relation("ScheduleDepSuccessor")
-  successors   ScheduleDependency[] @relation("ScheduleDepPredecessor")
+  predecessors ScheduleDependency[]  @relation("ScheduleDepSuccessor")
+  successors   ScheduleDependency[]  @relation("ScheduleDepPredecessor")
   lookAheads   LookAheadCommitment[]
 
   @@index([projectId])
@@ -1760,9 +1768,9 @@ model ScheduleBaseline {
   label       String
   capturedAt  DateTime @default(now())
   capturedBy  String?
-  reason      String?  // "Initial baseline", "Owner-approved CO 7", etc.
+  reason      String? // "Initial baseline", "Owner-approved CO 7", etc.
   notes       String?
-  payloadJson String   // serialized snapshot of all ScheduleTasks at capture time
+  payloadJson String // serialized snapshot of all ScheduleTasks at capture time
   createdAt   DateTime @default(now())
 
   @@unique([projectId, label])
@@ -1775,19 +1783,19 @@ model ScheduleBaseline {
  * actual completion + a percent-plan-complete (PPC) measure.
  */
 model LookAheadCommitment {
-  id              String        @id @default(cuid())
-  projectId       String
-  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  scheduleTaskId  String?
-  scheduleTask    ScheduleTask? @relation(fields: [scheduleTaskId], references: [id], onDelete: SetNull)
-  weekStarting    DateTime
-  description     String
-  responsibleParty String
-  plannedComplete Boolean       @default(false)
-  actualComplete  Boolean       @default(false)
-  reasonNotComplete String?     // standard last-planner reason codes
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  projectId         String
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scheduleTaskId    String?
+  scheduleTask      ScheduleTask? @relation(fields: [scheduleTaskId], references: [id], onDelete: SetNull)
+  weekStarting      DateTime
+  description       String
+  responsibleParty  String
+  plannedComplete   Boolean       @default(false)
+  actualComplete    Boolean       @default(false)
+  reasonNotComplete String? // standard last-planner reason codes
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@index([projectId, weekStarting])
 }
@@ -1800,21 +1808,21 @@ model LookAheadCommitment {
  * ChangeOrderLine to roll up costs by division/discipline.
  */
 model CostCode {
-  id            String   @id @default(cuid())
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parentId      String?
-  parent        CostCode? @relation("CostCodeParent", fields: [parentId], references: [id], onDelete: SetNull)
-  children      CostCode[] @relation("CostCodeParent")
-  code          String    // "03", "03 30 00", "03-310-100"
-  name          String    // "Concrete", "Cast-in-Place Concrete", "Foundations"
-  description   String?
-  csiDivision   String?   // "03"
-  csiSection    String?   // "03 30 00"
-  level         Int       @default(0)  // depth for tree rendering
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String     @id @default(cuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      CostCode?  @relation("CostCodeParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children    CostCode[] @relation("CostCodeParent")
+  code        String // "03", "03 30 00", "03-310-100"
+  name        String // "Concrete", "Cast-in-Place Concrete", "Foundations"
+  description String?
+  csiDivision String? // "03"
+  csiSection  String? // "03 30 00"
+  level       Int        @default(0) // depth for tree rendering
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@unique([tenantId, code])
   @@index([tenantId, parentId])
@@ -1828,31 +1836,31 @@ model CostCode {
  * and a calculated score that drives "qualified for jobs $X-$Y."
  */
 model VendorPrequalification {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   tenantId            String
-  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   vendorId            String
-  vendor              Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  formVersion         String   @default("v1")
-  status              String   @default("PENDING")  // PENDING | APPROVED | REJECTED | EXPIRED
+  vendor              Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  formVersion         String    @default("v1")
+  status              String    @default("PENDING") // PENDING | APPROVED | REJECTED | EXPIRED
   // Financial data the prequal collects.
   yearsInBusiness     Int?
   annualRevenue       Float?
   largestProjectValue Float?
   bondingCapacity     Float?
   bondingAggregate    Float?
-  emrRate             Float?   // experience modification rate (safety)
+  emrRate             Float? // experience modification rate (safety)
   // Insurance + license summary (the actual records live in InsuranceCert + ContractorLicense).
-  insuranceVerified   Boolean  @default(false)
-  licenseVerified     Boolean  @default(false)
+  insuranceVerified   Boolean   @default(false)
+  licenseVerified     Boolean   @default(false)
   workersCompCarrier  String?
   glLimitMillions     Float?
   // Scoring + decision.
   score               Float?
-  scoreBreakdownJson  String   @default("{}")
+  scoreBreakdownJson  String    @default("{}")
   qualifiedFromValue  Float?
   qualifiedToValue    Float?
-  qualifiedTrades     String   @default("[]")
+  qualifiedTrades     String    @default("[]")
   expiresAt           DateTime?
   approvedAt          DateTime?
   approvedBy          String?
@@ -1860,8 +1868,8 @@ model VendorPrequalification {
   rejectedBy          String?
   rejectionReason     String?
   notes               String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   references VendorReference[]
 
@@ -1878,18 +1886,18 @@ model VendorPrequalification {
  * can hit ("read:projects", "write:rfis").
  */
 model ApiToken {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
-  prefix      String   @unique
+  prefix      String    @unique
   secretHash  String
-  scopesJson  String   @default("[]")
+  scopesJson  String    @default("[]")
   createdById String?
   lastUsedAt  DateTime?
   expiresAt   DateTime?
   revokedAt   DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([tenantId])
 }
@@ -1901,18 +1909,18 @@ model ApiToken {
  * matching event type.
  */
 model WebhookEndpoint {
-  id           String   @id @default(cuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  url          String
-  secret       String   // shared secret for HMAC signature
-  eventsJson   String   @default("[]")  // ["rfi.created","payapp.approved", "*"]
-  active       Boolean  @default(true)
+  id             String    @id @default(cuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url            String
+  secret         String // shared secret for HMAC signature
+  eventsJson     String    @default("[]") // ["rfi.created","payapp.approved", "*"]
+  active         Boolean   @default(true)
   lastDeliveryAt DateTime?
   lastSuccessAt  DateTime?
-  failureCount Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  failureCount   Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   deliveries WebhookDelivery[]
 
@@ -1923,7 +1931,7 @@ model WebhookEndpoint {
  * Single delivery attempt log — for debugging webhook integrations.
  */
 model WebhookDelivery {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   endpointId   String
   endpoint     WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
   eventType    String
@@ -1931,8 +1939,8 @@ model WebhookDelivery {
   responseCode Int?
   responseBody String?
   durationMs   Int?
-  succeeded    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  succeeded    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
 
   @@index([endpointId, createdAt])
 }
@@ -1943,19 +1951,19 @@ model WebhookDelivery {
  * Lets the GC bring outside collaborators in without a paid seat.
  */
 model GuestAccount {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email       String
-  name        String?
-  role        String   @default("OWNER_REVIEWER")  // OWNER_REVIEWER | ARCHITECT | INSPECTOR | SUB
-  scopeJson   String   @default("{}")  // {projectIds:[…], allowRespond:true}
-  magicTokenHash String?
+  id                  String    @id @default(cuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email               String
+  name                String?
+  role                String    @default("OWNER_REVIEWER") // OWNER_REVIEWER | ARCHITECT | INSPECTOR | SUB
+  scopeJson           String    @default("{}") // {projectIds:[…], allowRespond:true}
+  magicTokenHash      String?
   magicTokenExpiresAt DateTime?
-  lastSeenAt  DateTime?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  lastSeenAt          DateTime?
+  active              Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -1966,15 +1974,15 @@ model GuestAccount {
  * route reads these and sends rolled-up summaries (daily / weekly).
  */
 model EmailDigest {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recipient   String
-  cadence     String   @default("WEEKLY")  // DAILY | WEEKLY
-  sectionsJson String  @default("[]")  // ["rfi","payapp","alerts","listings"]
-  active      Boolean  @default(true)
-  lastSentAt  DateTime?
-  createdAt   DateTime @default(now())
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipient    String
+  cadence      String    @default("WEEKLY") // DAILY | WEEKLY
+  sectionsJson String    @default("[]") // ["rfi","payapp","alerts","listings"]
+  active       Boolean   @default(true)
+  lastSentAt   DateTime?
+  createdAt    DateTime  @default(now())
 
   @@unique([tenantId, recipient, cadence])
   @@index([tenantId])
@@ -1985,18 +1993,18 @@ model EmailDigest {
  * supplier). Reference checks recorded on calledAt + outcomeNotes.
  */
 model VendorReference {
-  id                String                 @id @default(cuid())
-  prequalId         String
-  prequal           VendorPrequalification @relation(fields: [prequalId], references: [id], onDelete: Cascade)
-  contactName       String
-  company           String
-  email             String?
-  phone             String?
-  relationship      String?
-  calledAt          DateTime?
-  outcomeRating     Int?    // 1-5
-  outcomeNotes      String?
-  createdAt         DateTime @default(now())
+  id            String                 @id @default(cuid())
+  prequalId     String
+  prequal       VendorPrequalification @relation(fields: [prequalId], references: [id], onDelete: Cascade)
+  contactName   String
+  company       String
+  email         String?
+  phone         String?
+  relationship  String?
+  calledAt      DateTime?
+  outcomeRating Int? // 1-5
+  outcomeNotes  String?
+  createdAt     DateTime               @default(now())
 
   @@index([prequalId])
 }
@@ -2125,52 +2133,52 @@ model PayApplicationLine {
 }
 
 model LienWaiver {
-  id              String           @id @default(cuid())
-  projectId       String
-  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contractId      String?
-  contract        Contract?        @relation(fields: [contractId], references: [id], onDelete: SetNull)
-  waiverType      LienWaiverType
-  partyName       String
-  throughDate     DateTime
-  amount          Float            @default(0)
-  status          LienWaiverStatus @default(PENDING)
-  receivedAt      DateTime?
-  receivedBy      String?
-  approvedAt      DateTime?
-  approvedBy      String?
-  rejectedAt      DateTime?
-  rejectedBy      String?
-  rejectionReason String?
-  approvalNote    String?
-  documentUrl     String?
-  notes           String?
+  id                 String           @id @default(cuid())
+  projectId          String
+  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractId         String?
+  contract           Contract?        @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  waiverType         LienWaiverType
+  partyName          String
+  throughDate        DateTime
+  amount             Float            @default(0)
+  status             LienWaiverStatus @default(PENDING)
+  receivedAt         DateTime?
+  receivedBy         String?
+  approvedAt         DateTime?
+  approvedBy         String?
+  rejectedAt         DateTime?
+  rejectedBy         String?
+  rejectionReason    String?
+  approvalNote       String?
+  documentUrl        String?
+  notes              String?
   // Sub-tier waiver chain — when a sub's lower-tier suppliers /
   // sub-subs file their own waivers, they link upward via
   // parentWaiverId. The pay app to the sub releases only when this
   // chain is complete.
-  parentWaiverId  String?
-  parentWaiver    LienWaiver?      @relation("LienWaiverChain", fields: [parentWaiverId], references: [id], onDelete: SetNull)
-  childWaivers    LienWaiver[]     @relation("LienWaiverChain")
+  parentWaiverId     String?
+  parentWaiver       LienWaiver?      @relation("LienWaiverChain", fields: [parentWaiverId], references: [id], onDelete: SetNull)
+  childWaivers       LienWaiver[]     @relation("LienWaiverChain")
   // Reference to the sub invoice this waiver covers — drives the
   // conditional release logic ("don't pay until matching waiver
   // received").
-  subInvoiceId    String?
-  subInvoice      SubInvoice?      @relation("LienWaiverSubInvoice", fields: [subInvoiceId], references: [id], onDelete: SetNull)
+  subInvoiceId       String?
+  subInvoice         SubInvoice?      @relation("LienWaiverSubInvoice", fields: [subInvoiceId], references: [id], onDelete: SetNull)
   // State-specific compliance — some states require notarization or
   // a specific statutory form. Capture which statute the waiver was
   // produced under.
-  statutoryFormState String?       // "FL", "TX", "CA"
-  notarized       Boolean          @default(false)
-  notarizedAt     DateTime?
-  notaryName      String?
+  statutoryFormState String? // "FL", "TX", "CA"
+  notarized          Boolean          @default(false)
+  notarizedAt        DateTime?
+  notaryName         String?
   // Generation source — manual upload vs auto-generated by the
   // platform. Auto-generation produces conditional waivers attached
   // to pay-app submission and unconditional waivers attached to
   // payment receipt.
-  generationSource String          @default("UPLOADED")  // UPLOADED | AUTO_GENERATED
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  generationSource   String           @default("UPLOADED") // UPLOADED | AUTO_GENERATED
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@index([projectId])
   @@index([contractId])
@@ -2215,15 +2223,15 @@ model Inspection {
  * maintain its own templates.
  */
 model QualityChecklistTemplate {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name        String   // "Concrete Pour Pre-Pour Checklist"
-  trade       String?
-  itemsJson   String   @default("[]")  // [{title, codeReference, requirement}]
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String // "Concrete Pour Pre-Pour Checklist"
+  trade     String?
+  itemsJson String   @default("[]") // [{title, codeReference, requirement}]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -2236,30 +2244,31 @@ model QualityChecklistTemplate {
  * RFI when disposition needs designer input.
  */
 model NonConformanceReport {
-  id              String      @id @default(cuid())
-  projectId       String
-  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  inspectionId    String?
-  inspection      Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
-  ncrNumber       String
-  title           String
-  category        String?     // "DIMENSIONAL" | "MATERIAL" | "WORKMANSHIP" | "DOCUMENTATION"
-  severity        String      @default("MAJOR") // MINOR | MAJOR | CRITICAL
-  description     String
-  rootCause       String?
-  disposition     String?     // REWORK | USE_AS_IS | SCRAP | REPAIR | RETURN_TO_VENDOR
-  correctiveAction String?
-  preventiveAction String?
-  attachmentUrl   String?
-  raisedById      String?
-  raisedAt        DateTime    @default(now())
-  closedAt        DateTime?
-  closedBy        String?
-  costImpact      Float       @default(0)
-  scheduleImpactDays Int      @default(0)
-  linkedRfiId     String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                 String      @id @default(cuid())
+  projectId          String
+  project            Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inspectionId       String?
+  inspection         Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  ncrNumber          String
+  title              String
+  category           String? // "DIMENSIONAL" | "MATERIAL" | "WORKMANSHIP" | "DOCUMENTATION"
+  severity           String      @default("MAJOR") // MINOR | MAJOR | CRITICAL
+  description        String
+  rootCause          String?
+  disposition        String? // REWORK | USE_AS_IS | SCRAP | REPAIR | RETURN_TO_VENDOR
+  correctiveAction   String?
+  preventiveAction   String?
+  attachmentUrl      String?
+  raisedById         String?
+  raisedAt           DateTime    @default(now())
+  closedAt           DateTime?
+  closedBy           String?
+  costImpact         Float       @default(0)
+  scheduleImpactDays Int         @default(0)
+  linkedRfiId        String?
+  linkedRfi          RFI?        @relation("RfiLinkedNcrs", fields: [linkedRfiId], references: [id], onDelete: SetNull)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   @@unique([projectId, ncrNumber])
   @@index([projectId])
@@ -2272,20 +2281,20 @@ model NonConformanceReport {
  * checklist of required deliverables.
  */
 model CloseoutPackage {
-  id              String   @id @default(cuid())
-  projectId       String   @unique
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  status          String   @default("DRAFT")
-  checklistJson   String   @default("[]")  // [{label, complete, evidenceUrl?}]
-  completionPct   Float    @default(0)
-  ownerAcceptedAt DateTime?
-  ownerAcceptedBy String?
+  id                String    @id @default(cuid())
+  projectId         String    @unique
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status            String    @default("DRAFT")
+  checklistJson     String    @default("[]") // [{label, complete, evidenceUrl?}]
+  completionPct     Float     @default(0)
+  ownerAcceptedAt   DateTime?
+  ownerAcceptedBy   String?
   punchListClosedAt DateTime?
-  warrantyStartAt DateTime?
-  warrantyEndAt   DateTime?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  warrantyStartAt   DateTime?
+  warrantyEndAt     DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([projectId])
 }
@@ -2376,33 +2385,33 @@ model BidPackage {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  subBids        SubBid[]
+  subBids         SubBid[]
   levelingResults BidLevelingResult[]
 
   @@index([projectId, status])
 }
 
 model SubBid {
-  id             String       @id @default(cuid())
-  bidPackageId   String
-  bidPackage     BidPackage   @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
-  vendorId       String
-  vendor         Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  bidAmount      Float?
-  daysToComplete Int?
-  inclusions     String?
-  exclusions     String?
+  id                  String       @id @default(cuid())
+  bidPackageId        String
+  bidPackage          BidPackage   @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
+  vendorId            String
+  vendor              Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bidAmount           Float?
+  daysToComplete      Int?
+  inclusions          String?
+  exclusions          String?
   // Bid clarification questions raised by this sub during bidding +
   // overall qualifications/voluntary alternates.
-  clarifications String?
+  clarifications      String?
   voluntaryAlternates String?
-  status         SubBidStatus @default(INVITED)
-  submittedAt    DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  status              SubBidStatus @default(INVITED)
+  submittedAt         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
-  lines           SubBidLine[]
-  awardedScopes   BidLevelingResult[]
+  lines         SubBidLine[]
+  awardedScopes BidLevelingResult[]
 
   @@unique([bidPackageId, vendorId])
   @@index([bidPackageId])
@@ -2416,19 +2425,19 @@ model SubBid {
  * lines for the same scope item; the leveling UI groups by it.
  */
 model SubBidLine {
-  id            String   @id @default(cuid())
-  subBidId      String
-  subBid        SubBid   @relation(fields: [subBidId], references: [id], onDelete: Cascade)
-  scopeItemKey  String
-  description   String
-  quantity      Float?
-  uom           String?
-  unitPrice     Float?
-  amount        Float
-  costCode      String?
-  inclusion     Boolean  @default(true)  // false = exclusion
-  notes         String?
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  subBidId     String
+  subBid       SubBid   @relation(fields: [subBidId], references: [id], onDelete: Cascade)
+  scopeItemKey String
+  description  String
+  quantity     Float?
+  uom          String?
+  unitPrice    Float?
+  amount       Float
+  costCode     String?
+  inclusion    Boolean  @default(true) // false = exclusion
+  notes        String?
+  createdAt    DateTime @default(now())
 
   @@index([subBidId])
   @@index([scopeItemKey])
@@ -2440,15 +2449,15 @@ model SubBidLine {
  * to which sub.
  */
 model BidLevelingResult {
-  id            String     @id @default(cuid())
-  bidPackageId  String
-  bidPackage    BidPackage @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
-  scopeItemKey  String
+  id                String     @id @default(cuid())
+  bidPackageId      String
+  bidPackage        BidPackage @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
+  scopeItemKey      String
   awardedToSubBidId String
-  awardedToSubBid SubBid    @relation(fields: [awardedToSubBidId], references: [id], onDelete: Cascade)
-  rationale     String?
-  decidedAt     DateTime   @default(now())
-  decidedBy     String?
+  awardedToSubBid   SubBid     @relation(fields: [awardedToSubBidId], references: [id], onDelete: Cascade)
+  rationale         String?
+  decidedAt         DateTime   @default(now())
+  decidedBy         String?
 
   @@unique([bidPackageId, scopeItemKey])
   @@index([bidPackageId])
@@ -2460,22 +2469,22 @@ model BidLevelingResult {
  * dashboard rollups across projects in the program.
  */
 model CapitalProgram {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name          String
   description   String?
   ownerName     String?
-  ownerType     String?  // "PRIVATE" | "PUBLIC_AGENCY" | "INSTITUTIONAL"
+  ownerType     String? // "PRIVATE" | "PUBLIC_AGENCY" | "INSTITUTIONAL"
   totalBudget   Float?
   contingency   Float?
   fundingSource String?
   startDate     DateTime?
   endDate       DateTime?
-  status        String   @default("ACTIVE")
+  status        String    @default("ACTIVE")
   notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   projects CapitalProgramProject[]
 
@@ -2488,15 +2497,15 @@ model CapitalProgram {
  * lists a project under both "Bond 2024" and "Annual Capital Plan").
  */
 model CapitalProgramProject {
-  id              String         @id @default(cuid())
+  id               String         @id @default(cuid())
   capitalProgramId String
-  capitalProgram  CapitalProgram @relation(fields: [capitalProgramId], references: [id], onDelete: Cascade)
-  projectId       String
-  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  programBudget   Float?
-  drawSchedule    String?
-  notes           String?
-  createdAt       DateTime       @default(now())
+  capitalProgram   CapitalProgram @relation(fields: [capitalProgramId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  programBudget    Float?
+  drawSchedule     String?
+  notes            String?
+  createdAt        DateTime       @default(now())
 
   @@unique([capitalProgramId, projectId])
   @@index([capitalProgramId])
@@ -2579,21 +2588,21 @@ model SubInvoice {
   // Reference to the GC's purchase order (if any) for 3-way match.
   // The 3-way-match worker compares lines[].amount against
   // PurchaseOrderReceiptLine quantities × PurchaseOrderLine.unitPrice.
-  purchaseOrderId String?
-  matchStatus     String          @default("UNMATCHED")  // UNMATCHED | MATCHED | VARIANCE | DISPUTED
-  matchVarianceCents Int          @default(0)
+  purchaseOrderId    String?
+  matchStatus        String  @default("UNMATCHED") // UNMATCHED | MATCHED | VARIANCE | DISPUTED
+  matchVarianceCents Int     @default(0)
   // Joint check setup — if true, payment is co-payable to vendor and
   // a third party (typically supplier or surety) and JointCheckParty
   // captures the named co-payee.
-  isJointCheck    Boolean          @default(false)
-  jointPartyName  String?
-  jointPartyTaxId String?
+  isJointCheck       Boolean @default(false)
+  jointPartyName     String?
+  jointPartyTaxId    String?
   // Sub default insurance — premium retained from each pay to fund
   // sub-default coverage on this contract.
-  subDefaultPremium Float          @default(0)
+  subDefaultPremium  Float   @default(0)
 
-  lines    SubInvoiceLine[]
-  waivers  LienWaiver[]            @relation("LienWaiverSubInvoice")
+  lines   SubInvoiceLine[]
+  waivers LienWaiver[]     @relation("LienWaiverSubInvoice")
 
   @@unique([projectId, invoiceNumber])
   @@index([projectId])
@@ -2607,19 +2616,19 @@ model SubInvoice {
  * presentation back to the owner.
  */
 model SubInvoiceLine {
-  id            String     @id @default(cuid())
-  subInvoiceId  String
-  subInvoice    SubInvoice @relation(fields: [subInvoiceId], references: [id], onDelete: Cascade)
-  lineNumber    Int
-  description   String
-  costCode      String?
-  quantity      Float?
-  unitPrice     Float?
-  amount        Float
-  poLineId      String?
-  retainage     Float      @default(0)
-  notes         String?
-  createdAt     DateTime   @default(now())
+  id           String     @id @default(cuid())
+  subInvoiceId String
+  subInvoice   SubInvoice @relation(fields: [subInvoiceId], references: [id], onDelete: Cascade)
+  lineNumber   Int
+  description  String
+  costCode     String?
+  quantity     Float?
+  unitPrice    Float?
+  amount       Float
+  poLineId     String?
+  retainage    Float      @default(0)
+  notes        String?
+  createdAt    DateTime   @default(now())
 
   @@unique([subInvoiceId, lineNumber])
   @@index([subInvoiceId])
@@ -2672,7 +2681,7 @@ model PurchaseOrderLine {
   description     String
   costCode        String?
   quantity        Float
-  uom             String?       // unit of measure
+  uom             String? // unit of measure
   unitPrice       Float
   amount          Float
   receivedQty     Float         @default(0)
@@ -2703,7 +2712,7 @@ model PurchaseOrderReceipt {
   trackingNumber  String?
   damageNoted     Boolean       @default(false)
   damageNotes     String?
-  attachmentUrl   String?       // signed delivery ticket
+  attachmentUrl   String? // signed delivery ticket
   createdAt       DateTime      @default(now())
 
   lines PurchaseOrderReceiptLine[]
@@ -2713,14 +2722,14 @@ model PurchaseOrderReceipt {
 }
 
 model PurchaseOrderReceiptLine {
-  id          String                @id @default(cuid())
-  receiptId   String
-  receipt     PurchaseOrderReceipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  poLineId    String
-  poLine      PurchaseOrderLine     @relation(fields: [poLineId], references: [id], onDelete: Cascade)
-  quantity    Float
-  notes       String?
-  createdAt   DateTime              @default(now())
+  id        String               @id @default(cuid())
+  receiptId String
+  receipt   PurchaseOrderReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  poLineId  String
+  poLine    PurchaseOrderLine    @relation(fields: [poLineId], references: [id], onDelete: Cascade)
+  quantity  Float
+  notes     String?
+  createdAt DateTime             @default(now())
 
   @@index([receiptId])
   @@index([poLineId])
@@ -2790,14 +2799,14 @@ model Permit {
  * critical-path delays when a prereq slips.
  */
 model PermitPrerequisite {
-  id                  String       @id @default(cuid())
-  dependentPermitId   String
-  dependentPermit     Permit       @relation("PermitDependent", fields: [dependentPermitId], references: [id], onDelete: Cascade)
-  requiredPermitId    String
-  requiredPermit      Permit       @relation("PermitRequired",  fields: [requiredPermitId],  references: [id], onDelete: Cascade)
-  requiredStatus      PermitStatus @default(ISSUED)
-  notes               String?
-  createdAt           DateTime     @default(now())
+  id                String       @id @default(cuid())
+  dependentPermitId String
+  dependentPermit   Permit       @relation("PermitDependent", fields: [dependentPermitId], references: [id], onDelete: Cascade)
+  requiredPermitId  String
+  requiredPermit    Permit       @relation("PermitRequired", fields: [requiredPermitId], references: [id], onDelete: Cascade)
+  requiredStatus    PermitStatus @default(ISSUED)
+  notes             String?
+  createdAt         DateTime     @default(now())
 
   @@unique([dependentPermitId, requiredPermitId])
   @@index([dependentPermitId])
@@ -2955,33 +2964,33 @@ enum AgencyTier {
 }
 
 model SolicitationPortalCatalog {
-  id            String      @id @default(cuid())
-  name          String
-  url           String      @unique
-  category      String
+  id                String      @id @default(cuid())
+  name              String
+  url               String      @unique
+  category          String
   // Structured agency classification (added 2026-05-01) lets the
   // discover UI categorize portals federal vs state vs county vs
   // municipal vs aggregator and surface DoD / VA / GSA sub-tiers.
-  agencyKind    AgencyKind  @default(FEDERAL)
-  agencyTier    AgencyTier  @default(CIVILIAN)
-  agencyName    String?
-  geoScope      String
-  geoCity       String?
-  geoState      String?
-  geoCountry    String      @default("US")
-  authType      String      @default("NONE")
-  signupUrl     String?
-  description   String?
-  naicsFocus    String?
-  setAsideFocus String?
+  agencyKind        AgencyKind  @default(FEDERAL)
+  agencyTier        AgencyTier  @default(CIVILIAN)
+  agencyName        String?
+  geoScope          String
+  geoCity           String?
+  geoState          String?
+  geoCountry        String      @default("US")
+  authType          String      @default("NONE")
+  signupUrl         String?
+  description       String?
+  naicsFocus        String?
+  setAsideFocus     String?
   // scraperKind names the integration backing this portal. MANUAL means
   // no auto-scraper — operators visit the portal's UI directly. The
   // sweep dispatcher refuses to run MANUAL/DEPRECATED portals so the
   // app never fabricates listings.
-  scraperKind   ScraperKind @default(MANUAL)
+  scraperKind       ScraperKind @default(MANUAL)
   // scraperModule names the file under src/lib/scrapers/<name>.ts when
   // scraperKind is API/RSS/HTML. Empty for MANUAL/DEPRECATED.
-  scraperModule String?
+  scraperModule     String?
   // Verification telemetry — written by scripts/verify-html-scrapers.ts
   // and the periodic sweep cron. lastVerifiedAt is null until the
   // first probe; lastVerifiedOk records the binary outcome;
@@ -2992,8 +3001,8 @@ model SolicitationPortalCatalog {
   lastVerifiedOk    Boolean?
   lastVerifiedCount Int?
   lastVerifiedNote  String?
-  active            Boolean   @default(true)
-  createdAt         DateTime  @default(now())
+  active            Boolean     @default(true)
+  createdAt         DateTime    @default(now())
 
   rfpSources RfpSource[]
 
@@ -3045,17 +3054,17 @@ model RfpListing {
 
   bidDrafts BidDraft[]
 
-  @@index([tenantId])
-  @@index([sourceId])
-  @@index([tenantId, score])
-  @@index([tenantId, dueAt])
-  @@index([tenantId, status])
   // Prevent double-ingest from concurrent sweeps. SQLite treats NULL
   // values as distinct in unique indexes (per SQL standard), so
   // listings without a solicitationNo can still co-exist — but
   // real-numbered listings can't be duplicated for the same tenant +
   // agency. Pairs with the upsert in src/lib/rfp-crawl.ts.
   @@unique([tenantId, agency, solicitationNo], name: "tenant_agency_sol_unique")
+  @@index([tenantId])
+  @@index([sourceId])
+  @@index([tenantId, score])
+  @@index([tenantId, dueAt])
+  @@index([tenantId, status])
 }
 
 /// Per-tenant matching profile — what makes a listing a "good fit" for
@@ -3258,21 +3267,21 @@ model ComplianceItem {
  * statement reporting cycle.
  */
 model AccountingPeriod {
-  id            String   @id @default(cuid())
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  periodLabel   String   // "2026-04", "Q1 2026", "FY2026"
-  startDate     DateTime
-  endDate       DateTime
-  status        String   @default("OPEN")  // OPEN | CLOSING | CLOSED | REOPENED
-  closedAt      DateTime?
-  closedBy      String?
-  reopenedAt    DateTime?
-  reopenedBy    String?
-  reopenReason  String?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  periodLabel  String // "2026-04", "Q1 2026", "FY2026"
+  startDate    DateTime
+  endDate      DateTime
+  status       String    @default("OPEN") // OPEN | CLOSING | CLOSED | REOPENED
+  closedAt     DateTime?
+  closedBy     String?
+  reopenedAt   DateTime?
+  reopenedBy   String?
+  reopenReason String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   adjustingEntries AdjustingEntry[]
 
@@ -3286,17 +3295,17 @@ model AccountingPeriod {
  * post depreciation, etc. Each entry has paired debit/credit lines.
  */
 model AdjustingEntry {
-  id          String           @id @default(cuid())
-  periodId    String
-  period      AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  entryNumber String
-  description String
-  postedAt    DateTime         @default(now())
-  postedBy    String?
-  reversingDate DateTime?      // for accrual reversal in the next period
-  notes       String?
-  linesJson   String           @default("[]")  // [{accountCode, debit, credit, costCode}]
-  createdAt   DateTime         @default(now())
+  id            String           @id @default(cuid())
+  periodId      String
+  period        AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  entryNumber   String
+  description   String
+  postedAt      DateTime         @default(now())
+  postedBy      String?
+  reversingDate DateTime? // for accrual reversal in the next period
+  notes         String?
+  linesJson     String           @default("[]") // [{accountCode, debit, credit, costCode}]
+  createdAt     DateTime         @default(now())
 
   @@unique([periodId, entryNumber])
   @@index([periodId])
@@ -3308,34 +3317,34 @@ model AdjustingEntry {
  * give CFOs trended views without recomputing.
  */
 model BalanceSheetSnapshot {
-  id             String   @id @default(cuid())
-  tenantId       String
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  asOf           DateTime
+  id                  String   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asOf                DateTime
   // Assets
-  cash                     Float @default(0)
-  accountsReceivable       Float @default(0)
-  retainageReceivable      Float @default(0)
-  costsInExcess            Float @default(0)
-  inventory                Float @default(0)
-  fixedAssetsNet           Float @default(0)
-  otherAssets              Float @default(0)
-  totalAssets              Float @default(0)
+  cash                Float    @default(0)
+  accountsReceivable  Float    @default(0)
+  retainageReceivable Float    @default(0)
+  costsInExcess       Float    @default(0)
+  inventory           Float    @default(0)
+  fixedAssetsNet      Float    @default(0)
+  otherAssets         Float    @default(0)
+  totalAssets         Float    @default(0)
   // Liabilities
-  accountsPayable          Float @default(0)
-  retainagePayable         Float @default(0)
-  billingsInExcess         Float @default(0)
-  accruedExpenses          Float @default(0)
-  longTermDebt             Float @default(0)
-  otherLiabilities         Float @default(0)
-  totalLiabilities         Float @default(0)
+  accountsPayable     Float    @default(0)
+  retainagePayable    Float    @default(0)
+  billingsInExcess    Float    @default(0)
+  accruedExpenses     Float    @default(0)
+  longTermDebt        Float    @default(0)
+  otherLiabilities    Float    @default(0)
+  totalLiabilities    Float    @default(0)
   // Equity
-  paidInCapital            Float @default(0)
-  retainedEarnings         Float @default(0)
-  currentEarnings          Float @default(0)
-  totalEquity              Float @default(0)
-  source                   String @default("manual")
-  createdAt                DateTime @default(now())
+  paidInCapital       Float    @default(0)
+  retainedEarnings    Float    @default(0)
+  currentEarnings     Float    @default(0)
+  totalEquity         Float    @default(0)
+  source              String   @default("manual")
+  createdAt           DateTime @default(now())
 
   @@unique([tenantId, asOf])
   @@index([tenantId])
@@ -3353,14 +3362,14 @@ model CashFlowForecast {
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   weekStarting DateTime
-  category     String   // "INFLOW_BILLING" | "OUTFLOW_AP" | "OUTFLOW_LABOR" | "INFLOW_RETAINAGE_RELEASE"
+  category     String // "INFLOW_BILLING" | "OUTFLOW_AP" | "OUTFLOW_LABOR" | "INFLOW_RETAINAGE_RELEASE"
   projectId    String?
   project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   amount       Float
   confidence   Float    @default(1.0) // 0-1
-  scenario     String   @default("base")  // "base" | "best" | "worst"
+  scenario     String   @default("base") // "base" | "best" | "worst"
   notes        String?
-  source       String   @default("calc")  // "calc" | "manual" | "ai"
+  source       String   @default("calc") // "calc" | "manual" | "ai"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -3373,20 +3382,20 @@ model CashFlowForecast {
  * generated from journal entries. Stored so CFOs can trend.
  */
 model CashFlowStatement {
-  id              String   @id @default(cuid())
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  periodLabel     String
-  periodStart     DateTime
-  periodEnd       DateTime
-  operatingActivities Float @default(0)
-  investingActivities Float @default(0)
-  financingActivities Float @default(0)
-  netChange       Float    @default(0)
-  beginningCash   Float    @default(0)
-  endingCash      Float    @default(0)
-  source          String   @default("calc")
-  createdAt       DateTime @default(now())
+  id                  String   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  periodLabel         String
+  periodStart         DateTime
+  periodEnd           DateTime
+  operatingActivities Float    @default(0)
+  investingActivities Float    @default(0)
+  financingActivities Float    @default(0)
+  netChange           Float    @default(0)
+  beginningCash       Float    @default(0)
+  endingCash          Float    @default(0)
+  source              String   @default("calc")
+  createdAt           DateTime @default(now())
 
   @@unique([tenantId, periodLabel])
   @@index([tenantId])
@@ -3691,17 +3700,17 @@ model Drawing {
  * DocumentTransmittal (the recipient + acknowledgement audit trail).
  */
 model DrawingRevision {
-  id          String    @id @default(cuid())
-  drawingId   String
-  drawing     Drawing   @relation(fields: [drawingId], references: [id], onDelete: Cascade)
-  revisionLabel String   // "REV 1", "REV 2", "ISSUE FOR CONSTRUCTION"
+  id            String    @id @default(cuid())
+  drawingId     String
+  drawing       Drawing   @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  revisionLabel String // "REV 1", "REV 2", "ISSUE FOR CONSTRUCTION"
   issuedDate    DateTime
   issuedBy      String?
-  reason        String?  // "ASI 12", "RFI 045 response", etc.
-  superseded    Boolean  @default(false)
+  reason        String? // "ASI 12", "RFI 045 response", etc.
+  superseded    Boolean   @default(false)
   supersededAt  DateTime?
   notes         String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   @@unique([drawingId, revisionLabel])
   @@index([drawingId])
@@ -3722,14 +3731,14 @@ model DrawingSheet {
   isCurrent   Boolean  @default(true)
   // Title block extraction (filled by OCR or manual entry) — drives
   // sheet-index search ("show me all detail sheets for stair 1").
-  scale         String?
-  drawnBy       String?
-  checkedBy     String?
-  approvedBy    String?
+  scale       String?
+  drawnBy     String?
+  checkedBy   String?
+  approvedBy  String?
   createdAt   DateTime @default(now())
 
-  rfiPins  RfiDrawingPin[]
-  markups  DrawingMarkup[]
+  rfiPins   RfiDrawingPin[]
+  markups   DrawingMarkup[]
   photoPins ProjectPhotoPin[]
 
   @@unique([drawingId, sheetNumber])
@@ -3743,19 +3752,19 @@ model DrawingSheet {
  * the PDF/image without re-saving the source asset.
  */
 model DrawingMarkup {
-  id            String       @id @default(cuid())
+  id             String       @id @default(cuid())
   drawingSheetId String
-  drawingSheet  DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
-  authorId      String?
-  authorName    String?
-  shape         String       // "rect" | "circle" | "polyline" | "text" | "cloud"
-  color         String       @default("#ef4444")
-  strokeWidth   Float        @default(2)
-  geometryJson  String       // {x,y,w,h} or {points:[[x,y],…]} or {x,y,text}
-  noteText      String?
-  resolved      Boolean      @default(false)
-  resolvedAt    DateTime?
-  createdAt     DateTime     @default(now())
+  drawingSheet   DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
+  authorId       String?
+  authorName     String?
+  shape          String // "rect" | "circle" | "polyline" | "text" | "cloud"
+  color          String       @default("#ef4444")
+  strokeWidth    Float        @default(2)
+  geometryJson   String // {x,y,w,h} or {points:[[x,y],…]} or {x,y,text}
+  noteText       String?
+  resolved       Boolean      @default(false)
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
 
   @@index([drawingSheetId])
 }
@@ -3766,26 +3775,26 @@ model DrawingMarkup {
  * EXIF capture (geo, time) and AI auto-tags drive search + clustering.
  */
 model ProjectPhoto {
-  id            String   @id @default(cuid())
-  projectId     String
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  albumId       String?
-  album         ProjectPhotoAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
-  fileUrl       String
-  thumbnailUrl  String?
-  caption       String?
+  id             String             @id @default(cuid())
+  projectId      String
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  albumId        String?
+  album          ProjectPhotoAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  fileUrl        String
+  thumbnailUrl   String?
+  caption        String?
   // EXIF / capture metadata — auto-populated on upload when available.
-  capturedAt    DateTime?
-  geoLat        Float?
-  geoLng        Float?
-  geoAccuracyM  Float?
-  weatherJson   String?  // weather conditions at capture time
+  capturedAt     DateTime?
+  geoLat         Float?
+  geoLng         Float?
+  geoAccuracyM   Float?
+  weatherJson    String? // weather conditions at capture time
   // AI auto-tags (trade, room, defect type) — list of strings.
-  aiTagsJson    String   @default("[]")
-  uploadedById  String?
+  aiTagsJson     String             @default("[]")
+  uploadedById   String?
   uploadedByName String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   pins ProjectPhotoPin[]
 
@@ -3800,14 +3809,14 @@ model ProjectPhoto {
  * for owner reports + time-lapse sequencing.
  */
 model ProjectPhotoAlbum {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
   coverPhotoUrl String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   photos ProjectPhoto[]
 
@@ -3820,14 +3829,14 @@ model ProjectPhotoAlbum {
  * field crews capture defects in place + show owners exactly where.
  */
 model ProjectPhotoPin {
-  id            String       @id @default(cuid())
-  photoId       String
-  photo         ProjectPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  photoId        String
+  photo          ProjectPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
   drawingSheetId String
-  drawingSheet  DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
-  xRatio        Float
-  yRatio        Float
-  createdAt     DateTime     @default(now())
+  drawingSheet   DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
+  xRatio         Float
+  yRatio         Float
+  createdAt      DateTime     @default(now())
 
   @@index([photoId])
   @@index([drawingSheetId])
@@ -4406,54 +4415,54 @@ model CrewAssignment {
 /// Company-wide profile — DBA, EIN, registered address, NAICS, SAM
 /// status. One row per tenant.
 model CompanyProfile {
-  id              String   @id @default(cuid())
-  tenantId        String   @unique
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  legalName       String
-  dbaName         String?
-  ein             String?
-  duns            String?
-  cageCode        String?
-  uei             String?
-  entityType      String?
-  yearFounded     Int?
-  primaryAddress  String?
-  city            String?
-  state           String?
-  postalCode      String?
-  country         String   @default("US")
-  naicsCodesJson  String   @default("[]")
-  samStatus       String?
-  samExpiresAt    DateTime?
+  id                  String    @id @default(cuid())
+  tenantId            String    @unique
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  legalName           String
+  dbaName             String?
+  ein                 String?
+  duns                String?
+  cageCode            String?
+  uei                 String?
+  entityType          String?
+  yearFounded         Int?
+  primaryAddress      String?
+  city                String?
+  state               String?
+  postalCode          String?
+  country             String    @default("US")
+  naicsCodesJson      String    @default("[]")
+  samStatus           String?
+  samExpiresAt        DateTime?
   primaryContactName  String?
   primaryContactEmail String?
   primaryContactPhone String?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 /// Tenant company contractor / specialty / business license per
 /// state + jurisdiction.
 model CompanyLicense {
-  id              String   @id @default(cuid())
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  licenseType     String
-  licenseNumber   String
-  jurisdictionLevel String @default("STATE")
-  state           String?
-  jurisdiction    String?
-  issuedAt        DateTime?
-  expiresAt       DateTime?
-  status          String   @default("ACTIVE")
-  scopeOfWork     String?
-  classification  String?
-  bondingRequired Boolean  @default(false)
-  documentUrl     String?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  licenseType       String
+  licenseNumber     String
+  jurisdictionLevel String    @default("STATE")
+  state             String?
+  jurisdiction      String?
+  issuedAt          DateTime?
+  expiresAt         DateTime?
+  status            String    @default("ACTIVE")
+  scopeOfWork       String?
+  classification    String?
+  bondingRequired   Boolean   @default(false)
+  documentUrl       String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   projectLinks ProjectComplianceLink[] @relation("ProjectLink_License")
 
@@ -4465,26 +4474,26 @@ model CompanyLicense {
 /// Tenant company insurance certificates — GL, WC, Auto, Pro,
 /// Umbrella, Builders Risk, Pollution, Cyber.
 model CompanyInsurance {
-  id              String   @id @default(cuid())
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  policyType      String
-  carrier         String
-  policyNumber    String
-  effectiveDate   DateTime
-  expiresAt       DateTime
-  perOccurrenceLimit Float @default(0)
-  aggregateLimit  Float    @default(0)
-  deductible      Float    @default(0)
-  statesCoveredJson String @default("[]")
-  additionalInsuredsJson String @default("[]")
-  waiverOfSubrogation Boolean @default(false)
-  primaryAndNoncontributory Boolean @default(false)
-  documentUrl     String?
-  notes           String?
-  status          String   @default("ACTIVE")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  tenantId                  String
+  tenant                    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  policyType                String
+  carrier                   String
+  policyNumber              String
+  effectiveDate             DateTime
+  expiresAt                 DateTime
+  perOccurrenceLimit        Float    @default(0)
+  aggregateLimit            Float    @default(0)
+  deductible                Float    @default(0)
+  statesCoveredJson         String   @default("[]")
+  additionalInsuredsJson    String   @default("[]")
+  waiverOfSubrogation       Boolean  @default(false)
+  primaryAndNoncontributory Boolean  @default(false)
+  documentUrl               String?
+  notes                     String?
+  status                    String   @default("ACTIVE")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   projectLinks ProjectComplianceLink[] @relation("ProjectLink_Insurance")
 
@@ -4495,26 +4504,26 @@ model CompanyInsurance {
 
 /// Surety bonding capacity and per-project bonds.
 model CompanyBond {
-  id              String   @id @default(cuid())
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bondType        String
-  surety          String
-  bondNumber      String?
-  capacityAggregate Float  @default(0)
-  capacitySingle  Float    @default(0)
-  bondAmount      Float    @default(0)
-  effectiveDate   DateTime?
-  expiresAt       DateTime?
-  premium         Float    @default(0)
-  rate            Float?
-  documentUrl     String?
-  notes           String?
-  status          String   @default("ACTIVE")
-  projectId       String?
-  project         Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bondType          String
+  surety            String
+  bondNumber        String?
+  capacityAggregate Float     @default(0)
+  capacitySingle    Float     @default(0)
+  bondAmount        Float     @default(0)
+  effectiveDate     DateTime?
+  expiresAt         DateTime?
+  premium           Float     @default(0)
+  rate              Float?
+  documentUrl       String?
+  notes             String?
+  status            String    @default("ACTIVE")
+  projectId         String?
+  project           Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   projectLinks ProjectComplianceLink[] @relation("ProjectLink_Bond")
 
@@ -4526,22 +4535,22 @@ model CompanyBond {
 /// Set-aside certifications — DBE, MWBE, WBE, SDVOSB, HUBZONE,
 /// 8(a), Small Business, ESBE.
 model CompanyCertification {
-  id              String   @id @default(cuid())
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   certificationType String
-  certifyingAgency String
+  certifyingAgency  String
   certificateNumber String?
-  issuedAt        DateTime?
-  expiresAt       DateTime?
-  status          String   @default("ACTIVE")
-  state           String?
-  jurisdiction    String?
-  scope           String?
-  documentUrl     String?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  issuedAt          DateTime?
+  expiresAt         DateTime?
+  status            String    @default("ACTIVE")
+  state             String?
+  jurisdiction      String?
+  scope             String?
+  documentUrl       String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   projectLinks ProjectComplianceLink[] @relation("ProjectLink_Certification")
 
@@ -4578,24 +4587,24 @@ model CompanySafetyMetric {
 /// attaches the company-level record that satisfies the requirement.
 /// Exactly ONE of the four FK fields is non-null per row.
 model ProjectComplianceLink {
-  id              String   @id @default(cuid())
-  projectId       String
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requirementType String
+  id                     String                @id @default(cuid())
+  projectId              String
+  project                Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requirementType        String
   companyLicenseId       String?
-  companyLicense         CompanyLicense? @relation("ProjectLink_License", fields: [companyLicenseId], references: [id], onDelete: SetNull)
+  companyLicense         CompanyLicense?       @relation("ProjectLink_License", fields: [companyLicenseId], references: [id], onDelete: SetNull)
   companyInsuranceId     String?
-  companyInsurance       CompanyInsurance? @relation("ProjectLink_Insurance", fields: [companyInsuranceId], references: [id], onDelete: SetNull)
+  companyInsurance       CompanyInsurance?     @relation("ProjectLink_Insurance", fields: [companyInsuranceId], references: [id], onDelete: SetNull)
   companyBondId          String?
-  companyBond            CompanyBond? @relation("ProjectLink_Bond", fields: [companyBondId], references: [id], onDelete: SetNull)
+  companyBond            CompanyBond?          @relation("ProjectLink_Bond", fields: [companyBondId], references: [id], onDelete: SetNull)
   companyCertificationId String?
   companyCertification   CompanyCertification? @relation("ProjectLink_Certification", fields: [companyCertificationId], references: [id], onDelete: SetNull)
-  requirementText String?
-  satisfied       Boolean  @default(false)
-  verifiedAt      DateTime?
-  verifiedBy      String?
-  notes           String?
-  createdAt       DateTime @default(now())
+  requirementText        String?
+  satisfied              Boolean               @default(false)
+  verifiedAt             DateTime?
+  verifiedBy             String?
+  notes                  String?
+  createdAt              DateTime              @default(now())
 
   @@index([projectId, requirementType])
   @@index([companyLicenseId])

@@ -71,6 +71,31 @@ const config: NextAuthConfig = {
       if (user) {
         token.userId = (user as { id: string }).id;
         token.superAdmin = (user as { superAdmin?: boolean }).superAdmin ?? false;
+        // Stamp issued-at so we can compare against the user's
+        // sessionsRevokedAt on every subsequent request.
+        token.iat = Math.floor(Date.now() / 1000);
+      }
+      // Session-revocation enforcement — if User.sessionsRevokedAt has
+      // been bumped after this token's iat, the token is treated as
+      // revoked even though it hasn't expired. Return null to
+      // invalidate. Falls back to current behavior on lookup failures
+      // so a transient DB blip doesn't lock everyone out.
+      if (token.userId && typeof token.iat === "number") {
+        try {
+          const u = await prisma.user.findUnique({
+            where: { id: token.userId as string },
+            select: { sessionsRevokedAt: true, active: true, superAdmin: true },
+          });
+          if (!u || !u.active) return null;
+          if (u.sessionsRevokedAt && Math.floor(u.sessionsRevokedAt.getTime() / 1000) > (token.iat as number)) {
+            return null;
+          }
+          // Refresh superAdmin claim from DB so demotion takes effect
+          // immediately without waiting for token expiry.
+          token.superAdmin = u.superAdmin;
+        } catch {
+          // Don't lock everyone out on a DB blip — let the token through.
+        }
       }
       return token;
     },

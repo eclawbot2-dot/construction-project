@@ -42,6 +42,13 @@ export function DictateTextarea({ onTranscript, defaultValue, ...props }: Props)
     const w = window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
     const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     setSupported(!!Ctor);
+    // Cleanup on unmount — abort any in-flight recognition session
+    // so it doesn't keep the mic active or fire onresult after the
+    // component is gone.
+    return () => {
+      try { recRef.current?.stop(); } catch { /* ignore — already stopped */ }
+      recRef.current = null;
+    };
   }, []);
 
   function toggle() {
