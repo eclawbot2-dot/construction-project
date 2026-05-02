@@ -28,30 +28,21 @@ function main() {
         BEGIN
           SELECT RAISE(ABORT, 'AuditEvent is append-only; UPDATE not permitted');
         END;
-      CREATE TRIGGER audit_event_no_delete
-        BEFORE DELETE ON "AuditEvent"
-        WHEN NEW.id IS NULL  -- bypass for cron audit-prune which sets a flag
-        BEGIN
-          SELECT RAISE(ABORT, 'AuditEvent is append-only; DELETE not permitted');
-        END;
     `);
-    // The DELETE trigger above is permissive (only blocks NEW.id IS NULL
-    // which never happens in normal Prisma deletes) — that intentionally
-    // lets the audit-prune cron work. For stricter posture set
-    // BCON_AUDIT_IMMUTABLE=true and re-run; the trigger blocks all
-    // deletes.
+    // DELETE trigger only installed in strict mode. Without it, the
+    // audit-prune cron can age out old rows. Strict mode (immutable)
+    // keeps every row forever, even past retention SLA.
     if (process.env.BCON_AUDIT_IMMUTABLE === "true") {
       db.exec(`
-        DROP TRIGGER IF EXISTS audit_event_no_delete;
         CREATE TRIGGER audit_event_no_delete
           BEFORE DELETE ON "AuditEvent"
           BEGIN
             SELECT RAISE(ABORT, 'AuditEvent is append-only; DELETE blocked by BCON_AUDIT_IMMUTABLE');
           END;
       `);
-      console.log("audit triggers installed (immutable mode — deletes blocked)");
+      console.log("audit triggers installed (immutable mode — UPDATE + DELETE blocked)");
     } else {
-      console.log("audit triggers installed (UPDATE blocked, DELETE permitted for prune cron)");
+      console.log("audit triggers installed (UPDATE blocked; DELETE permitted for prune cron — set BCON_AUDIT_IMMUTABLE=true to lock)");
     }
   } finally {
     db.close();

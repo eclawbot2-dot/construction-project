@@ -586,6 +586,8 @@ model Project {
   alertEvents          AlertEvent[]
   historicalImports    HistoricalImport[]
   drawings             Drawing[]
+  photos               ProjectPhoto[]
+  photoAlbums          ProjectPhotoAlbum[]
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
   crewAssignments      CrewAssignment[]
@@ -843,6 +845,18 @@ model RFI {
   status          WorkflowStatus @default(DRAFT)
   dueDate         DateTime?
   ballInCourt     String?
+  // Reviewer chain — current step in the routing sequence. Sequential
+  // routing: each reviewer must respond before the RFI moves to the
+  // next. Response SLA aging tracked from sentToReviewerAt.
+  currentReviewerEmail String?
+  sentToReviewerAt     DateTime?
+  // Cost & schedule impact captured during response. Cost is an
+  // estimate the architect / engineer can attach; the eventual change
+  // order picks this up.
+  costImpactCents      Int?
+  scheduleImpactDays   Int?
+  // Drawing pin reference for spatial context; one RFI can pin to N
+  // drawing sheets (see RfiDrawingPin below).
   submittedAt     DateTime?
   submittedBy     String?
   respondedAt     DateTime?
@@ -855,6 +869,10 @@ model RFI {
   approvalNote    String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  reviewers       RfiReviewer[]
+  responses       RfiResponse[]
+  drawingPins     RfiDrawingPin[]
 
   @@unique([projectId, number])
   @@index([projectId])
@@ -869,6 +887,14 @@ model Submittal {
   specSection     String?
   status          WorkflowStatus @default(DRAFT)
   longLead        Boolean        @default(false)
+  // Resubmittal tracking — every reject increments resubmittalCount;
+  // status flips back to DRAFT and the row remains so the history is
+  // preserved.
+  resubmittalCount     Int            @default(0)
+  // Reviewer routing — sequential chain via SubmittalReviewer rows.
+  currentReviewerEmail String?
+  sentToReviewerAt     DateTime?
+  scheduleFloatDaysUsed Int?          // float consumed waiting on review
   submittedAt     DateTime?
   submittedBy     String?
   approvedAt      DateTime?
@@ -881,8 +907,121 @@ model Submittal {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+  reviewers       SubmittalReviewer[]
+  cycles          SubmittalCycle[]
+
   @@unique([projectId, number])
   @@index([projectId])
+}
+
+/**
+ * One reviewer in an RFI's sequential routing chain. Each reviewer
+ * gets the RFI in turn; when they respond/approve, the next reviewer
+ * is notified. holdReason captures why a reviewer paused the chain.
+ */
+model RfiReviewer {
+  id            String    @id @default(cuid())
+  rfiId         String
+  rfi           RFI       @relation(fields: [rfiId], references: [id], onDelete: Cascade)
+  position      Int
+  reviewerEmail String
+  reviewerName  String?
+  reviewerRole  String?    // e.g. "Architect", "Structural Engineer"
+  isRequired    Boolean   @default(true)
+  decidedAt     DateTime?
+  decision      String?    // "APPROVED" | "REJECTED" | "HELD"
+  holdReason    String?
+  responseText  String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([rfiId, position])
+  @@index([rfiId])
+}
+
+/**
+ * Every response added to an RFI — the RFI body holds the latest, but
+ * the history is in this table for audit and to render a thread.
+ */
+model RfiResponse {
+  id          String    @id @default(cuid())
+  rfiId       String
+  rfi         RFI       @relation(fields: [rfiId], references: [id], onDelete: Cascade)
+  respondedBy String
+  respondedAt DateTime  @default(now())
+  responseText String
+  attachmentUrl String?
+  createdAt   DateTime  @default(now())
+
+  @@index([rfiId])
+}
+
+/**
+ * Spatial context — pins one RFI to one or more drawing sheets at
+ * specific coordinates. Mature platforms (Procore, ACC) treat the
+ * drawing sheet as the index; this is the bridge.
+ */
+model RfiDrawingPin {
+  id            String       @id @default(cuid())
+  rfiId         String
+  rfi           RFI          @relation(fields: [rfiId], references: [id], onDelete: Cascade)
+  drawingSheetId String
+  drawingSheet  DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
+  xRatio        Float        // 0..1 normalized within the sheet
+  yRatio        Float
+  note          String?
+  createdAt     DateTime     @default(now())
+
+  @@index([rfiId])
+  @@index([drawingSheetId])
+}
+
+/**
+ * Submittal reviewer chain — analogous to RfiReviewer. Each reviewer
+ * gets the submittal in sequence; rejection increments resubmittal
+ * count and the cycle starts over with a new SubmittalCycle row.
+ */
+model SubmittalReviewer {
+  id            String    @id @default(cuid())
+  submittalId   String
+  submittal     Submittal @relation(fields: [submittalId], references: [id], onDelete: Cascade)
+  position      Int
+  reviewerEmail String
+  reviewerName  String?
+  reviewerRole  String?
+  isRequired    Boolean   @default(true)
+  decidedAt     DateTime?
+  decision      String?
+  holdReason    String?
+  responseText  String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([submittalId, position])
+  @@index([submittalId])
+}
+
+/**
+ * Each submittal can have multiple revision cycles. Each cycle
+ * captures who submitted what version when, and the resulting
+ * decision. Lets a project audit "we resubmitted this 4 times because
+ * the architect kept rejecting it."
+ */
+model SubmittalCycle {
+  id          String    @id @default(cuid())
+  submittalId String
+  submittal   Submittal @relation(fields: [submittalId], references: [id], onDelete: Cascade)
+  cycleNumber Int
+  submittedAt DateTime?
+  submittedBy String?
+  decidedAt   DateTime?
+  decision    String?    // "APPROVED" | "APPROVED_AS_NOTED" | "REVISE_AND_RESUBMIT" | "REJECTED"
+  decidedBy   String?
+  holdReason  String?
+  responseText String?
+  attachmentUrl String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([submittalId, cycleNumber])
+  @@index([submittalId])
 }
 
 model Meeting {
@@ -2391,10 +2530,34 @@ model Drawing {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  sheets DrawingSheet[]
+  sheets    DrawingSheet[]
+  revisions DrawingRevision[]
 
   @@index([projectId])
   @@index([projectId, discipline])
+}
+
+/**
+ * One issued revision of a drawing set. When a new revision uploads,
+ * the prior revision is auto-marked superseded and any unaffected
+ * sheets carry forward. Distribution log per revision lives in
+ * DocumentTransmittal (the recipient + acknowledgement audit trail).
+ */
+model DrawingRevision {
+  id          String    @id @default(cuid())
+  drawingId   String
+  drawing     Drawing   @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  revisionLabel String   // "REV 1", "REV 2", "ISSUE FOR CONSTRUCTION"
+  issuedDate    DateTime
+  issuedBy      String?
+  reason        String?  // "ASI 12", "RFI 045 response", etc.
+  superseded    Boolean  @default(false)
+  supersededAt  DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@unique([drawingId, revisionLabel])
+  @@index([drawingId])
 }
 
 /// One sheet in a drawing set — e.g. "A0.1 Cover Sheet". `isCurrent`
@@ -2410,10 +2573,117 @@ model DrawingSheet {
   fileUrl     String?
   pageNumber  Int?
   isCurrent   Boolean  @default(true)
+  // Title block extraction (filled by OCR or manual entry) — drives
+  // sheet-index search ("show me all detail sheets for stair 1").
+  scale         String?
+  drawnBy       String?
+  checkedBy     String?
+  approvedBy    String?
   createdAt   DateTime @default(now())
+
+  rfiPins  RfiDrawingPin[]
+  markups  DrawingMarkup[]
+  photoPins ProjectPhotoPin[]
 
   @@unique([drawingId, sheetNumber])
   @@index([drawingId])
+}
+
+/**
+ * Drawing markup layer — geometric annotations (rectangles, circles,
+ * polylines, text callouts, cloud) drawn on a sheet. Stored as a
+ * normalized geometry list so the renderer can paint them on top of
+ * the PDF/image without re-saving the source asset.
+ */
+model DrawingMarkup {
+  id            String       @id @default(cuid())
+  drawingSheetId String
+  drawingSheet  DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
+  authorId      String?
+  authorName    String?
+  shape         String       // "rect" | "circle" | "polyline" | "text" | "cloud"
+  color         String       @default("#ef4444")
+  strokeWidth   Float        @default(2)
+  geometryJson  String       // {x,y,w,h} or {points:[[x,y],…]} or {x,y,text}
+  noteText      String?
+  resolved      Boolean      @default(false)
+  resolvedAt    DateTime?
+  createdAt     DateTime     @default(now())
+
+  @@index([drawingSheetId])
+}
+
+/**
+ * Project photo library. Photos belong to a project, optionally an
+ * album, and may be pinned to one or more drawing sheet locations.
+ * EXIF capture (geo, time) and AI auto-tags drive search + clustering.
+ */
+model ProjectPhoto {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  albumId       String?
+  album         ProjectPhotoAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  fileUrl       String
+  thumbnailUrl  String?
+  caption       String?
+  // EXIF / capture metadata — auto-populated on upload when available.
+  capturedAt    DateTime?
+  geoLat        Float?
+  geoLng        Float?
+  geoAccuracyM  Float?
+  weatherJson   String?  // weather conditions at capture time
+  // AI auto-tags (trade, room, defect type) — list of strings.
+  aiTagsJson    String   @default("[]")
+  uploadedById  String?
+  uploadedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pins ProjectPhotoPin[]
+
+  @@index([projectId])
+  @@index([projectId, capturedAt])
+  @@index([albumId])
+}
+
+/**
+ * Photo album — phase-based ("Foundation", "Roughing"), area-based
+ * ("Level 1 East"), or trade-based ("Concrete"). Used to group photos
+ * for owner reports + time-lapse sequencing.
+ */
+model ProjectPhotoAlbum {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  coverPhotoUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  photos ProjectPhoto[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+/**
+ * Pin one photo to one drawing sheet at specific coordinates. Lets
+ * field crews capture defects in place + show owners exactly where.
+ */
+model ProjectPhotoPin {
+  id            String       @id @default(cuid())
+  photoId       String
+  photo         ProjectPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  drawingSheetId String
+  drawingSheet  DrawingSheet @relation(fields: [drawingSheetId], references: [id], onDelete: Cascade)
+  xRatio        Float
+  yRatio        Float
+  createdAt     DateTime     @default(now())
+
+  @@index([photoId])
+  @@index([drawingSheetId])
 }
 
 /// CSI MasterFormat specification section. csiDivision is the 2-digit
