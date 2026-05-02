@@ -30,9 +30,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem('bcon-theme')||'dark';document.documentElement.setAttribute('data-theme',t);var s=localStorage.getItem('bcon-sunlight')==='true';if(s)document.documentElement.setAttribute('data-sunlight','true');}catch(e){}`,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}`,
           }}
         />
       </head>
