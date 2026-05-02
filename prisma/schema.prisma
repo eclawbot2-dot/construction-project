@@ -438,6 +438,12 @@ model Tenant {
   bidProfile           TenantBidProfile?
   contractorLicenses   ContractorLicense[]
   documentTransmittals DocumentTransmittal[]
+  costCodes            CostCode[]
+  vendorPrequals       VendorPrequalification[]
+  guestAccounts        GuestAccount[]
+  apiTokens            ApiToken[]
+  webhookEndpoints     WebhookEndpoint[]
+  emailDigests         EmailDigest[]
 }
 
 model BusinessUnit {
@@ -588,6 +594,8 @@ model Project {
   drawings             Drawing[]
   photos               ProjectPhoto[]
   photoAlbums          ProjectPhotoAlbum[]
+  scheduleBaselines    ScheduleBaseline[]
+  lookAheads           LookAheadCommitment[]
   specSections         SpecSection[]
   jobRequisitions      JobRequisition[]
   crewAssignments      CrewAssignment[]
@@ -1318,9 +1326,264 @@ model ScheduleTask {
 
   predecessors ScheduleDependency[] @relation("ScheduleDepSuccessor")
   successors   ScheduleDependency[] @relation("ScheduleDepPredecessor")
+  lookAheads   LookAheadCommitment[]
 
   @@index([projectId])
   @@index([parentId])
+}
+
+/**
+ * A frozen schedule snapshot. Saved at baseline ("ISSUE FOR
+ * CONSTRUCTION") and any contract-significant rebaseline event.
+ * Drives variance reports — current activity dates compared against
+ * the baseline at the same WBS code.
+ */
+model ScheduleBaseline {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  label       String
+  capturedAt  DateTime @default(now())
+  capturedBy  String?
+  reason      String?  // "Initial baseline", "Owner-approved CO 7", etc.
+  notes       String?
+  payloadJson String   // serialized snapshot of all ScheduleTasks at capture time
+  createdAt   DateTime @default(now())
+
+  @@unique([projectId, label])
+  @@index([projectId])
+}
+
+/**
+ * Look-ahead pull-plan commitments — what's scheduled to happen in
+ * the next N weeks per crew/sub. Each commitment has a planned vs
+ * actual completion + a percent-plan-complete (PPC) measure.
+ */
+model LookAheadCommitment {
+  id              String        @id @default(cuid())
+  projectId       String
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scheduleTaskId  String?
+  scheduleTask    ScheduleTask? @relation(fields: [scheduleTaskId], references: [id], onDelete: SetNull)
+  weekStarting    DateTime
+  description     String
+  responsibleParty String
+  plannedComplete Boolean       @default(false)
+  actualComplete  Boolean       @default(false)
+  reasonNotComplete String?     // standard last-planner reason codes
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([projectId, weekStarting])
+}
+
+/**
+ * Hierarchical cost code library — the chart of accounts for a
+ * construction project. Tenant-scoped so each company can pick its
+ * own structure (CSI MasterFormat 16-division, 50-division, or
+ * custom). Used by BudgetLine, PayApplicationLine, JournalEntryRow,
+ * ChangeOrderLine to roll up costs by division/discipline.
+ */
+model CostCode {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentId      String?
+  parent        CostCode? @relation("CostCodeParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children      CostCode[] @relation("CostCodeParent")
+  code          String    // "03", "03 30 00", "03-310-100"
+  name          String    // "Concrete", "Cast-in-Place Concrete", "Foundations"
+  description   String?
+  csiDivision   String?   // "03"
+  csiSection    String?   // "03 30 00"
+  level         Int       @default(0)  // depth for tree rendering
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, parentId])
+  @@index([tenantId, csiDivision])
+}
+
+/**
+ * Vendor prequalification record — formal qualification questionnaire
+ * with scoring. Each tenant has its own qual criteria; the form
+ * captures financial strength, safety record, bonding, references,
+ * and a calculated score that drives "qualified for jobs $X-$Y."
+ */
+model VendorPrequalification {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendorId            String
+  vendor              Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  formVersion         String   @default("v1")
+  status              String   @default("PENDING")  // PENDING | APPROVED | REJECTED | EXPIRED
+  // Financial data the prequal collects.
+  yearsInBusiness     Int?
+  annualRevenue       Float?
+  largestProjectValue Float?
+  bondingCapacity     Float?
+  bondingAggregate    Float?
+  emrRate             Float?   // experience modification rate (safety)
+  // Insurance + license summary (the actual records live in InsuranceCert + ContractorLicense).
+  insuranceVerified   Boolean  @default(false)
+  licenseVerified     Boolean  @default(false)
+  workersCompCarrier  String?
+  glLimitMillions     Float?
+  // Scoring + decision.
+  score               Float?
+  scoreBreakdownJson  String   @default("{}")
+  qualifiedFromValue  Float?
+  qualifiedToValue    Float?
+  qualifiedTrades     String   @default("[]")
+  expiresAt           DateTime?
+  approvedAt          DateTime?
+  approvedBy          String?
+  rejectedAt          DateTime?
+  rejectedBy          String?
+  rejectionReason     String?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  references VendorReference[]
+
+  @@unique([tenantId, vendorId, formVersion])
+  @@index([tenantId])
+  @@index([vendorId])
+  @@index([expiresAt])
+}
+
+/**
+ * Public-API token. Each token belongs to a tenant; calls authenticate
+ * with `Authorization: Bearer <prefix>.<secret>`. Only the secret hash
+ * is stored. Optional scope list controls which endpoints the token
+ * can hit ("read:projects", "write:rfis").
+ */
+model ApiToken {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  prefix      String   @unique
+  secretHash  String
+  scopesJson  String   @default("[]")
+  createdById String?
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+/**
+ * Outbound webhook subscription. When events fire on the platform
+ * (rfi.created, listing.scored, payapp.approved), the dispatcher
+ * POSTs the event JSON to every active endpoint subscribed to the
+ * matching event type.
+ */
+model WebhookEndpoint {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url          String
+  secret       String   // shared secret for HMAC signature
+  eventsJson   String   @default("[]")  // ["rfi.created","payapp.approved", "*"]
+  active       Boolean  @default(true)
+  lastDeliveryAt DateTime?
+  lastSuccessAt  DateTime?
+  failureCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId])
+}
+
+/**
+ * Single delivery attempt log — for debugging webhook integrations.
+ */
+model WebhookDelivery {
+  id           String   @id @default(cuid())
+  endpointId   String
+  endpoint     WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventType    String
+  payloadJson  String
+  responseCode Int?
+  responseBody String?
+  durationMs   Int?
+  succeeded    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([endpointId, createdAt])
+}
+
+/**
+ * Free guest account — owner / architect / inspector / sub. Read-only
+ * access to a specific project (or set of resources) via magic link.
+ * Lets the GC bring outside collaborators in without a paid seat.
+ */
+model GuestAccount {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  name        String?
+  role        String   @default("OWNER_REVIEWER")  // OWNER_REVIEWER | ARCHITECT | INSPECTOR | SUB
+  scopeJson   String   @default("{}")  // {projectIds:[…], allowRespond:true}
+  magicTokenHash String?
+  magicTokenExpiresAt DateTime?
+  lastSeenAt  DateTime?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+/**
+ * Tenant-level email digest subscription. The /api/cron/email-digest
+ * route reads these and sends rolled-up summaries (daily / weekly).
+ */
+model EmailDigest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipient   String
+  cadence     String   @default("WEEKLY")  // DAILY | WEEKLY
+  sectionsJson String  @default("[]")  // ["rfi","payapp","alerts","listings"]
+  active      Boolean  @default(true)
+  lastSentAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, recipient, cadence])
+  @@index([tenantId])
+}
+
+/**
+ * Reference contact provided during prequalification (former GC, owner,
+ * supplier). Reference checks recorded on calledAt + outcomeNotes.
+ */
+model VendorReference {
+  id                String                 @id @default(cuid())
+  prequalId         String
+  prequal           VendorPrequalification @relation(fields: [prequalId], references: [id], onDelete: Cascade)
+  contactName       String
+  company           String
+  email             String?
+  phone             String?
+  relationship      String?
+  calledAt          DateTime?
+  outcomeRating     Int?    // 1-5
+  outcomeNotes      String?
+  createdAt         DateTime @default(now())
+
+  @@index([prequalId])
 }
 
 model ScheduleDependency {
@@ -1556,6 +1819,7 @@ model Vendor {
   subBids        SubBid[]
   subInvoices    SubInvoice[]
   purchaseOrders PurchaseOrder[]
+  prequals       VendorPrequalification[]
 }
 
 model InsuranceCert {
