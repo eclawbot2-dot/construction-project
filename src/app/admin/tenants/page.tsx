@@ -24,6 +24,22 @@ export default async function AdminTenantsListPage() {
     { key: "projects", header: "Projects", cellClassName: "text-right", render: (t) => t._count.projects },
     { key: "members", header: "Members", cellClassName: "text-right", render: (t) => t._count.memberships },
     { key: "bus", header: "BUs", cellClassName: "text-right", render: (t) => t._count.businessUnits },
+    {
+      key: "lastBackup",
+      header: "Last backup",
+      cellClassName: "text-xs",
+      render: (t) => {
+        if (t.lastBackupError) {
+          return <span className="text-rose-300" title={t.lastBackupError}>error</span>;
+        }
+        if (!t.lastBackupAt) {
+          return <span className="text-slate-500">never</span>;
+        }
+        const ageHrs = (Date.now() - new Date(t.lastBackupAt).getTime()) / (1000 * 60 * 60);
+        const cls = ageHrs > 25 ? "text-rose-300" : ageHrs > 12 ? "text-amber-300" : "text-emerald-300";
+        return <span className={cls}>{formatDate(t.lastBackupAt)}</span>;
+      },
+    },
     { key: "createdAt", header: "Created", cellClassName: "text-xs text-slate-400", render: (t) => formatDate(t.createdAt) },
     {
       key: "actions",

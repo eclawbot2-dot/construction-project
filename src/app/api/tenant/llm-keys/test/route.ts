@@ -2,20 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { decryptSecret } from "@/lib/rfp-geo";
-
-function rejectIfCrossOrigin(req: NextRequest): NextResponse | null {
-  const origin = req.headers.get("origin");
-  const host = req.headers.get("host");
-  if (!origin) return null;
-  try {
-    if (new URL(origin).host !== host) {
-      return NextResponse.json({ ok: false, error: "cross-origin POST blocked" }, { status: 403 });
-    }
-  } catch {
-    return NextResponse.json({ ok: false, error: "bad origin" }, { status: 400 });
-  }
-  return null;
-}
+import { rejectIfCrossOrigin } from "@/lib/csrf";
 
 /**
  * Validate the tenant's currently-saved AI key by sending a minimal

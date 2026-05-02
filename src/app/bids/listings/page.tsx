@@ -95,7 +95,7 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
                     </td>
                     <td className="table-cell text-slate-400">{l.agency}</td>
                     <td className="table-cell">
-                      <div className="font-medium text-white">{l.title}</div>
+                      <Link href={`/bids/listings/${l.id}`} className="font-medium text-white hover:text-cyan-200">{l.title}</Link>
                       {l.solicitationNo ? <div className="font-mono text-xs text-slate-500">{l.solicitationNo}</div> : null}
                     </td>
                     <td className="table-cell">{formatCurrency(l.estimatedValue)}</td>

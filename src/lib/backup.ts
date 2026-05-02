@@ -27,7 +27,7 @@
  *     write step with a tenant-key envelope (TODO).
  */
 
-import { mkdir, writeFile, copyFile, stat } from "fs/promises";
+import { mkdir, writeFile, copyFile, stat, readFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
@@ -101,6 +101,34 @@ export async function backupTenant(tenantId: string): Promise<TenantBackupResult
     }
 
     const fileStat = await stat(localPath);
+
+    // Integrity check — read the freshly-written file back and verify
+    // it parses as JSON and contains the top-level keys we just
+    // emitted. Catches silent truncation, disk-full at flush, or
+    // encoding corruption that would otherwise produce a "successful"
+    // backup that's actually unrestorable. If the file is bad we
+    // record an error rather than declare success.
+    try {
+      const verification = await readFile(localPath, "utf8");
+      const parsed = JSON.parse(verification) as Record<string, unknown>;
+      const requiredKeys = ["tenant", "rowCounts", "data"];
+      for (const k of requiredKeys) {
+        if (!(k in parsed)) throw new Error(`backup missing top-level key "${k}"`);
+      }
+      // Verify the data dump is non-empty (a tenant with no rows would
+      // be suspicious — even a fresh tenant has the tenant row itself).
+      const data = parsed.data;
+      if (!data || typeof data !== "object" || Object.keys(data as Record<string, unknown>).length === 0) {
+        throw new Error("backup data section is empty");
+      }
+    } catch (verifyErr) {
+      const message = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { lastBackupError: `integrity check failed: ${message}`.slice(0, 500), lastBackupAt: today },
+      });
+      return { tenantId, tenantSlug: tenant.slug, ok: false, error: `integrity check: ${message}` };
+    }
 
     await prisma.tenant.update({
       where: { id: tenantId },

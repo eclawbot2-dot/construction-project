@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { auth } from "@/lib/auth";
 import { encryptSecret } from "@/lib/rfp-geo";
 import { recordAudit } from "@/lib/audit";
+import { rejectIfCrossOrigin } from "@/lib/csrf";
 
 /**
  * Save tenant LLM keys. The form submits openaiKey / anthropicKey
@@ -21,21 +22,6 @@ import { recordAudit } from "@/lib/audit";
  * explicit Origin/Host check as defense-in-depth so a misconfigured
  * cookie can't expose the keys form.
  */
-function rejectIfCrossOrigin(req: NextRequest): NextResponse | null {
-  const origin = req.headers.get("origin");
-  const host = req.headers.get("host");
-  if (!origin) return null; // some user-agents omit Origin on same-origin form posts; allow
-  try {
-    const originHost = new URL(origin).host;
-    if (originHost !== host) {
-      return NextResponse.json({ error: "cross-origin POST blocked" }, { status: 403 });
-    }
-  } catch {
-    return NextResponse.json({ error: "bad origin" }, { status: 400 });
-  }
-  return null;
-}
-
 export async function POST(req: NextRequest) {
   const denied = rejectIfCrossOrigin(req);
   if (denied) return denied;
