@@ -110,17 +110,7 @@ export async function backupTenant(tenantId: string): Promise<TenantBackupResult
     // record an error rather than declare success.
     try {
       const verification = await readFile(localPath, "utf8");
-      const parsed = JSON.parse(verification) as Record<string, unknown>;
-      const requiredKeys = ["tenant", "rowCounts", "data"];
-      for (const k of requiredKeys) {
-        if (!(k in parsed)) throw new Error(`backup missing top-level key "${k}"`);
-      }
-      // Verify the data dump is non-empty (a tenant with no rows would
-      // be suspicious — even a fresh tenant has the tenant row itself).
-      const data = parsed.data;
-      if (!data || typeof data !== "object" || Object.keys(data as Record<string, unknown>).length === 0) {
-        throw new Error("backup data section is empty");
-      }
+      verifyBackupContents(verification);
     } catch (verifyErr) {
       const message = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
       await prisma.tenant.update({
@@ -151,6 +141,30 @@ export async function backupTenant(tenantId: string): Promise<TenantBackupResult
       data: { lastBackupError: message.slice(0, 500), lastBackupAt: new Date() },
     }).catch(() => {});
     return { tenantId, tenantSlug: tenant.slug, ok: false, error: message };
+  }
+}
+
+/**
+ * Validate that a backup file's contents parse as JSON and have the
+ * expected shape. Throws on any failure with a specific message that
+ * surfaces on the tenant's lastBackupError. Pulled out as a pure
+ * function so tests can exercise the parsing logic without spinning
+ * up the whole backup machinery.
+ */
+export function verifyBackupContents(payload: string): void {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(payload) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(`JSON parse failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const requiredKeys = ["tenant", "rowCounts", "data"];
+  for (const k of requiredKeys) {
+    if (!(k in parsed)) throw new Error(`backup missing top-level key "${k}"`);
+  }
+  const data = parsed.data;
+  if (!data || typeof data !== "object" || Object.keys(data as Record<string, unknown>).length === 0) {
+    throw new Error("backup data section is empty");
   }
 }
 

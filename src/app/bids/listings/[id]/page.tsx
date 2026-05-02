@@ -133,6 +133,19 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       </section>
 
       <section className="card p-6 mt-6">
+        <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Triage status</div>
+        <p className="mt-1 text-xs text-slate-400">Mark this listing as you work it. Status changes are recorded in the tenant audit log.</p>
+        <form action={`/api/rfp/listings/${listing.id}/status`} method="post" className="mt-3 flex flex-wrap items-center gap-2">
+          <select name="status" defaultValue={listing.status} className="form-select text-xs">
+            {["NEW", "TRIAGED", "QUALIFIED", "PURSUING", "SUBMITTED", "WON", "LOST", "DECLINED"].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <button type="submit" className="btn-outline text-xs">Update status</button>
+        </form>
+      </section>
+
+      <section className="card p-6 mt-6">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Bid drafts</div>

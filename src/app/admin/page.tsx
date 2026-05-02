@@ -5,13 +5,43 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function AdminHomePage() {
-  const [tenants, users, superAdmins, projects, membershipsTotal, lastAudit] = await Promise.all([
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [
+    tenants,
+    users,
+    superAdmins,
+    projects,
+    membershipsTotal,
+    lastAudit,
+    auditEvents24h,
+    rfpListings,
+    rfpAutodrafted,
+    catalogTotal,
+    catalogAuto,
+    catalogVerifiedOk,
+    backupStaleCount,
+  ] = await Promise.all([
     prisma.tenant.count(),
     prisma.user.count(),
     prisma.user.count({ where: { superAdmin: true } }),
     prisma.project.count(),
     prisma.membership.count(),
     prisma.auditEvent.findFirst({ orderBy: { createdAt: "desc" } }),
+    prisma.auditEvent.count({ where: { createdAt: { gte: oneDayAgo } } }),
+    prisma.rfpListing.count(),
+    prisma.rfpListing.count({ where: { autoDrafted: true } }),
+    prisma.solicitationPortalCatalog.count(),
+    prisma.solicitationPortalCatalog.count({ where: { scraperKind: { in: ["API", "RSS", "HTML"] } } }),
+    prisma.solicitationPortalCatalog.count({ where: { lastVerifiedOk: true } }),
+    prisma.tenant.count({
+      where: {
+        backupEnabled: true,
+        OR: [
+          { lastBackupAt: null },
+          { lastBackupAt: { lt: new Date(Date.now() - 25 * 60 * 60 * 1000) } },
+        ],
+      },
+    }),
   ]);
 
   return (
@@ -25,12 +55,20 @@ export default async function AdminHomePage() {
           <StatTile label="Projects (all tenants)" value={projects} />
         </section>
 
+        <section className="grid gap-4 md:grid-cols-5">
+          <StatTile label="RFP listings" value={rfpListings} sub={`${rfpAutodrafted} auto-drafted`} />
+          <StatTile label="Catalog portals" value={catalogTotal} href="/admin/portal-coverage" sub={`${catalogAuto} auto-scraped`} />
+          <StatTile label="Verified working" value={catalogVerifiedOk} tone={catalogVerifiedOk > 0 ? "good" : "warn"} sub={`of ${catalogTotal}`} />
+          <StatTile label="Stale backups" value={backupStaleCount} tone={backupStaleCount === 0 ? "good" : "warn"} sub="≥ 25h since last" />
+          <StatTile label="Audit events 24h" value={auditEvents24h} href="/admin/audit" />
+        </section>
+
         <section className="grid gap-4 md:grid-cols-3">
           <Tile href="/admin/tenants" title="Tenant management" body="Create tenants, edit identity & modes, see per-tenant project counts, disable or delete." />
           <Tile href="/admin/users" title="User management" body="All users across the platform. Promote/demote super admin. Deactivate." />
+          <Tile href="/admin/portal-coverage" title="Portal coverage" body="234 SE/federal procurement portals. Refresh telemetry, see which need scrapers next." />
           <Tile href="/admin/audit" title="Audit log" body="Platform-wide audit events. Filter by actor, tenant, entity type." />
           <Tile href="/admin/tenants/new" title="+ New tenant" body="Spin up a new tenant with a primary mode, enabled modes, and an ADMIN user." />
-          <Tile href="/admin/users/new" title="+ New user" body="Create a platform user. Optionally promote to super admin on creation." />
           <Tile href="/settings" title="← Back to my tenant" body="Return to tenant-scoped settings for whichever tenant you currently have active." />
         </section>
 

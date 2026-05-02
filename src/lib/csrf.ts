@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
+ * Pure logic underneath rejectIfCrossOrigin — testable without
+ * NextRequest/NextResponse plumbing. Returns:
+ *   - "allow"   : origin missing or matches host
+ *   - "block"   : origin present and host mismatched
+ *   - "bad"     : origin header malformed
+ */
+export type CsrfDecision = "allow" | "block" | "bad";
+
+export function csrfDecide(origin: string | null, host: string | null): CsrfDecision {
+  if (!origin) return "allow";
+  if (!host) return "bad";
+  try {
+    return new URL(origin).host === host ? "allow" : "block";
+  } catch {
+    return "bad";
+  }
+}
+
+/**
  * Origin-header CSRF defense for state-mutating routes.
  *
  * NextAuth's session cookie defaults to SameSite=Lax which blocks
@@ -15,14 +34,11 @@ import { NextRequest, NextResponse } from "next/server";
  * is blocked.
  */
 export function rejectIfCrossOrigin(req: NextRequest): NextResponse | null {
-  const origin = req.headers.get("origin");
-  const host = req.headers.get("host");
-  if (!origin) return null;
-  try {
-    if (new URL(origin).host !== host) {
-      return NextResponse.json({ error: "cross-origin POST blocked" }, { status: 403 });
-    }
-  } catch {
+  const decision = csrfDecide(req.headers.get("origin"), req.headers.get("host"));
+  if (decision === "block") {
+    return NextResponse.json({ error: "cross-origin POST blocked" }, { status: 403 });
+  }
+  if (decision === "bad") {
     return NextResponse.json({ error: "bad origin" }, { status: 400 });
   }
   return null;

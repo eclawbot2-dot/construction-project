@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { decryptSecret } from "@/lib/rfp-geo";
-import { rejectIfCrossOrigin } from "@/lib/csrf";
 
 /**
  * Validate the tenant's currently-saved AI key by sending a minimal
@@ -15,9 +14,7 @@ import { rejectIfCrossOrigin } from "@/lib/csrf";
  *
  * Returns JSON: { ok, provider, latencyMs, error? }.
  */
-export async function POST(req: NextRequest) {
-  const denied = rejectIfCrossOrigin(req);
-  if (denied) return denied;
+export async function POST() {
   const tenant = await requireTenant();
   const row = await prisma.tenant.findUnique({
     where: { id: tenant.id },

@@ -5,7 +5,6 @@ import { requireTenant } from "@/lib/tenant";
 import { auth } from "@/lib/auth";
 import { encryptSecret } from "@/lib/rfp-geo";
 import { recordAudit } from "@/lib/audit";
-import { rejectIfCrossOrigin } from "@/lib/csrf";
 
 /**
  * Save tenant LLM keys. The form submits openaiKey / anthropicKey
@@ -17,14 +16,11 @@ import { rejectIfCrossOrigin } from "@/lib/csrf";
  * Only tenant ADMIN role can hit this — covered by requireTenant
  * which throws 403 if the user isn't a member with admin rights.
  *
- * CSRF: NextAuth's session cookie defaults to SameSite=Lax which
- * blocks cross-site form POSTs in modern browsers, but we add an
- * explicit Origin/Host check as defense-in-depth so a misconfigured
- * cookie can't expose the keys form.
+ * CSRF protection: handled at the middleware layer
+ * (src/middleware.ts) — every non-GET API request gets an
+ * Origin/Host check before reaching the route handler.
  */
 export async function POST(req: NextRequest) {
-  const denied = rejectIfCrossOrigin(req);
-  if (denied) return denied;
   const tenant = await requireTenant();
   const form = await req.formData();
   const openai = (form.get("openaiKey") as string | null)?.trim() ?? "";

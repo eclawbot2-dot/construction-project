@@ -58,6 +58,7 @@ export default async function RfpListingsPage({ searchParams }: { searchParams: 
               ) : null}
             </div>
             <div className="flex gap-2">
+              <a href={`/api/rfp/listings/export${sp.status ? `?status=${sp.status}` : ""}`} className="btn-outline text-xs" download>Export CSV</a>
               <Link href="/bids/sources" className="btn-outline text-xs">Manage sources</Link>
               <Link href="/bids/discover" className="btn-primary text-xs">Discover new portals</Link>
             </div>
