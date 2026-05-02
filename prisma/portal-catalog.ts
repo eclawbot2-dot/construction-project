@@ -163,12 +163,12 @@ function applyDefaultScraper(p: PortalSeed): PortalSeed {
   if (p.agencyKind === "FEDERAL" && p.authType !== "LOGIN") {
     return { ...p, scraperKind: "API", scraperModule: "sam-gov" };
   }
-  // State DOT bid letting pages typically publish HTML tables of
-  // upcoming lettings. The generic-html scraper handles them well
-  // when the structure is straightforward; if not, it throws a clear
-  // "needs portal-specific scraper" error rather than fabricating.
-  if (p.agencyTier === "TRANSPORTATION" && p.agencyKind === "STATE") {
-    return { ...p, scraperKind: "HTML", scraperModule: "generic-html" };
-  }
+  // We previously defaulted every state DOT to generic-html, but
+  // verify-html-scrapers showed only 1 of 15 actually returns tables
+  // (the rest are SPAs or moved URLs). Auto-defaulting was misleading
+  // — operators saw "auto · html" badges on portals that never
+  // worked. Now state DOTs default MANUAL; individual rows opt in
+  // via explicit scraperKind once verified by scripts/verify-html-
+  // scrapers.ts.
   return p;
 }

@@ -1728,14 +1728,25 @@ model SolicitationPortalCatalog {
   // scraperModule names the file under src/lib/scrapers/<name>.ts when
   // scraperKind is API/RSS/HTML. Empty for MANUAL/DEPRECATED.
   scraperModule String?
-  active        Boolean     @default(true)
-  createdAt     DateTime    @default(now())
+  // Verification telemetry — written by scripts/verify-html-scrapers.ts
+  // and the periodic sweep cron. lastVerifiedAt is null until the
+  // first probe; lastVerifiedOk records the binary outcome;
+  // lastVerifiedNote captures the failure mode (e.g., "404", "no
+  // tables", "captcha"). Surfaced on the /bids/portal-coverage admin
+  // page so ops staff can prioritize portal-scraper backlog.
+  lastVerifiedAt    DateTime?
+  lastVerifiedOk    Boolean?
+  lastVerifiedCount Int?
+  lastVerifiedNote  String?
+  active            Boolean   @default(true)
+  createdAt         DateTime  @default(now())
 
   rfpSources RfpSource[]
 
   @@index([active])
   @@index([agencyKind, agencyTier])
   @@index([scraperKind])
+  @@index([lastVerifiedOk, scraperKind])
 }
 
 model RfpListing {

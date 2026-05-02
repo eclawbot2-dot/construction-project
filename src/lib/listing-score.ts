@@ -88,6 +88,11 @@ export function scoreListing(listing: Pick<RfpListing, "title" | "summary" | "ag
   });
 
   // 3. Geographic fit. State match > 0.7; city match > 0.95.
+  // The previous implementation only matched ", NC" — too fragile.
+  // Now we normalize the listing's place-of-performance and the
+  // profile's target list against full-name + abbreviation aliases
+  // so "Raleigh, North Carolina" / "Raleigh NC" / "RALEIGH, NC"
+  // all match a profile target of "NC" or "North Carolina".
   const place = (listing.placeOfPerformance ?? "").toLowerCase();
   let geoFit: number;
   let geoNote: string;
@@ -96,7 +101,7 @@ export function scoreListing(listing: Pick<RfpListing, "title" | "summary" | "ag
     geoNote = "no geo preference";
   } else {
     const cityHit = profile.targetCities.some((c) => c && place.includes(c.toLowerCase()));
-    const stateHit = profile.targetStates.some((s) => s && place.toUpperCase().includes(`, ${s.toUpperCase()}`));
+    const stateHit = profile.targetStates.some((s) => stateMatches(place, s));
     geoFit = cityHit ? 1 : stateHit ? 0.8 : 0.2;
     geoNote = `place=${listing.placeOfPerformance ?? "?"} → city=${cityHit} state=${stateHit}`;
   }
@@ -173,10 +178,73 @@ export function scoreListing(listing: Pick<RfpListing, "title" | "summary" | "ag
 
   const totalWeight = signals.reduce((s, x) => s + x.weight, 0);
   const weightedSum = signals.reduce((s, x) => s + x.weight * x.fit, 0);
-  const score = Math.round((weightedSum / totalWeight) * 100);
+  let score = Math.round((weightedSum / totalWeight) * 100);
+
+  // Hard ceiling when a block keyword fired. Operators set
+  // blockKeywords to mean "I will never bid on this no matter how
+  // good the other signals look" — but the previous implementation
+  // only zeroed the 15%-weight keywords signal, so a NAICS + geo +
+  // value match could still cross the hot threshold. Cap at 25 so
+  // blocked listings can never be auto-drafted (hot threshold
+  // default 70) and sort below all unblocked candidates.
+  if (blockHit) {
+    score = Math.min(score, 25);
+  }
 
   return { score, signals, hot: score >= profile.hotThreshold };
 }
+
+/**
+ * Robust state-name matching. Returns true if `place` (lowercase
+ * place-of-performance text) plausibly references the target state,
+ * whether the target was given as an abbreviation ("NC"), full name
+ * ("North Carolina"), or any case variant.
+ *
+ * False-positive guard: a 2-letter abbreviation only matches when
+ * preceded by a comma, end-of-string, or a clear word boundary —
+ * otherwise "NC" would spuriously match "Sync" or "Inc.".
+ */
+function stateMatches(place: string, target: string): boolean {
+  if (!target) return false;
+  const norm = target.trim();
+  if (!norm) return false;
+  const placeLc = place;
+  const targetLc = norm.toLowerCase();
+  const abbrev = STATE_NAME_TO_ABBREV[targetLc] ?? (norm.length === 2 ? norm.toUpperCase() : null);
+  const fullName = STATE_ABBREV_TO_NAME[norm.toUpperCase()] ?? (norm.length > 2 ? norm : null);
+
+  // Full-name substring match (case-insensitive) — robust because
+  // state names are unique multi-word phrases.
+  if (fullName) {
+    if (placeLc.includes(fullName.toLowerCase())) return true;
+  }
+  // Abbreviation match — require a delimiter to avoid false positives
+  // ("NC" inside "Sync" or "Functional"). Acceptable forms:
+  //   ", NC" / ", NC." / "NC " / "NC$" / "(NC)" / " NC,"
+  if (abbrev) {
+    const a = abbrev.toLowerCase();
+    const re = new RegExp(`(?:^|[\\s,(])${a}(?:[\\s,.;:)]|$)`, "i");
+    if (re.test(placeLc)) return true;
+  }
+  return false;
+}
+
+const STATE_ABBREV_TO_NAME: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia",
+  FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois",
+  IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana",
+  ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota",
+  MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada",
+  NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York",
+  NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon",
+  PA: "Pennsylvania", PR: "Puerto Rico", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+};
+const STATE_NAME_TO_ABBREV: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_ABBREV_TO_NAME).map(([abbr, name]) => [name.toLowerCase(), abbr])
+);
 
 function formatM(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
