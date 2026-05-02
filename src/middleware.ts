@@ -12,6 +12,28 @@ import { getToken } from "next-auth/jwt";
  * the trust boundary.
  */
 export async function middleware(req: NextRequest) {
+  // Edge-level CSRF defense for state-mutating API routes. NextAuth's
+  // session cookie defaults to SameSite=Lax which already blocks
+  // most cross-site form posts, but a misconfigured cookie or proxy
+  // could weaken that. Reject any non-GET/HEAD/OPTIONS API request
+  // whose Origin header doesn't match Host. Origin missing is
+  // allowed (some user-agents omit it on same-origin requests).
+  // Cron routes are excluded by the matcher below — they use bearer
+  // auth, not session cookies, and may be called from anywhere.
+  if (req.nextUrl.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("host");
+    if (origin && host) {
+      try {
+        if (new URL(origin).host !== host) {
+          return NextResponse.json({ error: "cross-origin request blocked" }, { status: 403 });
+        }
+      } catch {
+        return NextResponse.json({ error: "bad origin header" }, { status: 400 });
+      }
+    }
+  }
+
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET,
