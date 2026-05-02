@@ -9,6 +9,8 @@ const VERTICAL_OR_CIVIL: ProjectMode[] = ["VERTICAL", "HEAVY_CIVIL"];
 export const PROJECT_TABS: Tab[] = [
   { slug: "", label: "Overview" },
   { slug: "schedule", label: "Schedule" },
+  { slug: "look-ahead", label: "Look-ahead" },
+  { slug: "photos", label: "Photos" },
   { slug: "tasks", label: "Tasks" },
   { slug: "daily-logs", label: "Daily Logs" },
   { slug: "rfis", label: "RFIs", modes: VERTICAL_OR_CIVIL },
