@@ -28,6 +28,7 @@ export const PROJECT_TABS: Tab[] = [
   { slug: "compliance", label: "Compliance" },
   { slug: "safety", label: "Safety", modes: VERTICAL_OR_CIVIL },
   { slug: "financials", label: "P&L" },
+  { slug: "profit-audit", label: "Profit audit" },
   { slug: "punch-list", label: "Punch List" },
   { slug: "warranty", label: "Warranty" },
   { slug: "documents", label: "Documents" },
