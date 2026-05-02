@@ -33,8 +33,8 @@ export default async function Home() {
             Projects are the unit of work in Construction OS. Once you create one, you'll get RFIs, submittals, daily logs, change orders, and the full mode-aware workspace.
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <Link href="/admin/tenants" className="btn-outline">Tenant admin</Link>
-            <Link href="/projects" className="btn-primary">Open projects</Link>
+            <Link href="/projects/create" className="btn-primary">Create your first project</Link>
+            <Link href="/bids/profile" className="btn-outline">Set up bid profile</Link>
           </div>
         </div>
       </AppLayout>

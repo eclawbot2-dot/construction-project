@@ -8,11 +8,23 @@ export default async function ProjectsPage() {
 
   return (
     <AppLayout
-      eyebrow="Pass 2 — Project workspace"
+      eyebrow="Project workspace"
       title="Projects"
       description="Mode-aware project registry with one workspace model that shifts behavior for simple builders, vertical teams, and heavy civil operations."
     >
       <div className="grid gap-5">
+        <div className="flex items-center justify-between">
+          <div className="text-sm" style={{ color: "var(--faint)" }}>
+            {data?.projectWorkspaces.length ?? 0} project{data?.projectWorkspaces.length === 1 ? "" : "s"} in this tenant
+          </div>
+          <Link href="/projects/create" className="btn-primary">+ New project</Link>
+        </div>
+        {data?.projectWorkspaces.length === 0 ? (
+          <div className="card p-8 text-center">
+            <p className="text-sm" style={{ color: "var(--faint)" }}>No projects yet.</p>
+            <Link href="/projects/create" className="btn-primary mt-4 inline-block">Create your first project</Link>
+          </div>
+        ) : null}
         {data?.projectWorkspaces.map((project) => (
           <section key={project.id} className="card p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

@@ -37,10 +37,16 @@ export async function POST(req: Request) {
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
 
+  // Pass-11: surface adminTempPassword via one-shot URL params on the
+  // admin tenant detail page so the operator can hand it off out-of-band.
+  // (The /admin/tenants/[id] page renders a one-time copy-and-dismiss
+  // banner.) Falls back to /settings if no temp password was minted.
+  const target = result.adminTempPassword
+    ? `/admin/tenants/${result.tenantId}?adminEmail=${encodeURIComponent(result.adminEmail)}&adminTemp=${encodeURIComponent(result.adminTempPassword)}`
+    : `/settings`;
+  const res = publicRedirect(req, target, 303);
   if (switchTo) {
-    const res = publicRedirect(req, `/settings`, 303);
     res.cookies.set("cx.tenant", result.slug, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
-    return res;
   }
-  return publicRedirect(req, `/settings`, 303);
+  return res;
 }

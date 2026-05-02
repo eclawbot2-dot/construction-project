@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { llmProvider } from "@/lib/ai";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 /**
  * Health endpoint for the Cloudflare tunnel + monitoring tools. Excluded
@@ -23,6 +24,22 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const strict = url.searchParams.get("strict") === "1";
 
+  // Rate-limit anonymous probes so a malicious caller can't hammer the
+  // DB count() in a tight loop. Authenticated callers (with the cron
+  // bearer) bypass — monitoring tools may legitimately probe every 30s.
+  const authHeader = req.headers.get("authorization") ?? "";
+  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
+  const elevated = expected != null && authHeader === expected;
+  if (!elevated) {
+    const ip = req.headers.get("cf-connecting-ip")
+      ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? "?";
+    const rl = consumeRateLimit(`health:${ip}`, { limit: 60, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "rate limited" }, { status: 429 });
+    }
+  }
+
   let dbOk = true;
   let dbLatencyMs = 0;
   let dbError: string | null = null;
@@ -34,10 +51,6 @@ export async function GET(req: Request) {
     dbOk = false;
     dbError = err instanceof Error ? err.message : String(err);
   }
-
-  const authHeader = req.headers.get("authorization") ?? "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  const elevated = expected != null && authHeader === expected;
 
   const allOk = dbOk && !!process.env.AUTH_SECRET;
 
