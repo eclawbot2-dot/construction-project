@@ -53,6 +53,7 @@ export default async function SettingsPage() {
             <li><a href="#backup" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Backup</a></li>
             <li><Link href="/settings/cost-codes" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Cost codes →</Link></li>
             <li><Link href="/settings/audit" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Audit log →</Link></li>
+            <li><Link href="/settings/api" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">API & webhooks →</Link></li>
           </ul>
         </nav>
 
