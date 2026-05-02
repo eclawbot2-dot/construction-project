@@ -31,7 +31,7 @@
 
 import { mkdir, writeFile, readFile, unlink, stat } from "fs/promises";
 import path from "path";
-import { randomBytes } from "crypto";
+import crypto, { randomBytes } from "crypto";
 
 export type PutResult = { key: string; url: string; size: number; contentType?: string };
 
@@ -240,107 +240,6 @@ export function setStorage(s: Storage): void {
   active = s;
 }
 
-// ─── SigV4 helpers (minimal implementation for S3-compatible APIs) ─
-
-import crypto from "node:crypto";
-
-async function sigV4(
-  method: string,
-  host: string,
-  pathname: string,
-  search: string,
-  body: Buffer,
-  accessKey: string,
-  secretKey: string,
-  region: string,
-  service: string,
-  contentType?: string,
-): Promise<Record<string, string>> {
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const dateStamp = amzDate.slice(0, 8);
-  const payloadHash = crypto.createHash("sha256").update(body).digest("hex");
-
-  const canonicalHeaders =
-    `host:${host}\n` +
-    `x-amz-content-sha256:${payloadHash}\n` +
-    `x-amz-date:${amzDate}\n`;
-  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
-
-  const canonicalRequest = [
-    method,
-    pathname,
-    search.startsWith("?") ? search.slice(1) : search,
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash,
-  ].join("\n");
-
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    credentialScope,
-    crypto.createHash("sha256").update(canonicalRequest).digest("hex"),
-  ].join("\n");
-
-  const kDate = crypto.createHmac("sha256", `AWS4${secretKey}`).update(dateStamp).digest();
-  const kRegion = crypto.createHmac("sha256", kDate).update(region).digest();
-  const kService = crypto.createHmac("sha256", kRegion).update(service).digest();
-  const kSigning = crypto.createHmac("sha256", kService).update("aws4_request").digest();
-  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
-
-  const auth = `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-  const headers: Record<string, string> = {
-    "x-amz-date": amzDate,
-    "x-amz-content-sha256": payloadHash,
-    Authorization: auth,
-  };
-  if (contentType) headers["content-type"] = contentType;
-  return headers;
-}
-
-async function sigV4PresignGet(
-  endpoint: string,
-  key: string,
-  accessKey: string,
-  secretKey: string,
-  region: string,
-  service: string,
-  ttlSeconds: number,
-): Promise<string> {
-  const url = new URL(`${endpoint}/${encodeURIComponent(key)}`);
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const dateStamp = amzDate.slice(0, 8);
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-  url.searchParams.set("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
-  url.searchParams.set("X-Amz-Credential", `${accessKey}/${credentialScope}`);
-  url.searchParams.set("X-Amz-Date", amzDate);
-  url.searchParams.set("X-Amz-Expires", String(ttlSeconds));
-  url.searchParams.set("X-Amz-SignedHeaders", "host");
-
-  const canonicalRequest = [
-    "GET",
-    url.pathname,
-    url.searchParams.toString(),
-    `host:${url.host}\n`,
-    "host",
-    "UNSIGNED-PAYLOAD",
-  ].join("\n");
-
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    credentialScope,
-    crypto.createHash("sha256").update(canonicalRequest).digest("hex"),
-  ].join("\n");
-
-  const kDate = crypto.createHmac("sha256", `AWS4${secretKey}`).update(dateStamp).digest();
-  const kRegion = crypto.createHmac("sha256", kDate).update(region).digest();
-  const kService = crypto.createHmac("sha256", kRegion).update(service).digest();
-  const kSigning = crypto.createHmac("sha256", kService).update("aws4_request").digest();
-  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
-  url.searchParams.set("X-Amz-Signature", signature);
-  return url.toString();
-}
+// SigV4 helpers extracted to src/lib/sigv4.ts so they're testable in
+// isolation against AWS-documented test vectors.
+import { sigV4, sigV4PresignGet } from "./sigv4";

@@ -7,6 +7,7 @@ import {
 } from "@/lib/reports";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatPercent } from "@/lib/utils";
+import { addMoney } from "@/lib/money";
 
 /**
  * Reports hub — surety-grade WIP, cost-to-complete, win rate, bonding
@@ -25,10 +26,10 @@ export default async function ReportsPage() {
   const ctcByCode = new Map<string, { budgeted: number; spent: number; committed: number; eac: number }>();
   for (const row of ctc) {
     const slot = ctcByCode.get(row.costCode) ?? { budgeted: 0, spent: 0, committed: 0, eac: 0 };
-    slot.budgeted += row.budgeted;
-    slot.spent += row.spent;
-    slot.committed += row.committed;
-    slot.eac += row.estimateAtCompletion;
+    slot.budgeted = addMoney(slot.budgeted, row.budgeted);
+    slot.spent = addMoney(slot.spent, row.spent);
+    slot.committed = addMoney(slot.committed, row.committed);
+    slot.eac = addMoney(slot.eac, row.estimateAtCompletion);
     ctcByCode.set(row.costCode, slot);
   }
   const ctcSorted = Array.from(ctcByCode.entries()).sort((a, b) => b[1].eac - a[1].eac).slice(0, 15);

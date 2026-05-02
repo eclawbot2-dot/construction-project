@@ -5,6 +5,7 @@ import { ProjectTabs } from "@/components/layout/project-tabs";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/utils";
+import { sumMoney, subtractMoney, addMoney } from "@/lib/money";
 
 /**
  * Bid-vs-execution profit audit. The full money lifecycle for one
@@ -49,18 +50,14 @@ export default async function ProfitAuditPage({ params }: { params: Promise<{ pr
   const opportunity = project.opportunities[0] ?? null;
   const bidDraft = opportunity?.bidDrafts[0] ?? null;
   const bidEstimate = opportunity?.estimatedValue ?? 0;
-  const bidLineTotal = bidDraft?.lineItems.reduce((s, l) => s + (l.amount ?? 0), 0) ?? 0;
+  const bidLineTotal = bidDraft ? sumMoney(bidDraft.lineItems.map((l) => l.amount)) : 0;
   const awardedAt = opportunity?.awardDate ?? null;
 
   // Contract evolution
   const originalContract = project.contractValue ?? 0;
-  const approvedCOValue = project.changeOrders
-    .filter((c) => c.status === "APPROVED")
-    .reduce((s, c) => s + (c.amount ?? 0), 0);
-  const pendingCOValue = project.changeOrders
-    .filter((c) => c.status !== "APPROVED" && c.status !== "REJECTED")
-    .reduce((s, c) => s + (c.amount ?? 0), 0);
-  const currentContractValue = originalContract + approvedCOValue;
+  const approvedCOValue = sumMoney(project.changeOrders.filter((c) => c.status === "APPROVED").map((c) => c.amount));
+  const pendingCOValue = sumMoney(project.changeOrders.filter((c) => c.status !== "APPROVED" && c.status !== "REJECTED").map((c) => c.amount));
+  const currentContractValue = addMoney(originalContract, approvedCOValue);
 
   // Execution
   const pnl = project.pnlSnapshot;
@@ -72,18 +69,18 @@ export default async function ProfitAuditPage({ params }: { params: Promise<{ pr
   const percentComplete = pnl?.percentComplete ?? (forecastFinalCost > 0 ? (costsToDate / forecastFinalCost) * 100 : 0);
 
   // Margin at bid vs now
-  const marginAtBid = bidLineTotal > 0 ? bidEstimate - bidLineTotal : null;
+  const marginAtBid = bidLineTotal > 0 ? subtractMoney(bidEstimate, bidLineTotal) : null;
   const marginPctAtBid = marginAtBid != null && bidEstimate > 0 ? (marginAtBid / bidEstimate) : null;
-  const marginNow = currentContractValue - forecastFinalCost;
+  const marginNow = subtractMoney(currentContractValue, forecastFinalCost);
   const marginPctNow = currentContractValue > 0 ? marginNow / currentContractValue : 0;
-  const fade = marginAtBid != null ? marginNow - marginAtBid : null;
+  const fade = marginAtBid != null ? subtractMoney(marginNow, marginAtBid) : null;
 
   // Variance by cost code — bid line vs current budget actual
   const bidByCode = new Map<string, number>();
   if (bidDraft) {
     for (const item of bidDraft.lineItems) {
       const k = item.costCode ?? item.description;
-      bidByCode.set(k, (bidByCode.get(k) ?? 0) + (item.amount ?? 0));
+      bidByCode.set(k, addMoney(bidByCode.get(k) ?? 0, item.amount ?? 0));
     }
   }
   const actualByCode = new Map<string, { budget: number; actual: number; committed: number }>();
@@ -91,9 +88,9 @@ export default async function ProfitAuditPage({ params }: { params: Promise<{ pr
     for (const line of b.lines) {
       const k = line.code ?? line.description;
       const slot = actualByCode.get(k) ?? { budget: 0, actual: 0, committed: 0 };
-      slot.budget += line.budgetAmount ?? 0;
-      slot.actual += line.actualCost ?? 0;
-      slot.committed += line.committedCost ?? 0;
+      slot.budget = addMoney(slot.budget, line.budgetAmount ?? 0);
+      slot.actual = addMoney(slot.actual, line.actualCost ?? 0);
+      slot.committed = addMoney(slot.committed, line.committedCost ?? 0);
       actualByCode.set(k, slot);
     }
   }
@@ -101,14 +98,14 @@ export default async function ProfitAuditPage({ params }: { params: Promise<{ pr
   const varianceRows = Array.from(allCodes).map((code) => {
     const bid = bidByCode.get(code) ?? 0;
     const a = actualByCode.get(code) ?? { budget: 0, actual: 0, committed: 0 };
-    const eac = a.actual + a.committed;
-    const variance = eac - (bid > 0 ? bid : a.budget);
+    const eac = addMoney(a.actual, a.committed);
+    const variance = subtractMoney(eac, bid > 0 ? bid : a.budget);
     return { code, bid, budget: a.budget, actual: a.actual, committed: a.committed, eac, variance };
   }).sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance));
 
-  const totalCommissions = commissions.reduce((s, c) => s + (c.amount ?? 0), 0);
-  const commissionsPaid = commissions.filter((c) => c.status === "PAID").reduce((s, c) => s + (c.amount ?? 0), 0);
-  const commissionsAccrued = commissions.filter((c) => c.status === "ACCRUED" || c.status === "PENDING_APPROVAL" || c.status === "APPROVED").reduce((s, c) => s + (c.amount ?? 0), 0);
+  const totalCommissions = sumMoney(commissions.map((c) => c.amount));
+  const commissionsPaid = sumMoney(commissions.filter((c) => c.status === "PAID").map((c) => c.amount));
+  const commissionsAccrued = sumMoney(commissions.filter((c) => c.status === "ACCRUED" || c.status === "PENDING_APPROVAL" || c.status === "APPROVED").map((c) => c.amount));
 
   return (
     <AppLayout

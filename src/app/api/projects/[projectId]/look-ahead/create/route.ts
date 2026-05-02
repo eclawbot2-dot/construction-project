@@ -7,7 +7,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ projectId:
   const tenant = await requireTenant();
   const { projectId } = await ctx.params;
   const project = await prisma.project.findFirst({ where: { id: projectId, tenantId: tenant.id } });
-  if (!project) redirect(`/projects/${projectId}/look-ahead?error=not+found`);
+  if (!project) redirect(`/projects?error=not+found`);
   const form = await req.formData();
   const description = (form.get("description") as string | null)?.trim();
   const responsibleParty = (form.get("responsibleParty") as string | null)?.trim();

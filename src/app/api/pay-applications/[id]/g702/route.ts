@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
+import { sumMoney, subtractMoney } from "@/lib/money";
 
 /**
  * AIA G702/G703 progress-billing document, generated server-side as
@@ -32,9 +33,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
   const today = new Date().toLocaleDateString("en-US");
 
-  const totalScheduled = payApp.lines.reduce((s, l) => s + (l.scheduledValue ?? 0), 0);
-  const totalCompletedToDate = payApp.lines.reduce((s, l) => s + (l.totalCompleted ?? 0), 0);
-  const totalRetainage = payApp.lines.reduce((s, l) => s + (l.retainage ?? 0), 0);
+  const totalScheduled = sumMoney(payApp.lines.map((l) => l.scheduledValue));
+  const totalCompletedToDate = sumMoney(payApp.lines.map((l) => l.totalCompleted));
+  const totalRetainage = sumMoney(payApp.lines.map((l) => l.retainage));
 
   const html = `<!doctype html>
 <html lang="en">
@@ -82,7 +83,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     <tr><td>3. Contract Sum to Date (1+2)</td><td class="num">${fmt(payApp.totalContractValue ?? 0)}</td></tr>
     <tr><td>4. Total Completed and Stored to Date</td><td class="num">${fmt(payApp.workCompletedToDate ?? 0)}</td></tr>
     <tr><td>5. Retainage</td><td class="num">${fmt(payApp.retainageHeld ?? 0)}</td></tr>
-    <tr><td>6. Total Earned Less Retainage (4-5)</td><td class="num">${fmt((payApp.workCompletedToDate ?? 0) - (payApp.retainageHeld ?? 0))}</td></tr>
+    <tr><td>6. Total Earned Less Retainage (4-5)</td><td class="num">${fmt(subtractMoney(payApp.workCompletedToDate ?? 0, payApp.retainageHeld ?? 0))}</td></tr>
     <tr><td>7. Less Previous Certificates for Payment</td><td class="num">${fmt(payApp.lessPreviousPayments ?? 0)}</td></tr>
     <tr class="totals"><td>8. Current Payment Due</td><td class="num">${fmt(payApp.currentPaymentDue ?? 0)}</td></tr>
     <tr><td>9. Balance to Finish, Plus Retainage</td><td class="num">${fmt(((payApp.totalContractValue ?? 0) - (payApp.workCompletedToDate ?? 0)) + (payApp.retainageHeld ?? 0))}</td></tr>
@@ -128,7 +129,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         <td colspan="3"></td>
         <td class="num">${fmt(totalCompletedToDate)}</td>
         <td class="num">${fmtPct(totalScheduled > 0 ? totalCompletedToDate / totalScheduled : 0)}</td>
-        <td class="num">${fmt(totalScheduled - totalCompletedToDate)}</td>
+        <td class="num">${fmt(subtractMoney(totalScheduled, totalCompletedToDate))}</td>
         <td class="num">${fmt(totalRetainage)}</td>
       </tr>
     </tbody>

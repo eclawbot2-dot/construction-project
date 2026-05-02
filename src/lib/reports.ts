@@ -14,6 +14,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { sumMoney, subtractMoney, multiplyMoney } from "@/lib/money";
 
 // ─── R1 — Surety-grade WIP report ──────────────────────────────────
 
@@ -43,9 +44,9 @@ export async function wipReport(tenantId: string, _asOf: Date = new Date()): Pro
     const cost = snap?.costsToDate ?? 0;
     const efc = snap?.forecastFinalCost ?? cost;
     const pct = efc > 0 ? Math.min(1, cost / efc) : 0;
-    const earned = contract * pct;
-    const over = Math.max(0, billed - earned);
-    const under = Math.max(0, earned - billed);
+    const earned = multiplyMoney(contract, pct);
+    const over = Math.max(0, subtractMoney(billed, earned));
+    const under = Math.max(0, subtractMoney(earned, billed));
     return {
       projectId: p.id,
       projectName: p.name,
@@ -92,8 +93,8 @@ export async function costToCompleteForecast(tenantId: string): Promise<CtcRow[]
         const spent = line.actualCost ?? 0;
         const committed = line.committedCost ?? 0;
         const budgeted = line.budgetAmount ?? 0;
-        const remaining = Math.max(0, budgeted - spent - committed);
-        const eac = spent + committed + remaining;
+        const remaining = Math.max(0, subtractMoney(budgeted, sumMoney([spent, committed])));
+        const eac = sumMoney([spent, committed, remaining]);
         out.push({
           projectId: p.id,
           costCode: line.code ?? line.description,
@@ -246,19 +247,14 @@ export async function bondingCapacityReport(tenantId: string): Promise<BondingRo
     orderBy: [{ projectId: "asc" }, { asOf: "desc" }],
     distinct: ["projectId"],
   });
-  let contract = 0;
-  let cost = 0;
-  let billed = 0;
-  for (const s of snapshots) {
-    contract += s.totalContractValue ?? 0;
-    cost += s.costsToDate ?? 0;
-    billed += s.billedToDate ?? 0;
-  }
+  const contract = sumMoney(snapshots.map((s) => s.totalContractValue));
+  const cost = sumMoney(snapshots.map((s) => s.costsToDate));
+  const billed = sumMoney(snapshots.map((s) => s.billedToDate));
   return {
     totalContractValue: contract,
     totalCostsToDate: cost,
     totalBilledToDate: billed,
-    workInProgress: cost - billed,
-    backlog: contract - billed,
+    workInProgress: subtractMoney(cost, billed),
+    backlog: subtractMoney(contract, billed),
   };
 }
