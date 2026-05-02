@@ -12,7 +12,7 @@
  * private aggregators contractors subscribe to.
  */
 
-import type { AgencyKind, AgencyTier, PrismaClient } from "@prisma/client";
+import type { AgencyKind, AgencyTier, PrismaClient, ScraperKind } from "@prisma/client";
 
 export type PortalSeed = {
   name: string;
@@ -29,11 +29,13 @@ export type PortalSeed = {
   description: string;
   naicsFocus?: string;
   setAsideFocus?: string;
+  scraperKind?: ScraperKind;
+  scraperModule?: string;
 };
 
 export const PORTAL_CATALOG: PortalSeed[] = [
   // ─── Federal — civilian / GSA-wide ─────────────────────────────────
-  { name: "SAM.gov — Contract Opportunities", url: "https://sam.gov/opportunities", category: "Federal master", agencyKind: "FEDERAL", agencyTier: "GSA", agencyName: "GSA / SAM.gov", geoScope: "FEDERAL", description: "Federal-wide contract opportunities. The single source of truth for federal solicitations >$25K.", naicsFocus: "236220, 237110, 237310" },
+  { name: "SAM.gov — Contract Opportunities", url: "https://sam.gov/opportunities", category: "Federal master", agencyKind: "FEDERAL", agencyTier: "GSA", agencyName: "GSA / SAM.gov", geoScope: "FEDERAL", description: "Federal-wide contract opportunities. The single source of truth for federal solicitations >$25K.", naicsFocus: "236220, 237110, 237310", scraperKind: "API", scraperModule: "sam-gov" },
   { name: "GSA Forecast of Contracting Opportunities", url: "https://www.gsa.gov/buy-through-us/forecast-of-contracting-opportunities", category: "Federal forecast", agencyKind: "FEDERAL", agencyTier: "GSA", agencyName: "General Services Administration", geoScope: "FEDERAL", description: "GSA's forward-looking forecast of upcoming acquisitions across PBS and FAS. Key for capture planning.", naicsFocus: "236220" },
   { name: "GSA eBuy", url: "https://www.ebuy.gsa.gov", category: "Federal task orders", agencyKind: "FEDERAL", agencyTier: "GSA", agencyName: "GSA eBuy", geoScope: "FEDERAL", authType: "LOGIN", description: "Task-order solicitations under GSA Schedules. Schedule holders only.", naicsFocus: "236220" },
   { name: "FedConnect", url: "https://www.fedconnect.net", category: "Federal grants + contracts", agencyKind: "FEDERAL", agencyTier: "CIVILIAN", agencyName: "FedConnect", geoScope: "FEDERAL", authType: "LOGIN", description: "Cross-agency portal for grants and contract opportunities; common at DOE, HHS, NRC.", naicsFocus: "236220" },
@@ -112,45 +114,28 @@ export async function upsertPortalCatalog(prisma: PrismaClient): Promise<{ creat
   let updated = 0;
   for (const p of PORTAL_CATALOG) {
     const existing = await prisma.solicitationPortalCatalog.findUnique({ where: { url: p.url } });
+    const data = {
+      name: p.name,
+      category: p.category,
+      agencyKind: p.agencyKind,
+      agencyTier: p.agencyTier,
+      agencyName: p.agencyName,
+      geoScope: p.geoScope,
+      geoCity: p.geoCity,
+      geoState: p.geoState,
+      authType: p.authType ?? "NONE",
+      signupUrl: p.signupUrl,
+      description: p.description,
+      naicsFocus: p.naicsFocus,
+      setAsideFocus: p.setAsideFocus,
+      scraperKind: p.scraperKind ?? ("MANUAL" as ScraperKind),
+      scraperModule: p.scraperModule ?? null,
+    };
     if (existing) {
-      await prisma.solicitationPortalCatalog.update({
-        where: { url: p.url },
-        data: {
-          name: p.name,
-          category: p.category,
-          agencyKind: p.agencyKind,
-          agencyTier: p.agencyTier,
-          agencyName: p.agencyName,
-          geoScope: p.geoScope,
-          geoCity: p.geoCity,
-          geoState: p.geoState,
-          authType: p.authType ?? "NONE",
-          signupUrl: p.signupUrl,
-          description: p.description,
-          naicsFocus: p.naicsFocus,
-          setAsideFocus: p.setAsideFocus,
-        },
-      });
+      await prisma.solicitationPortalCatalog.update({ where: { url: p.url }, data });
       updated += 1;
     } else {
-      await prisma.solicitationPortalCatalog.create({
-        data: {
-          name: p.name,
-          url: p.url,
-          category: p.category,
-          agencyKind: p.agencyKind,
-          agencyTier: p.agencyTier,
-          agencyName: p.agencyName,
-          geoScope: p.geoScope,
-          geoCity: p.geoCity,
-          geoState: p.geoState,
-          authType: p.authType ?? "NONE",
-          signupUrl: p.signupUrl,
-          description: p.description,
-          naicsFocus: p.naicsFocus,
-          setAsideFocus: p.setAsideFocus,
-        },
-      });
+      await prisma.solicitationPortalCatalog.create({ data: { url: p.url, ...data } });
       created += 1;
     }
   }

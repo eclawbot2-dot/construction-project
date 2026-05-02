@@ -1667,6 +1667,21 @@ enum AgencyKind {
   AUTHORITY
 }
 
+/// How the platform pulls listings from a portal. Pass-11: replaces the
+/// previous deterministic mock crawler. Each portal in the catalog
+/// declares its scraperKind and the dispatcher in src/lib/scrapers/
+/// index.ts routes accordingly. Portals marked MANUAL are visible in
+/// the catalog so operators can find them, but the sweep refuses to
+/// fabricate data — operators visit those portals' web UIs directly
+/// until a real scraper ships.
+enum ScraperKind {
+  API
+  RSS
+  HTML
+  MANUAL
+  DEPRECATED
+}
+
 /// Agency tier — coarse grouping under FEDERAL. Lets the catalog UI
 /// render "DoD branches" / "VA centers" / "GSA-wide" categories without
 /// hard-coding the entire NAICS taxonomy.
@@ -1686,32 +1701,41 @@ enum AgencyTier {
 }
 
 model SolicitationPortalCatalog {
-  id            String     @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String
-  url           String     @unique
+  url           String      @unique
   category      String
   // Structured agency classification (added 2026-05-01) lets the
   // discover UI categorize portals federal vs state vs county vs
   // municipal vs aggregator and surface DoD / VA / GSA sub-tiers.
-  agencyKind    AgencyKind @default(FEDERAL)
-  agencyTier    AgencyTier @default(CIVILIAN)
+  agencyKind    AgencyKind  @default(FEDERAL)
+  agencyTier    AgencyTier  @default(CIVILIAN)
   agencyName    String?
   geoScope      String
   geoCity       String?
   geoState      String?
-  geoCountry    String     @default("US")
-  authType      String     @default("NONE")
+  geoCountry    String      @default("US")
+  authType      String      @default("NONE")
   signupUrl     String?
   description   String?
   naicsFocus    String?
   setAsideFocus String?
-  active        Boolean    @default(true)
-  createdAt     DateTime   @default(now())
+  // scraperKind names the integration backing this portal. MANUAL means
+  // no auto-scraper — operators visit the portal's UI directly. The
+  // sweep dispatcher refuses to run MANUAL/DEPRECATED portals so the
+  // app never fabricates listings.
+  scraperKind   ScraperKind @default(MANUAL)
+  // scraperModule names the file under src/lib/scrapers/<name>.ts when
+  // scraperKind is API/RSS/HTML. Empty for MANUAL/DEPRECATED.
+  scraperModule String?
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
 
   rfpSources RfpSource[]
 
   @@index([active])
   @@index([agencyKind, agencyTier])
+  @@index([scraperKind])
 }
 
 model RfpListing {

@@ -163,7 +163,14 @@ export default async function DiscoverPortalsPage({
                     <article key={p.id} className="panel p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="text-sm font-semibold" style={{ color: "var(--heading)" }}>{p.name}</div>
-                        <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]" style={{ borderColor: "var(--border)", color: "var(--faint)" }}>{TIER_LABEL[p.agencyTier]}</span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]" style={{ borderColor: "var(--border)", color: "var(--faint)" }}>{TIER_LABEL[p.agencyTier]}</span>
+                          {p.scraperKind === "MANUAL" || p.scraperKind === "DEPRECATED" ? (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-amber-200" title="No automated scraper for this portal yet — visit the portal directly to monitor">manual only</span>
+                          ) : (
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-emerald-200">auto · {p.scraperKind.toLowerCase()}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="mt-1 text-xs" style={{ color: "var(--faint)" }}>{p.agencyName ?? p.category}</div>
                       <a href={p.url} target="_blank" rel="noopener" className="mt-2 block break-all text-xs hover:underline" style={{ color: "var(--accent, #67e8f9)" }}>{p.url}</a>
