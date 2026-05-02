@@ -517,6 +517,20 @@ model User {
   password    String
   active      Boolean   @default(true)
   superAdmin  Boolean   @default(false)
+  // MFA — TOTP secret encrypted at rest with the global vault key.
+  // mfaEnrolledAt is null until enrollment completes; required for
+  // sign-in once set.
+  mfaSecretEnc      String?
+  mfaEnrolledAt     DateTime?
+  mfaBackupCodesEnc String?    // JSON list of one-time-use codes, encrypted
+  // External-IdP sign-on linkage. provider+providerSubject is unique
+  // across User; lookup on auth callback.
+  ssoProvider       String?
+  ssoSubject        String?
+  // Session revocation — when this timestamp moves forward, every
+  // JWT issued before it is treated as revoked. Bump on logout / role
+  // demotion / suspected compromise.
+  sessionsRevokedAt DateTime?
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

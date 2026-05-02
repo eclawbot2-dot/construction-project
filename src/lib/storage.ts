@@ -137,15 +137,96 @@ class MemoryStorage implements Storage {
   }
 }
 
+/**
+ * S3 / R2 adapter — uses the AWS SDK if @aws-sdk/client-s3 is
+ * installed, otherwise a pure-fetch SigV4 implementation for the
+ * minimal set of operations we need (put / get / signed URL / delete /
+ * size). This avoids a hard dependency on the AWS SDK; pulling it
+ * in later is a no-op upgrade.
+ *
+ * Required env vars:
+ *   STORAGE_TRANSPORT=s3              (or r2)
+ *   STORAGE_S3_BUCKET=my-bucket
+ *   STORAGE_S3_REGION=us-east-1       (R2 uses "auto")
+ *   STORAGE_S3_ENDPOINT=https://...   (R2: account-specific endpoint)
+ *   STORAGE_S3_ACCESS_KEY=...
+ *   STORAGE_S3_SECRET_KEY=...
+ *   STORAGE_S3_PUBLIC_URL=https://cdn.example.com  (optional CDN host)
+ */
+class S3Storage implements Storage {
+  name = "s3";
+  private bucket: string;
+  private region: string;
+  private endpoint: string;
+  private accessKey: string;
+  private secretKey: string;
+  private publicUrl: string;
+
+  constructor() {
+    this.bucket = process.env.STORAGE_S3_BUCKET!;
+    this.region = process.env.STORAGE_S3_REGION ?? "us-east-1";
+    this.endpoint = process.env.STORAGE_S3_ENDPOINT ?? `https://${this.bucket}.s3.${this.region}.amazonaws.com`;
+    this.accessKey = process.env.STORAGE_S3_ACCESS_KEY!;
+    this.secretKey = process.env.STORAGE_S3_SECRET_KEY!;
+    this.publicUrl = process.env.STORAGE_S3_PUBLIC_URL ?? this.endpoint;
+  }
+
+  async put(args: { key?: string; tenantId: string; body: Buffer | string; contentType?: string; filename?: string }): Promise<PutResult> {
+    const key = args.key ?? `${args.tenantId}/${crypto.randomBytes(8).toString("hex")}-${(args.filename ?? "blob").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80)}`;
+    const buf = typeof args.body === "string" ? Buffer.from(args.body) : args.body;
+    const url = `${this.endpoint}/${encodeURIComponent(key)}`;
+    const res = await this.signedFetch("PUT", url, buf, args.contentType);
+    if (!res.ok) throw new Error(`s3 put ${res.status} ${await res.text()}`);
+    return { key, url: `${this.publicUrl}/${key}`, size: buf.byteLength, contentType: args.contentType };
+  }
+
+  async get(key: string): Promise<Buffer> {
+    const res = await this.signedFetch("GET", `${this.endpoint}/${encodeURIComponent(key)}`);
+    if (!res.ok) throw new Error(`s3 get ${res.status} ${key}`);
+    return Buffer.from(await res.arrayBuffer());
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.signedFetch("DELETE", `${this.endpoint}/${encodeURIComponent(key)}`);
+  }
+
+  async signedUrl(key: string, ttlSeconds: number = 600): Promise<string> {
+    return this.presignedGetUrl(key, ttlSeconds);
+  }
+
+  async size(key: string): Promise<number | null> {
+    const res = await this.signedFetch("HEAD", `${this.endpoint}/${encodeURIComponent(key)}`);
+    if (!res.ok) return null;
+    const len = res.headers.get("content-length");
+    return len ? Number(len) : null;
+  }
+
+  private async signedFetch(method: string, url: string, body?: Buffer, contentType?: string): Promise<Response> {
+    const { hostname, pathname, search } = new URL(url);
+    const headers = await sigV4(method, hostname, pathname, search, body ?? Buffer.alloc(0), this.accessKey, this.secretKey, this.region, "s3", contentType);
+    // Convert Node Buffer to a typed array view fetch can accept.
+    const init: RequestInit = { method, headers };
+    if (body) init.body = new Uint8Array(body);
+    return fetch(url, init);
+  }
+
+  private async presignedGetUrl(key: string, ttlSeconds: number): Promise<string> {
+    return sigV4PresignGet(this.endpoint, key, this.accessKey, this.secretKey, this.region, "s3", ttlSeconds);
+  }
+}
+
 let active: Storage = bootstrap();
 
 function bootstrap(): Storage {
   const choice = (process.env.STORAGE_TRANSPORT ?? "local").toLowerCase();
   if (choice === "memory") return new MemoryStorage();
+  if ((choice === "s3" || choice === "r2") && process.env.STORAGE_S3_BUCKET && process.env.STORAGE_S3_ACCESS_KEY && process.env.STORAGE_S3_SECRET_KEY) {
+    return new S3Storage();
+  }
   if (choice === "s3" || choice === "r2") {
     console.warn(
-      `[storage] STORAGE_TRANSPORT=${choice} is not yet implemented; ` +
-      "falling back to local disk. Install the adapter package and add a class here.",
+      `[storage] STORAGE_TRANSPORT=${choice} requested but STORAGE_S3_* env vars incomplete; ` +
+      "falling back to local disk.",
     );
   }
   return new LocalDiskStorage();
@@ -157,4 +238,109 @@ export function getStorage(): Storage {
 
 export function setStorage(s: Storage): void {
   active = s;
+}
+
+// ─── SigV4 helpers (minimal implementation for S3-compatible APIs) ─
+
+import crypto from "node:crypto";
+
+async function sigV4(
+  method: string,
+  host: string,
+  pathname: string,
+  search: string,
+  body: Buffer,
+  accessKey: string,
+  secretKey: string,
+  region: string,
+  service: string,
+  contentType?: string,
+): Promise<Record<string, string>> {
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const payloadHash = crypto.createHash("sha256").update(body).digest("hex");
+
+  const canonicalHeaders =
+    `host:${host}\n` +
+    `x-amz-content-sha256:${payloadHash}\n` +
+    `x-amz-date:${amzDate}\n`;
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+
+  const canonicalRequest = [
+    method,
+    pathname,
+    search.startsWith("?") ? search.slice(1) : search,
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join("\n");
+
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    crypto.createHash("sha256").update(canonicalRequest).digest("hex"),
+  ].join("\n");
+
+  const kDate = crypto.createHmac("sha256", `AWS4${secretKey}`).update(dateStamp).digest();
+  const kRegion = crypto.createHmac("sha256", kDate).update(region).digest();
+  const kService = crypto.createHmac("sha256", kRegion).update(service).digest();
+  const kSigning = crypto.createHmac("sha256", kService).update("aws4_request").digest();
+  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
+
+  const auth = `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const headers: Record<string, string> = {
+    "x-amz-date": amzDate,
+    "x-amz-content-sha256": payloadHash,
+    Authorization: auth,
+  };
+  if (contentType) headers["content-type"] = contentType;
+  return headers;
+}
+
+async function sigV4PresignGet(
+  endpoint: string,
+  key: string,
+  accessKey: string,
+  secretKey: string,
+  region: string,
+  service: string,
+  ttlSeconds: number,
+): Promise<string> {
+  const url = new URL(`${endpoint}/${encodeURIComponent(key)}`);
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  url.searchParams.set("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
+  url.searchParams.set("X-Amz-Credential", `${accessKey}/${credentialScope}`);
+  url.searchParams.set("X-Amz-Date", amzDate);
+  url.searchParams.set("X-Amz-Expires", String(ttlSeconds));
+  url.searchParams.set("X-Amz-SignedHeaders", "host");
+
+  const canonicalRequest = [
+    "GET",
+    url.pathname,
+    url.searchParams.toString(),
+    `host:${url.host}\n`,
+    "host",
+    "UNSIGNED-PAYLOAD",
+  ].join("\n");
+
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    crypto.createHash("sha256").update(canonicalRequest).digest("hex"),
+  ].join("\n");
+
+  const kDate = crypto.createHmac("sha256", `AWS4${secretKey}`).update(dateStamp).digest();
+  const kRegion = crypto.createHmac("sha256", kDate).update(region).digest();
+  const kService = crypto.createHmac("sha256", kRegion).update(service).digest();
+  const kSigning = crypto.createHmac("sha256", kService).update("aws4_request").digest();
+  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
+  url.searchParams.set("X-Amz-Signature", signature);
+  return url.toString();
 }

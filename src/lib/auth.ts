@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { ssoProviders } from "@/lib/sso-providers";
 
 const config: NextAuthConfig = {
   session: {
@@ -63,6 +64,7 @@ const config: NextAuthConfig = {
         return { id: user.id, name: user.name, email: user.email, superAdmin: user.superAdmin };
       },
     }),
+    ...ssoProviders(),
   ],
   callbacks: {
     async jwt({ token, user }) {
