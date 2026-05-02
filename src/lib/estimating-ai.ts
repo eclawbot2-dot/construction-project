@@ -10,6 +10,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiCall, pickStable, rangeStable, stableHash } from "@/lib/ai";
+import { sumMoney, multiplyMoney, toNum } from "@/lib/money";
 
 export type TakeoffItem = { costCode: string; description: string; category: string; quantity: number; unit: string; unitCost: number; amount: number };
 
@@ -140,7 +141,7 @@ export async function levelSubBids(packageId: string, tenantId: string): Promise
         .map((b) => {
           const hash = stableHash(b.id);
           const adjPct = ((hash % 20) - 10) / 100;
-          const adjusted = (b.bidAmount ?? 0) * (1 + adjPct);
+          const adjusted = toNum(b.bidAmount) * (1 + adjPct);
           const inclusions = ["Mobilization", "Labor & materials per plans", "Standard warranty"];
           const exclusions: string[] = [];
           if (hash % 3 === 0) exclusions.push("Sales tax");
@@ -148,7 +149,7 @@ export async function levelSubBids(packageId: string, tenantId: string): Promise
           if (hash % 5 === 0) exclusions.push("Permits & inspection fees");
           return {
             vendorName: b.vendor.name,
-            bidAmount: b.bidAmount ?? 0,
+            bidAmount: toNum(b.bidAmount),
             adjustedAmount: Math.round(adjusted),
             inclusions,
             exclusions,
@@ -172,7 +173,7 @@ export type VeIdea = { title: string; description: string; savings: number; risk
 export async function valueEngineeringIdeas(draftId: string): Promise<VeIdea[]> {
   const draft = await prisma.bidDraft.findUnique({ where: { id: draftId }, include: { lineItems: true } });
   if (!draft) throw new Error("draft not found");
-  const total = draft.lineItems.reduce((s, l) => s + l.amount, 0);
+  const total = sumMoney(draft.lineItems.map((l) => l.amount));
 
   return aiCall<VeIdea[]>({
     kind: "ve-ideas",
@@ -180,22 +181,22 @@ export async function valueEngineeringIdeas(draftId: string): Promise<VeIdea[]> 
     fallback: () => {
       const ideas: VeIdea[] = [];
       const codes = new Set(draft.lineItems.map((l) => l.costCode ?? ""));
-      const biggestLine = [...draft.lineItems].sort((a, b) => b.amount - a.amount)[0];
+      const biggestLine = [...draft.lineItems].sort((a, b) => toNum(b.amount) - toNum(a.amount))[0];
 
       // Ideas that fire only when the relevant cost code is actually in the estimate.
       if (codes.has("03-30-00")) {
         const concreteLine = draft.lineItems.find((l) => l.costCode === "03-30-00");
-        const target = (concreteLine?.amount ?? total * 0.08) * 0.15;
+        const target = (concreteLine?.amount == null ? total * 0.08 : toNum(concreteLine.amount)) * 0.15;
         ideas.push({ title: "Reduce concrete mix strength in non-loaded locations", description: `Use 4000 psi standard mix instead of 5000 psi on interior slabs-on-grade (non-loaded). Maintain 5000 psi at exterior, foundations, and loaded slabs. Coordinate with structural engineer.`, savings: Math.round(target), riskLevel: "LOW" });
       }
       if (codes.has("05-12-00")) {
         const steelLine = draft.lineItems.find((l) => l.costCode === "05-12-00");
-        const target = (steelLine?.amount ?? total * 0.06) * 0.08;
+        const target = (steelLine?.amount == null ? total * 0.06 : toNum(steelLine.amount)) * 0.08;
         ideas.push({ title: "Optimize steel tonnage via value-engineered connections", description: `Replace moment-frame connections with simpler bolted connections where drift limits allow. Potential tonnage reduction of 5-10%.`, savings: Math.round(target), riskLevel: "MEDIUM" });
       }
       if (codes.has("07-50-00")) {
         const roofLine = draft.lineItems.find((l) => l.costCode === "07-50-00");
-        ideas.push({ title: "Substitute TPO for specified PVC roofing", description: "TPO single-ply membrane achieves similar warranty at lower cost than PVC on warm roofs. Coordinate insulation R-value with energy code.", savings: Math.round((roofLine?.amount ?? total * 0.05) * 0.12), riskLevel: "LOW" });
+        ideas.push({ title: "Substitute TPO for specified PVC roofing", description: "TPO single-ply membrane achieves similar warranty at lower cost than PVC on warm roofs. Coordinate insulation R-value with energy code.", savings: Math.round((roofLine?.amount == null ? total * 0.05 : toNum(roofLine.amount)) * 0.12), riskLevel: "LOW" });
       }
       if (codes.has("22-00-00") && codes.has("23-00-00") && codes.has("26-00-00")) {
         ideas.push({ title: "Phase MEP rough-in", description: "Break mechanical / electrical / plumbing rough-in into two phases to reduce peak labor and crane time. Coordinate with schedule to preserve critical-path.", savings: Math.round(total * 0.022), riskLevel: "LOW" });
@@ -219,11 +220,11 @@ export async function valueEngineeringIdeas(draftId: string): Promise<VeIdea[]> 
       ideas.push({ title: "Alternative delivery (DBB → CM@R conversion)", description: "If owner agrees to GMP + shared-savings structure, contractor can surface VE during precon that traditional DBB misses.", savings: Math.round(total * 0.025), riskLevel: "MEDIUM" });
 
       // If biggest line is very large, add a targeted suggestion.
-      if (biggestLine && biggestLine.amount > total * 0.2) {
+      if (biggestLine && toNum(biggestLine.amount) > total * 0.2) {
         ideas.push({
           title: `Deep-dive cost review: ${biggestLine.description}`,
-          description: `This single line represents ${((biggestLine.amount / total) * 100).toFixed(0)}% of direct cost. Recommend detailed buyout with 3+ subs + take-off verification. Even a 5% reduction here drops total price materially.`,
-          savings: Math.round(biggestLine.amount * 0.05),
+          description: `This single line represents ${((toNum(biggestLine.amount) / total) * 100).toFixed(0)}% of direct cost. Recommend detailed buyout with 3+ subs + take-off verification. Even a 5% reduction here drops total price materially.`,
+          savings: Math.round(toNum(biggestLine.amount) * 0.05),
           riskLevel: "LOW",
         });
       }

@@ -110,9 +110,9 @@ export async function syncFromXero(tenantId: string): Promise<{ ok: boolean; jou
     const revenue = await prisma.journalEntryRow.aggregate({ where: { tenantId, entryDate: { gte: periodStart, lte: periodEnd }, entryType: JournalEntryType.REVENUE }, _sum: { amount: true } });
     const cogs = await prisma.journalEntryRow.aggregate({ where: { tenantId, entryDate: { gte: periodStart, lte: periodEnd }, entryType: JournalEntryType.COST_OF_GOODS }, _sum: { amount: true } });
     const opex = await prisma.journalEntryRow.aggregate({ where: { tenantId, entryDate: { gte: periodStart, lte: periodEnd }, entryType: { in: [JournalEntryType.OPERATING_EXPENSE, JournalEntryType.INDIRECT_COST] } }, _sum: { amount: true } });
-    const rev = revenue._sum.amount ?? 0;
-    const cogsAbs = Math.abs(cogs._sum.amount ?? 0);
-    const opexAbs = Math.abs(opex._sum.amount ?? 0);
+    const rev = toNum(revenue._sum.amount);
+    const cogsAbs = Math.abs(toNum(cogs._sum.amount));
+    const opexAbs = Math.abs(toNum(opex._sum.amount));
     const gross = rev - cogsAbs;
     const ebitda = gross - opexAbs;
     await prisma.financialStatement.upsert({
@@ -218,7 +218,7 @@ export async function refreshProjectPnl(tenantId: string) {
     const approvedCOValue = sumMoney(changeOrders.filter((c) => c.status === "APPROVED" || c.status === "EXECUTED").map((c) => c.amount));
     const totalContractValue = contractValue + approvedCOValue;
     const billedToDate = sumMoney(contracts.flatMap((c) => c.payApplications).map((p) => p.workCompletedToDate));
-    const costsToDate = Math.abs(journals.filter((j) => j.entryType === "COST_OF_GOODS").reduce((s, j) => s + j.amount, 0));
+    const costsToDate = Math.abs(sumMoney(journals.filter((j) => j.entryType === "COST_OF_GOODS").map((j) => j.amount)));
     const committedCost = sumMoney(contracts.flatMap((c) => c.commitments).map((c) => c.committedAmount));
     const percentComplete = totalContractValue > 0 ? Math.min(100, (billedToDate / totalContractValue) * 100) : 0;
     const forecastFinalCost = costsToDate + Math.max(0, committedCost - costsToDate);

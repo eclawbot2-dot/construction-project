@@ -7,6 +7,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney, subtractMoney } from "@/lib/money";
 
 export default async function PurchaseOrdersPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -17,8 +18,8 @@ export default async function PurchaseOrdersPage({ params }: { params: Promise<{
   });
   if (!project) notFound();
 
-  const total = project.purchaseOrders.reduce((s, p) => s + p.amount, 0);
-  const invoiced = project.purchaseOrders.reduce((s, p) => s + p.invoicedToDate, 0);
+  const total = sumMoney(project.purchaseOrders.map((p) => p.amount));
+  const invoiced = sumMoney(project.purchaseOrders.map((p) => p.invoicedToDate));
 
   return (
     <AppLayout eyebrow={`${project.code} · Purchase orders`} title={project.name} description="Material POs with vendor, expected delivery, and invoice-to-date tracking.">
@@ -52,7 +53,7 @@ export default async function PurchaseOrdersPage({ params }: { params: Promise<{
                     <td className="table-cell">{p.description}</td>
                     <td className="table-cell">{formatCurrency(p.amount)}</td>
                     <td className="table-cell">{formatCurrency(p.invoicedToDate)}</td>
-                    <td className="table-cell">{formatCurrency(p.amount - p.invoicedToDate)}</td>
+                    <td className="table-cell">{formatCurrency(subtractMoney(p.amount, p.invoicedToDate))}</td>
                     <td className="table-cell text-slate-400">{formatDate(p.expectedDelivery)}</td>
                     <td className="table-cell"><StatusBadge status={p.status} /></td>
                   </tr>

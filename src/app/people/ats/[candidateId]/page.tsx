@@ -6,6 +6,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 import { CandidateStatus } from "@prisma/client";
 
 const STATUSES: CandidateStatus[] = [
@@ -47,7 +48,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
     stage: s.stage,
     submittedAt: s.submittedAt,
     recruiterName: s.recruiterName,
-    rateOffered: s.rateOffered,
+    rateOffered: s.rateOffered == null ? null : toNum(s.rateOffered),
   }));
 
   const placementRows: PlacementRow[] = candidate.placements.map((p) => ({
@@ -57,8 +58,8 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
     startDate: p.startDate,
     endDate: p.endDate,
     status: p.status,
-    billRate: p.billRate,
-    payRate: p.payRate,
+    billRate: p.billRate == null ? null : toNum(p.billRate),
+    payRate: p.payRate == null ? null : toNum(p.payRate),
   }));
 
   const submissionColumns: DataTableColumn<SubmissionRow>[] = [
@@ -133,7 +134,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
           </div>
           <div>
             <label htmlFor="cd-rate" className="form-label">Rate expectation ($/h)</label>
-            <input id="cd-rate" name="rateExpectation" type="number" step="0.01" defaultValue={candidate.rateExpectation ?? ""} className="form-input" />
+            <input id="cd-rate" name="rateExpectation" type="number" step="0.01" defaultValue={candidate.rateExpectation == null ? "" : toNum(candidate.rateExpectation)} className="form-input" />
           </div>
           <div>
             <label htmlFor="cd-status" className="form-label">Status</label>

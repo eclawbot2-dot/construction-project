@@ -5,6 +5,7 @@ import { ChipInput } from "@/components/ui/chip-input";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { AgencyTier } from "@prisma/client";
+import { toNum } from "@/lib/money";
 
 const ALL_TIERS: AgencyTier[] = [
   "CIVILIAN", "DOD", "VA", "USACE", "GSA", "HOMELAND", "ENERGY", "TRANSPORTATION", "HEALTH", "EDUCATION", "INDEPENDENT", "OTHER",
@@ -95,11 +96,11 @@ export default async function BidProfilePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="bp-min" className="form-label">Min listing value ($)</label>
-                <input id="bp-min" name="minValue" type="number" step="1000" defaultValue={profile?.minValue ?? ""} placeholder="500000" className="form-input" />
+                <input id="bp-min" name="minValue" type="number" step="1000" defaultValue={profile?.minValue == null ? "" : toNum(profile.minValue)} placeholder="500000" className="form-input" />
               </div>
               <div>
                 <label htmlFor="bp-max" className="form-label">Max listing value ($)</label>
-                <input id="bp-max" name="maxValue" type="number" step="1000" defaultValue={profile?.maxValue ?? ""} placeholder="50000000" className="form-input" />
+                <input id="bp-max" name="maxValue" type="number" step="1000" defaultValue={profile?.maxValue == null ? "" : toNum(profile.maxValue)} placeholder="50000000" className="form-input" />
               </div>
             </div>
 

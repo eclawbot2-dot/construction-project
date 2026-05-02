@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAllPortals } from "@/lib/portal-verify";
+import { observeCronRun } from "@/lib/metrics";
 
 /**
  * Scheduled portal-verification endpoint. Refreshes the catalog
@@ -34,7 +35,15 @@ function authorize(req: NextRequest): NextResponse | null {
 export async function POST(req: NextRequest) {
   const denied = authorize(req);
   if (denied) return denied;
+  const start = Date.now();
   const result = await verifyAllPortals();
+  observeCronRun({
+    name: "verify-portals",
+    startedAt: start,
+    finishedAt: Date.now(),
+    ok: true,
+    message: typeof result === "object" && result ? `${(result as { verified?: number }).verified ?? "?"} portals checked` : "ok",
+  });
   return NextResponse.json({ ok: true, ...result });
 }
 

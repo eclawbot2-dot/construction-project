@@ -16,6 +16,7 @@ import { generateEstimateForDraft } from "@/lib/estimating";
 import { crawlSourceAndPersist, modeFromListing } from "@/lib/rfp-crawl";
 import { defaultProfile, scoreListing } from "@/lib/listing-score";
 import { OpportunityStage, RfpSourceStatus } from "@prisma/client";
+import { toNum } from "@/lib/money";
 
 export async function autopilotListing(tenantId: string, listingId: string, companyName: string): Promise<{ ok: boolean; draftId?: string; passed?: number; total?: number; note: string }> {
   const listing = await prisma.rfpListing.findFirst({ where: { id: listingId, tenantId } });
@@ -167,8 +168,8 @@ type StoredBidProfile = {
   qualifiedSetAsidesJson: string;
   targetStatesJson: string;
   targetCitiesJson: string;
-  minValue: number | null;
-  maxValue: number | null;
+  minValue: number | { toNumber: () => number } | null;
+  maxValue: number | { toNumber: () => number } | null;
   boostKeywordsJson: string;
   blockKeywordsJson: string;
   preferredTiersJson: string;
@@ -190,8 +191,8 @@ function bidProfileFromRow(row: StoredBidProfile) {
     qualifiedSetAsides: parseList(row.qualifiedSetAsidesJson),
     targetStates: parseList(row.targetStatesJson),
     targetCities: parseList(row.targetCitiesJson),
-    minValue: row.minValue,
-    maxValue: row.maxValue,
+    minValue: row.minValue == null ? null : toNum(row.minValue),
+    maxValue: row.maxValue == null ? null : toNum(row.maxValue),
     boostKeywords: parseList(row.boostKeywordsJson),
     blockKeywords: parseList(row.blockKeywordsJson),
     preferredTiers: parseList(row.preferredTiersJson),

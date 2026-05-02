@@ -35,7 +35,7 @@ export async function scoreRfpListing(tenantId: string, listingId: string): Prom
     kind: "rfp-score",
     prompt: `Score this RFP: ${listing.title} — agency ${listing.agency} — value ${listing.estimatedValue ?? "unknown"}. Prior win rate with this client: ${clientWinRate}%.`,
     fallback: () => {
-      const value = listing.estimatedValue ?? 0;
+      const value = toNum(listing.estimatedValue);
       const titleHash = stableHash(listing.title);
       const valueScore = value > 5_000_000 ? 15 : value > 500_000 ? 30 : 10;
       const winProbability = Math.min(92, Math.max(8, clientWinRate + valueScore + (titleHash % 15)));

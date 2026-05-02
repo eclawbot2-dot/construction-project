@@ -8,6 +8,7 @@ import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { loadedLabor, nextActions } from "@/lib/timesheets";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 
 export default async function TimesheetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -124,7 +125,7 @@ export default async function TimesheetDetailPage({ params }: { params: Promise<
             </div>
             <div>
               <label className="form-label">Rate ($/h)</label>
-              <input name="rate" type="number" step="0.01" defaultValue={entry.rate} className="form-input" />
+              <input name="rate" type="number" step="0.01" defaultValue={toNum(entry.rate)} className="form-input" />
             </div>
             <div>
               <label className="form-label">Cost code</label>

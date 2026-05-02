@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 
 /**
  * Bid leveling matrix — one row per scope item, one column per bidder.
@@ -71,8 +72,8 @@ export default async function BidLevelingPage({ params }: { params: Promise<{ pr
                 let minAmount = Infinity;
                 let minVendorId: string | null = null;
                 for (const [vid, line] of row.bids) {
-                  if (line.inclusion && line.amount < minAmount) {
-                    minAmount = line.amount;
+                  if (line.inclusion && toNum(line.amount) < minAmount) {
+                    minAmount = toNum(line.amount);
                     minVendorId = vid;
                   }
                 }

@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney } from "@/lib/money";
 
 const IMPORT_KINDS = [
   { value: "PROJECT_ACTUALS", label: "Project actuals (historical costs)" },
@@ -24,7 +25,7 @@ export default async function ImportsPage() {
 
   const totalRows = imports.reduce((s, i) => s + i.rowsDetected, 0);
   const imported = imports.reduce((s, i) => s + i.rowsImported, 0);
-  const totalDollars = imports.reduce((s, i) => s + i.totalDollarValue, 0);
+  const totalDollars = sumMoney(imports.map((i) => i.totalDollarValue));
 
   return (
     <AppLayout eyebrow="Historical data" title="Spreadsheet imports" description="Upload CSV/XLSX of past project costs, bid history, or income statements. AI reviews each row, flags gaps, and pushes clean data into bcon.">

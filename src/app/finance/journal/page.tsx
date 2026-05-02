@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 
 export default async function JournalPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const tenant = await requireTenant();
@@ -57,7 +58,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                     <td className="table-cell"><div>{e.accountName}</div><div className="font-mono text-[10px] text-slate-500">{e.accountCode}</div></td>
                     <td className="table-cell max-w-[260px]">{e.memo}</td>
                     <td className="table-cell text-slate-400">{e.vendorName ?? "—"}</td>
-                    <td className={"table-cell font-medium " + (e.amount < 0 ? "text-rose-200" : "text-emerald-200")}>{formatCurrency(e.amount)}</td>
+                    <td className={"table-cell font-medium " + (toNum(e.amount) < 0 ? "text-rose-200" : "text-emerald-200")}>{formatCurrency(e.amount)}</td>
                     <td className="table-cell">{e.project ? <Link href={`/projects/${e.project.id}/financials`} className="text-cyan-300 hover:underline">{e.project.code}</Link> : <span className="text-slate-500">—</span>}</td>
                     <td className="table-cell font-mono text-xs text-slate-400">{e.costCode ?? "—"}</td>
                     <td className="table-cell"><StatusBadge status={e.reconciliationStatus} /></td>

@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiCall, stableHash } from "@/lib/ai";
+import { sumMoney, subtractMoney, addMoney, toNum } from "@/lib/money";
 
 export type TenantAnswer = { answer: string; charts: Array<{ kind: "BAR" | "LINE" | "PIE"; title: string; labels: string[]; values: number[] }>; tables: Array<{ title: string; rows: Array<Record<string, string>> }> };
 
@@ -24,8 +25,8 @@ export async function tenantAskAnything(question: string, tenantId: string): Pro
         const byMode = await prisma.opportunity.groupBy({ by: ["mode"], where: { tenantId }, _sum: { estimatedValue: true }, _count: { _all: true } });
         return {
           answer: `Pipeline breakdown by mode across ${byMode.reduce((s, m) => s + (m._count?._all ?? 0), 0)} opportunities.`,
-          charts: [{ kind: "PIE", title: "Pipeline $ by mode", labels: byMode.map((m) => m.mode), values: byMode.map((m) => Math.round(m._sum.estimatedValue ?? 0)) }],
-          tables: [{ title: "Opportunities by mode", rows: byMode.map((m) => ({ mode: m.mode, count: String(m._count?._all ?? 0), totalValue: `$${Math.round(m._sum.estimatedValue ?? 0).toLocaleString()}` })) }],
+          charts: [{ kind: "PIE", title: "Pipeline $ by mode", labels: byMode.map((m) => m.mode), values: byMode.map((m) => Math.round(toNum(m._sum.estimatedValue))) }],
+          tables: [{ title: "Opportunities by mode", rows: byMode.map((m) => ({ mode: m.mode, count: String(m._count?._all ?? 0), totalValue: `$${Math.round(toNum(m._sum.estimatedValue)).toLocaleString()}` })) }],
         };
       }
       if (/pipeline\s+by\s+stage|opportunit.*stage/i.test(q) || /sales\s+funnel/i.test(q)) {
@@ -33,7 +34,7 @@ export async function tenantAskAnything(question: string, tenantId: string): Pro
         return {
           answer: `Opportunities by stage. ${byStage.reduce((s, m) => s + (m._count?._all ?? 0), 0)} total.`,
           charts: [{ kind: "BAR", title: "Opportunities by stage", labels: byStage.map((m) => m.stage), values: byStage.map((m) => m._count?._all ?? 0) }],
-          tables: [{ title: "Pipeline value by stage", rows: byStage.map((m) => ({ stage: m.stage, count: String(m._count?._all ?? 0), value: `$${Math.round(m._sum.estimatedValue ?? 0).toLocaleString()}` })) }],
+          tables: [{ title: "Pipeline value by stage", rows: byStage.map((m) => ({ stage: m.stage, count: String(m._count?._all ?? 0), value: `$${Math.round(toNum(m._sum.estimatedValue)).toLocaleString()}` })) }],
         };
       }
       if (/win\s+rate|hit\s+rate/i.test(q)) {
@@ -46,34 +47,34 @@ export async function tenantAskAnything(question: string, tenantId: string): Pro
       // --- FINANCE / BUDGET ---
       if (/over\s+budget|cost\s+overrun|variance.*cost/i.test(q)) {
         const snaps = await prisma.projectPnlSnapshot.findMany({ where: { project: { tenantId } }, include: { project: true }, orderBy: { forecastFinalCost: "desc" } });
-        const over = snaps.filter((s) => s.forecastFinalCost > s.totalContractValue).slice(0, 10);
+        const over = snaps.filter((s) => toNum(s.forecastFinalCost) > toNum(s.totalContractValue)).slice(0, 10);
         return {
           answer: `${over.length} projects are forecast to finish over contract value.`,
           charts: [],
-          tables: [{ title: "Projects forecast over budget", rows: over.map((s) => ({ code: s.project.code, contract: `$${s.totalContractValue.toLocaleString()}`, eac: `$${s.forecastFinalCost.toLocaleString()}`, variance: `$${(s.forecastFinalCost - s.totalContractValue).toLocaleString()}` })) }],
+          tables: [{ title: "Projects forecast over budget", rows: over.map((s) => ({ code: s.project.code, contract: `$${toNum(s.totalContractValue).toLocaleString()}`, eac: `$${toNum(s.forecastFinalCost).toLocaleString()}`, variance: `$${subtractMoney(s.forecastFinalCost, s.totalContractValue).toLocaleString()}` })) }],
         };
       }
       if (/backlog|contracted\s+not\s+billed/i.test(q)) {
         const snaps = await prisma.projectPnlSnapshot.findMany({ where: { project: { tenantId } }, include: { project: true } });
-        const backlog = snaps.reduce((s, p) => s + (p.totalContractValue - p.billedToDate), 0);
-        return { answer: `Current backlog (contract − billed): $${backlog.toLocaleString()} across ${snaps.length} projects.`, charts: [], tables: [{ title: "Backlog by project", rows: snaps.sort((a, b) => (b.totalContractValue - b.billedToDate) - (a.totalContractValue - a.billedToDate)).slice(0, 10).map((s) => ({ code: s.project.code, backlog: `$${(s.totalContractValue - s.billedToDate).toLocaleString()}`, percent: `${s.percentComplete.toFixed(0)}%` })) }] };
+        const backlog = sumMoney(snaps.map((p) => subtractMoney(p.totalContractValue, p.billedToDate)));
+        return { answer: `Current backlog (contract − billed): $${backlog.toLocaleString()} across ${snaps.length} projects.`, charts: [], tables: [{ title: "Backlog by project", rows: snaps.sort((a, b) => subtractMoney(b.totalContractValue, b.billedToDate) - subtractMoney(a.totalContractValue, a.billedToDate)).slice(0, 10).map((s) => ({ code: s.project.code, backlog: `$${subtractMoney(s.totalContractValue, s.billedToDate).toLocaleString()}`, percent: `${toNum(s.percentComplete).toFixed(0)}%` })) }] };
       }
       if (/wip\s+(?:over|under)|over.*billed|under.*billed/i.test(q)) {
         const snaps = await prisma.projectPnlSnapshot.findMany({ where: { project: { tenantId } }, include: { project: true } });
-        const over = snaps.filter((s) => s.wipOverUnder > 0).reduce((s, p) => s + p.wipOverUnder, 0);
-        const under = snaps.filter((s) => s.wipOverUnder < 0).reduce((s, p) => s + Math.abs(p.wipOverUnder), 0);
-        return { answer: `Overbillings: $${over.toLocaleString()} (cash-positive). Underbillings: $${under.toLocaleString()} (cash-at-risk).`, charts: [{ kind: "BAR", title: "WIP over/under by project", labels: snaps.slice(0, 12).map((s) => s.project.code), values: snaps.slice(0, 12).map((s) => Math.round(s.wipOverUnder)) }], tables: [] };
+        const over = sumMoney(snaps.filter((s) => toNum(s.wipOverUnder) > 0).map((p) => p.wipOverUnder));
+        const under = sumMoney(snaps.filter((s) => toNum(s.wipOverUnder) < 0).map((p) => Math.abs(toNum(p.wipOverUnder))));
+        return { answer: `Overbillings: $${over.toLocaleString()} (cash-positive). Underbillings: $${under.toLocaleString()} (cash-at-risk).`, charts: [{ kind: "BAR", title: "WIP over/under by project", labels: snaps.slice(0, 12).map((s) => s.project.code), values: snaps.slice(0, 12).map((s) => Math.round(toNum(s.wipOverUnder))) }], tables: [] };
       }
       if (/ytd\s+revenue|trailing.*revenue|last\s+12.*revenue/i.test(q)) {
         const stmts = await prisma.financialStatement.findMany({ where: { tenantId, statementType: "INCOME_STATEMENT" }, orderBy: { periodStart: "desc" }, take: 12 });
-        const rev = stmts.reduce((s, x) => s + x.revenue, 0);
-        const eb = stmts.reduce((s, x) => s + x.ebitda, 0);
-        return { answer: `Trailing 12 months: revenue $${rev.toLocaleString()}, EBITDA $${eb.toLocaleString()} (${rev > 0 ? ((eb / rev) * 100).toFixed(1) : "—"}% margin).`, charts: [{ kind: "LINE", title: "Monthly revenue", labels: stmts.map((s) => s.periodStart.toISOString().slice(0, 7)).reverse(), values: stmts.map((s) => Math.round(s.revenue)).reverse() }], tables: [] };
+        const rev = sumMoney(stmts.map((x) => x.revenue));
+        const eb = sumMoney(stmts.map((x) => x.ebitda));
+        return { answer: `Trailing 12 months: revenue $${rev.toLocaleString()}, EBITDA $${eb.toLocaleString()} (${rev > 0 ? ((eb / rev) * 100).toFixed(1) : "—"}% margin).`, charts: [{ kind: "LINE", title: "Monthly revenue", labels: stmts.map((s) => s.periodStart.toISOString().slice(0, 7)).reverse(), values: stmts.map((s) => Math.round(toNum(s.revenue))).reverse() }], tables: [] };
       }
       // --- VENDORS ---
       if (/top\s+vendor|largest\s+spend|vendor.*spend|most\s+spend/i.test(q)) {
         const grouped = await prisma.journalEntryRow.groupBy({ by: ["vendorName"], where: { tenantId, vendorName: { not: null } }, _sum: { amount: true }, orderBy: { _sum: { amount: "desc" } }, take: 10 });
-        return { answer: `Top 10 vendors by spend across all journal entries.`, charts: [{ kind: "BAR", title: "Top vendors by spend", labels: grouped.map((g) => g.vendorName ?? ""), values: grouped.map((g) => Math.abs(Math.round(g._sum.amount ?? 0))) }], tables: [] };
+        return { answer: `Top 10 vendors by spend across all journal entries.`, charts: [{ kind: "BAR", title: "Top vendors by spend", labels: grouped.map((g) => g.vendorName ?? ""), values: grouped.map((g) => Math.abs(Math.round(toNum(g._sum.amount)))) }], tables: [] };
       }
       if (/prequal|not\s+approved.*vendor|vendor.*status/i.test(q)) {
         const vendors = await prisma.vendor.groupBy({ by: ["prequalStatus"], where: { tenantId }, _count: { _all: true } });
@@ -86,11 +87,11 @@ export async function tenantAskAnything(question: string, tenantId: string): Pro
       // --- PROJECTS ---
       if (/active\s+project|in\s+progress|ongoing\s+project/i.test(q)) {
         const projects = await prisma.project.findMany({ where: { tenantId, stage: "ACTIVE" }, orderBy: { contractValue: "desc" }, take: 20 });
-        return { answer: `${projects.length} active projects currently underway.`, charts: [], tables: [{ title: "Active projects", rows: projects.map((p) => ({ code: p.code, name: p.name, value: `$${(p.contractValue ?? 0).toLocaleString()}`, mode: p.mode })) }] };
+        return { answer: `${projects.length} active projects currently underway.`, charts: [], tables: [{ title: "Active projects", rows: projects.map((p) => ({ code: p.code, name: p.name, value: `$${toNum(p.contractValue).toLocaleString()}`, mode: p.mode })) }] };
       }
       if (/upcoming.*due|due\s+(?:this|next)|deadline/i.test(q)) {
         const soon = await prisma.opportunity.findMany({ where: { tenantId, dueDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86_400_000) } }, orderBy: { dueDate: "asc" }, take: 15 });
-        return { answer: `${soon.length} opportunities due in next 30 days.`, charts: [], tables: [{ title: "Upcoming deadlines", rows: soon.map((o) => ({ name: o.name, client: o.clientName ?? "—", due: o.dueDate?.toISOString().slice(0, 10) ?? "—", value: `$${o.estimatedValue.toLocaleString()}` })) }] };
+        return { answer: `${soon.length} opportunities due in next 30 days.`, charts: [], tables: [{ title: "Upcoming deadlines", rows: soon.map((o) => ({ name: o.name, client: o.clientName ?? "—", due: o.dueDate?.toISOString().slice(0, 10) ?? "—", value: `$${toNum(o.estimatedValue).toLocaleString()}` })) }] };
       }
       if (/open\s+rfi|outstanding\s+rfi/i.test(q)) {
         const rfis = await prisma.rFI.findMany({ where: { project: { tenantId }, status: { notIn: ["CLOSED", "APPROVED"] } }, include: { project: true }, orderBy: { createdAt: "asc" }, take: 20 });

@@ -4,6 +4,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { addMoney } from "@/lib/money";
 
 /**
  * BD pipeline summary for the current tenant. Shows where the bid
@@ -56,7 +57,7 @@ export default async function BidsPortfolioPage() {
   const submittedCount = countByStatus("SUBMITTED") + countByStatus("WON") + countByStatus("LOST");
   const wonCount = countByStatus("WON");
   const winRate = submittedCount > 0 ? Math.round((wonCount / submittedCount) * 100) : null;
-  const pursuingValue = valueByStatus("QUALIFIED") + valueByStatus("PURSUING");
+  const pursuingValue = addMoney(valueByStatus("QUALIFIED"), valueByStatus("PURSUING"));
   const avgScore = avgScoreRow._avg.score ?? null;
 
   const total = byStatus.reduce((s, r) => s + r._count._all, 0);

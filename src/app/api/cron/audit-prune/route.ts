@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { observeCronRun } from "@/lib/metrics";
 
 /**
  * Audit-event retention cron. Deletes AuditEvent rows older than 365
@@ -34,6 +35,7 @@ function authorize(req: NextRequest): NextResponse | null {
 export async function POST(req: NextRequest) {
   const denied = authorize(req);
   if (denied) return denied;
+  const start = Date.now();
 
   const url = new URL(req.url);
   const requested = Number(url.searchParams.get("days") ?? "365");
@@ -50,6 +52,7 @@ export async function POST(req: NextRequest) {
   const force = url.searchParams.get("force") === "1";
   const MAX_BATCH = 50_000;
   if (wouldDelete > MAX_BATCH && !force) {
+    observeCronRun({ name: "audit-prune", startedAt: start, finishedAt: Date.now(), ok: false, message: `safety cap blocked ${wouldDelete} > ${MAX_BATCH}` });
     return NextResponse.json({
       ok: false,
       error: `would delete ${wouldDelete} events, exceeds safety cap ${MAX_BATCH}. Pass ?force=1 to override.`,
@@ -60,6 +63,7 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await prisma.auditEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
+  observeCronRun({ name: "audit-prune", startedAt: start, finishedAt: Date.now(), ok: true, message: `${result.count} events pruned (retention ${days}d)` });
   return NextResponse.json({
     ok: true,
     cutoff: cutoff.toISOString(),

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 import { Gavel } from "lucide-react";
 
 const STAGES = ["IDENTIFIED", "QUALIFYING", "CAPTURE", "PROPOSAL", "EVALUATION", "AWARDED", "LOST", "WITHDRAWN"] as const;
@@ -84,7 +85,7 @@ export default async function CaptureDetailPage({ params }: { params: Promise<{ 
     >
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile label="Stage" value={capture.stage.replace(/_/g, " ")} />
-        <StatTile label="Est. value" value={capture.estimatedValue ? `$${(capture.estimatedValue / 1_000_000).toFixed(2)}M` : "—"} />
+        <StatTile label="Est. value" value={capture.estimatedValue ? `$${(toNum(capture.estimatedValue) / 1_000_000).toFixed(2)}M` : "—"} />
         <StatTile label="pWin" value={capture.pwinPercent != null ? `${capture.pwinPercent}%` : "—"} tone={capture.pwinPercent && capture.pwinPercent >= 30 ? "good" : "warn"} />
         <StatTile label="Proposal due" value={capture.proposalDueDate ? formatDate(capture.proposalDueDate) : "—"} />
       </section>
@@ -100,7 +101,7 @@ export default async function CaptureDetailPage({ params }: { params: Promise<{ 
           <div><label htmlFor="cap-sol" className="form-label">Solicitation #</label><input id="cap-sol" name="solicitationNumber" defaultValue={capture.solicitationNumber ?? ""} className="form-input" /></div>
           <div><label htmlFor="cap-naics" className="form-label">NAICS</label><input id="cap-naics" name="naicsCode" defaultValue={capture.naicsCode ?? ""} className="form-input" /></div>
           <div><label htmlFor="cap-sa" className="form-label">Set-aside</label><select id="cap-sa" name="setAside" defaultValue={capture.setAside} className="form-select">{SET_ASIDES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}</select></div>
-          <div><label htmlFor="cap-val" className="form-label">Estimated value ($)</label><input id="cap-val" name="estimatedValue" type="number" step="1000" defaultValue={capture.estimatedValue ?? ""} className="form-input" /></div>
+          <div><label htmlFor="cap-val" className="form-label">Estimated value ($)</label><input id="cap-val" name="estimatedValue" type="number" step="1000" defaultValue={capture.estimatedValue == null ? "" : toNum(capture.estimatedValue)} className="form-input" /></div>
           <div><label htmlFor="cap-pwin" className="form-label">pWin (%)</label><input id="cap-pwin" name="pwinPercent" type="number" min={0} max={100} step="1" defaultValue={capture.pwinPercent ?? ""} className="form-input" /></div>
           <div><label htmlFor="cap-rfp" className="form-label">RFP release</label><input id="cap-rfp" name="rfpReleaseDate" type="date" defaultValue={capture.rfpReleaseDate?.toISOString().slice(0, 10) ?? ""} className="form-input" /></div>
           <div><label htmlFor="cap-due" className="form-label">Proposal due</label><input id="cap-due" name="proposalDueDate" type="date" defaultValue={capture.proposalDueDate?.toISOString().slice(0, 10) ?? ""} className="form-input" /></div>

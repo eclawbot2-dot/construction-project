@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, modeLabel } from "@/lib/utils";
+import { multiplyMoney } from "@/lib/money";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,7 +17,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   });
   if (!opp) notFound();
 
-  const weighted = opp.estimatedValue * (opp.probability / 100);
+  const weighted = multiplyMoney(opp.estimatedValue, opp.probability / 100);
   const daysToDue = opp.dueDate ? Math.round((new Date(opp.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
   const awarded = opp.stage === "AWARDED" && !opp.projectId;

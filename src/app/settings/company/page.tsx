@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 
 /**
  * Company compliance dashboard — tenant-admin only repository for the
@@ -142,7 +143,7 @@ export default async function CompanyCompliancePage() {
             secondary: `${b.surety}${b.bondNumber ? ` · #${b.bondNumber}` : ""}${b.project ? ` · ${b.project.name}` : ""}`,
             expires: b.expiresAt,
             status: b.status,
-            notes: b.bondAmount > 0 ? `Bond ${formatCurrency(b.bondAmount)}` : `Capacity ${formatCurrency(b.capacityAggregate)} agg / ${formatCurrency(b.capacitySingle)} single`,
+            notes: toNum(b.bondAmount) > 0 ? `Bond ${formatCurrency(b.bondAmount)}` : `Capacity ${formatCurrency(b.capacityAggregate)} agg / ${formatCurrency(b.capacitySingle)} single`,
           }))}
           createFields={[
             { name: "bondType", placeholder: "BID / PAYMENT / PERFORMANCE / ...", required: true },

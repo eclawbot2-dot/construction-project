@@ -4,6 +4,7 @@ import { DetailShell } from "@/components/layout/detail-shell";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { draftSubOutreach } from "@/lib/sales-ai";
+import { toNum } from "@/lib/money";
 
 export default async function SubOutreachPage({ params }: { params: Promise<{ projectId: string; packageId: string }> }) {
   const { projectId, packageId } = await params;
@@ -17,7 +18,7 @@ export default async function SubOutreachPage({ params }: { params: Promise<{ pr
   const email = await draftSubOutreach({
     trade: pkg.trade,
     scope: pkg.scopeSummary ?? `Full ${pkg.trade} scope per drawings and specs for ${pkg.project.name}.`,
-    estimatedValue: pkg.estimatedValue,
+    estimatedValue: toNum(pkg.estimatedValue),
     dueDate: pkg.dueDate ?? undefined,
     projectName: pkg.project.name,
   });

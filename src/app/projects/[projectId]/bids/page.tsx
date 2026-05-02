@@ -7,6 +7,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney, subtractMoney, toNum } from "@/lib/money";
 
 export default async function BidsPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -25,7 +26,7 @@ export default async function BidsPage({ params }: { params: Promise<{ projectId
   const totalPackages = project.bidPackages.length;
   const totalInvited = project.bidPackages.reduce((s, p) => s + p.subBids.length, 0);
   const selected = project.bidPackages.reduce((s, p) => s + p.subBids.filter((b) => b.status === "SELECTED").length, 0);
-  const committedValue = project.bidPackages.reduce((s, p) => s + p.subBids.filter((b) => b.status === "SELECTED").reduce((a, b) => a + (b.bidAmount ?? 0), 0), 0);
+  const committedValue = sumMoney(project.bidPackages.flatMap((p) => p.subBids.filter((b) => b.status === "SELECTED").map((b) => b.bidAmount ?? 0)));
 
   return (
     <AppLayout eyebrow={`${project.code} · Bid packages`} title={project.name} description="Trade bid packages with sub invites, bid leveling, and selection.">
@@ -38,7 +39,7 @@ export default async function BidsPage({ params }: { params: Promise<{ projectId
           <StatTile label="Committed value" value={formatCurrency(committedValue)} tone="good" />
         </section>
         {project.bidPackages.map((pkg) => {
-          const low = Math.min(...pkg.subBids.filter((b) => b.bidAmount).map((b) => b.bidAmount!));
+          const low = Math.min(...pkg.subBids.filter((b) => b.bidAmount).map((b) => toNum(b.bidAmount!)));
           return (
             <section key={pkg.id} className="card p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -63,7 +64,7 @@ export default async function BidsPage({ params }: { params: Promise<{ projectId
                   </thead>
                   <tbody className="divide-y divide-white/10 bg-slate-950/40">
                     {pkg.subBids.map((b) => {
-                      const delta = b.bidAmount && isFinite(low) ? b.bidAmount - low : null;
+                      const delta = b.bidAmount && isFinite(low) ? subtractMoney(b.bidAmount, low) : null;
                       return (
                         <tr key={b.id} className="cursor-pointer transition hover:bg-white/5">
                           <td className="table-cell">

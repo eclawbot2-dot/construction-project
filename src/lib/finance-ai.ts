@@ -241,11 +241,16 @@ export type JournalAnomaly = { journalId: string; type: string; severity: "LOW" 
 
 export async function detectJournalAnomalies(tenantId: string): Promise<JournalAnomaly[]> {
   const since = new Date(Date.now() - 90 * 86_400_000);
-  const rows = await prisma.journalEntryRow.findMany({
+  const rawRows = await prisma.journalEntryRow.findMany({
     where: { tenantId, entryDate: { gte: since } },
     orderBy: { entryDate: "desc" },
     take: 2000,
   });
+  // Coerce Decimal amount → number once at the boundary so the rest
+  // of the analysis can use plain arithmetic. Explicit type so the
+  // spread doesn't keep the original Decimal type from rawRows.
+  type Row = Omit<(typeof rawRows)[number], "amount"> & { amount: number };
+  const rows: Row[] = rawRows.map((r) => ({ ...r, amount: toNum(r.amount) }));
 
   return aiCall<JournalAnomaly[]>({
     kind: "journal-anomaly",
@@ -462,16 +467,16 @@ export async function eacForecast(projectId: string, tenantId: string): Promise<
     kind: "eac-forecast",
     prompt: `EAC forecast for ${project.code}`,
     fallback: () => {
-      const committed = snap?.committedCost ?? 0;
-      const actual = snap?.costsToDate ?? 0;
-      const contract = toNum(project.contractValue) || (snap?.totalContractValue ?? 0);
-      const pctComplete = snap?.percentComplete ?? (contract > 0 ? (actual / contract) * 100 : 0);
+      const committed = toNum(snap?.committedCost);
+      const actual = toNum(snap?.costsToDate);
+      const contract = toNum(project.contractValue) || toNum(snap?.totalContractValue);
+      const pctComplete = snap?.percentComplete == null ? (contract > 0 ? (actual / contract) * 100 : 0) : toNum(snap.percentComplete);
 
       // Bucket journals by month to compute trailing-3 burn rate.
       const byMonth = new Map<string, number>();
       for (const j of journals) {
         const k = j.entryDate.toISOString().slice(0, 7);
-        byMonth.set(k, (byMonth.get(k) ?? 0) + Math.abs(j.amount));
+        byMonth.set(k, (byMonth.get(k) ?? 0) + Math.abs(toNum(j.amount)));
       }
       const months = Array.from(byMonth.entries()).sort();
       const recent = months.slice(-3);
@@ -534,8 +539,8 @@ export async function varianceNarrative(projectId: string, tenantId: string): Pr
     prompt: `Narrative for ${project.code} cost variance`,
     fallback: () => {
       const lines = allLines.map((b) => {
-        const variance = (b.actualCost ?? 0) - b.budgetAmount;
-        const pct = b.budgetAmount > 0 ? (variance / b.budgetAmount) * 100 : 0;
+        const variance = toNum(b.actualCost) - toNum(b.budgetAmount);
+        const pct = toNum(b.budgetAmount) > 0 ? (variance / toNum(b.budgetAmount)) * 100 : 0;
         let narrative = `$${Math.abs(variance).toLocaleString()} ${variance >= 0 ? "over" : "under"} budget (${pct.toFixed(1)}%)`;
         if (variance > 0 && pct > 10) narrative += "; driver: likely scope growth or productivity loss. Recommend corrective action.";
         else if (variance < 0 && pct < -5) narrative += "; likely favorable procurement or under-run. Review for reforecast opportunity.";

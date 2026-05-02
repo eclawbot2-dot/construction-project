@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { BidDraftStatus, ComplianceOutcome } from "@prisma/client";
+import { toNum } from "@/lib/money";
 
 export async function draftBidFromListing(params: {
   tenantId: string;
@@ -25,7 +26,7 @@ export async function draftBidFromListing(params: {
   const winThemes = params.winThemes?.trim() || `Safety-first execution · Past performance in ${listing.placeOfPerformance ?? "the region"} · On-time delivery on ${Math.floor(Math.random() * 20 + 80)}% of recent projects`;
   const differentiators = params.differentiators?.trim() || `Self-perform ${listing.naicsCode === "237310" ? "earthwork + paving" : listing.naicsCode === "237110" ? "utility install" : "structural concrete"} · In-house estimators with ${Math.floor(Math.random() * 20 + 10)} years of relevant experience · Pre-qualified with ${listing.agency}`;
 
-  const totalValue = Math.round((listing.estimatedValue ?? 1_000_000) * (0.88 + Math.random() * 0.12));
+  const totalValue = Math.round((listing.estimatedValue == null ? 1_000_000 : toNum(listing.estimatedValue)) * (0.88 + Math.random() * 0.12));
   const draft = await prisma.bidDraft.create({
     data: {
       tenantId: params.tenantId,
@@ -139,7 +140,7 @@ export async function runComplianceCheck(draftId: string) {
     required.push({ category: "Set-aside", requirement: `${draft.rfpListing.setAside} certification affirmed`, pass: setAsideBody.toLowerCase().includes((draft.rfpListing.setAside ?? "").toLowerCase()) });
   }
 
-  required.push({ category: "Pricing", requirement: "Total value greater than zero", pass: draft.totalValue > 0, evidence: `$${draft.totalValue.toLocaleString()}` });
+  required.push({ category: "Pricing", requirement: "Total value greater than zero", pass: toNum(draft.totalValue) > 0, evidence: `$${toNum(draft.totalValue).toLocaleString()}` });
   required.push({ category: "Pricing", requirement: "Firm period stated", pass: /firm for \d+ days/i.test(body("pricing")) });
 
   if (draft.rfpListing?.naicsCode) {

@@ -1,6 +1,6 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { getDashboardData } from "@/lib/dashboard";
-import { roleLabel } from "@/lib/utils";
+import { formatCurrency, roleLabel } from "@/lib/utils";
 
 export default async function CrmPage() {
   const data = await getDashboardData();
@@ -57,7 +57,7 @@ export default async function CrmPage() {
                 <div className="font-medium text-white">{estimate.title}</div>
                 <div className="mt-1 text-xs text-slate-500">{estimate.mode} · {estimate.projectType} · {estimate.geography}</div>
                 <div className="mt-2 text-xs text-cyan-200">Code: {estimate.lineItemCode}</div>
-                <div className="mt-1 text-xs text-slate-400">Unit cost: {estimate.unitCost ?? "—"} · Production rate: {estimate.productionRate ?? "—"}</div>
+                <div className="mt-1 text-xs text-slate-400">Unit cost: {estimate.unitCost == null ? "—" : formatCurrency(estimate.unitCost)} · Production rate: {estimate.productionRate ?? "—"}</div>
               </div>
             ))}
           </div>

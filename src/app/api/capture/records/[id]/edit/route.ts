@@ -5,6 +5,7 @@ import { requireManager } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
 import { publicRedirect } from "@/lib/redirect";
 import { parseDateField, parseEnumField, parseNumberField, parseStringField } from "@/lib/form-input";
+import { toNum } from "@/lib/money";
 import { CaptureStage, SetAsideCode } from "@prisma/client";
 
 const VALID_STAGES: CaptureStage[] = [
@@ -63,7 +64,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       solicitationNumber: parseStringField(form.get("solicitationNumber"), before.solicitationNumber),
       naicsCode: parseStringField(form.get("naicsCode"), before.naicsCode),
       setAside,
-      estimatedValue: parseNumberField(form.get("estimatedValue"), before.estimatedValue, { min: 0 }),
+      estimatedValue: parseNumberField(form.get("estimatedValue"), before.estimatedValue == null ? null : toNum(before.estimatedValue), { min: 0 }),
       rfpReleaseDate: parseDateField(form.get("rfpReleaseDate"), before.rfpReleaseDate),
       proposalDueDate: parseDateField(form.get("proposalDueDate"), before.proposalDueDate),
       stage,

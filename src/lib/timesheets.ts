@@ -1,12 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { currentActor } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
+import { toNum, multiplyMoney, sumMoney } from "@/lib/money";
 import type { TimeEntry, TimeEntryStatus } from "@prisma/client";
 
 export type TimesheetActionResult = { ok: boolean; error?: string; entry?: TimeEntry };
 
 export function loadedLabor(entry: Pick<TimeEntry, "regularHours" | "overtimeHours" | "doubleTimeHours" | "rate">): number {
-  return entry.regularHours * entry.rate + entry.overtimeHours * entry.rate * 1.5 + entry.doubleTimeHours * entry.rate * 2;
+  const rate = toNum(entry.rate);
+  return sumMoney([
+    multiplyMoney(entry.regularHours, rate),
+    multiplyMoney(entry.overtimeHours, rate * 1.5),
+    multiplyMoney(entry.doubleTimeHours, rate * 2),
+  ]);
 }
 
 const TIMESHEET_AUDITED_KINDS = new Set(["CREATE", "EDIT", "SUBMIT", "APPROVE", "REJECT"]);
@@ -76,7 +82,7 @@ export async function rejectTimesheet(id: string, tenantId: string, reason: stri
   return { ok: true, entry: updated };
 }
 
-export async function editTimesheet(id: string, tenantId: string, patch: Partial<Pick<TimeEntry, "employeeName" | "trade" | "weekEnding" | "regularHours" | "overtimeHours" | "doubleTimeHours" | "rate" | "costCode" | "notes">>): Promise<TimesheetActionResult> {
+export async function editTimesheet(id: string, tenantId: string, patch: Partial<Omit<Pick<TimeEntry, "employeeName" | "trade" | "weekEnding" | "regularHours" | "overtimeHours" | "doubleTimeHours" | "rate" | "costCode" | "notes">, "rate"> & { rate?: number }>): Promise<TimesheetActionResult> {
   const actor = await currentActor(tenantId);
   const entry = await prisma.timeEntry.findFirst({ where: { id, project: { tenantId } } });
   if (!entry) return { ok: false, error: "Entry not found." };

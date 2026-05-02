@@ -5,6 +5,7 @@ import { requireEditor } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
 import { publicRedirect } from "@/lib/redirect";
 import { parseEnumField, parseNumberField, parseStringField } from "@/lib/form-input";
+import { toNum } from "@/lib/money";
 import { CandidateStatus } from "@prisma/client";
 
 const VALID_STATUSES: CandidateStatus[] = [
@@ -32,7 +33,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     state: parseStringField(form.get("state"), candidate.state),
     laborCategory: parseStringField(form.get("laborCategory"), candidate.laborCategory),
     primarySkill: parseStringField(form.get("primarySkill"), candidate.primarySkill),
-    rateExpectation: parseNumberField(form.get("rateExpectation"), candidate.rateExpectation, { min: 0 }),
+    rateExpectation: parseNumberField(form.get("rateExpectation"), candidate.rateExpectation == null ? null : toNum(candidate.rateExpectation), { min: 0 }),
     source: parseStringField(form.get("source"), candidate.source),
     resumeUrl: parseStringField(form.get("resumeUrl"), candidate.resumeUrl),
     linkedInUrl: parseStringField(form.get("linkedInUrl"), candidate.linkedInUrl),

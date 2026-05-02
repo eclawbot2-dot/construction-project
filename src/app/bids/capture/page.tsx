@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatDate } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 import { Gavel } from "lucide-react";
 
 type CaptureRow = Awaited<ReturnType<typeof loadCaptures>>[number];
@@ -37,7 +38,7 @@ export default async function CapturePage() {
       _sum: { estimatedValue: true },
     }),
   ]);
-  const totalValue = totalValueRaw._sum.estimatedValue ?? 0;
+  const totalValue = toNum(totalValueRaw._sum.estimatedValue);
 
   const columns: DataTableColumn<CaptureRow>[] = [
     { key: "title", header: "Pursuit", render: (c) => c.title },
@@ -50,7 +51,7 @@ export default async function CapturePage() {
       key: "value",
       header: "Est. value",
       cellClassName: "text-xs text-right",
-      render: (c) => (c.estimatedValue ? `$${c.estimatedValue.toLocaleString()}` : "—"),
+      render: (c) => (c.estimatedValue ? `$${toNum(c.estimatedValue).toLocaleString()}` : "—"),
     },
     {
       key: "due",

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { backupAllTenants } from "@/lib/backup";
+import { observeCronRun } from "@/lib/metrics";
 
 /**
  * Nightly backup endpoint — intended to be hit by Windows Task Scheduler
@@ -39,6 +40,13 @@ export async function POST(req: NextRequest) {
   const results = await backupAllTenants();
   const ok = results.filter((r) => r.ok).length;
   const failed = results.length - ok;
+  observeCronRun({
+    name: "backup",
+    startedAt: start,
+    finishedAt: Date.now(),
+    ok: failed === 0,
+    message: `${ok} ok / ${failed} failed across ${results.length} tenants`,
+  });
   return NextResponse.json({
     ok: failed === 0,
     durationMs: Date.now() - start,

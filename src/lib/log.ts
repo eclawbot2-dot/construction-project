@@ -8,6 +8,8 @@
  * we filter by in incident response.
  */
 
+import { observeError } from "@/lib/metrics";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 type LogContext = {
@@ -53,6 +55,16 @@ export const log = {
  */
 export function captureException(err: unknown, ctx?: LogContext) {
   log.error(err instanceof Error ? err.message : "exception", ctx, err);
+  // Push into the in-memory ring buffer so the /settings/observability
+  // page can surface recent errors without a Sentry dependency.
+  observeError({
+    t: Date.now(),
+    module: ctx?.module ?? "unknown",
+    message: err instanceof Error ? err.message : String(err),
+    path: typeof ctx?.path === "string" ? ctx.path : undefined,
+    tenantId: ctx?.tenantId ?? undefined,
+    stack: err instanceof Error ? err.stack : undefined,
+  });
   const dsn = process.env.SENTRY_DSN;
   if (!dsn) return;
   // Lazy non-blocking POST — best-effort. Don't await; don't throw.

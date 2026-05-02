@@ -9,6 +9,7 @@ import { requireTenant } from "@/lib/tenant";
 import { currentActor } from "@/lib/permissions";
 import { listComments } from "@/lib/approvals";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { subtractMoney, toNum } from "@/lib/money";
 
 export default async function PoDetailPage({ params }: { params: Promise<{ projectId: string; poId: string }> }) {
   const { projectId, poId } = await params;
@@ -21,8 +22,8 @@ export default async function PoDetailPage({ params }: { params: Promise<{ proje
   if (!po) notFound();
   const comments = await listComments(tenant.id, "PurchaseOrder", po.id);
 
-  const remaining = po.amount - po.invoicedToDate;
-  const invoicedPct = po.amount > 0 ? (po.invoicedToDate / po.amount) * 100 : 0;
+  const remaining = subtractMoney(po.amount, po.invoicedToDate);
+  const invoicedPct = toNum(po.amount) > 0 ? (toNum(po.invoicedToDate) / toNum(po.amount)) * 100 : 0;
   const edIso = po.expectedDelivery ? new Date(po.expectedDelivery).toISOString().slice(0, 10) : "";
 
   const actions: Array<{ name: string; label: string; tone: "primary" | "outline" | "danger"; requireReason?: boolean; formAction: string }> = [];
@@ -67,7 +68,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ proje
           <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">Edit PO</div>
           <form action={`/api/purchase-orders/${po.id}/edit`} method="post" className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="md:col-span-2"><label className="form-label">Description</label><input name="description" defaultValue={po.description} className="form-input" /></div>
-            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={po.amount} className="form-input" /></div>
+            <div><label className="form-label">Amount ($)</label><input name="amount" type="number" step="0.01" defaultValue={toNum(po.amount)} className="form-input" /></div>
             <div><label className="form-label">Expected delivery</label><input name="expectedDelivery" type="date" defaultValue={edIso} className="form-input" /></div>
             <div className="md:col-span-2"><label className="form-label">Notes</label><input name="notes" defaultValue={po.notes ?? ""} className="form-input" /></div>
             <div className="md:col-span-3"><button className="btn-primary">Save</button></div>

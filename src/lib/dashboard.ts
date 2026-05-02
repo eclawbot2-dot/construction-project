@@ -1,6 +1,7 @@
 import { ProjectMode, ThreadChannel, WorkflowStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { currentTenantSlug } from "@/lib/tenant";
+import { toNum } from "@/lib/money";
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
 export type TenantContext = Awaited<ReturnType<typeof getTenantContext>>;
@@ -196,7 +197,7 @@ export async function getDashboardData() {
           ? [
               { label: "Open tasks", value: project._count.tasks },
               { label: "Photos/docs", value: project._count.documents },
-              { label: "Budget", value: `$${Math.round((budget?.currentValue ?? 0) / 1000)}k` },
+              { label: "Budget", value: `$${Math.round(toNum(budget?.currentValue) / 1000)}k` },
               { label: "Punch", value: project._count.punchItems },
             ]
           : project.mode === ProjectMode.VERTICAL
@@ -204,13 +205,13 @@ export async function getDashboardData() {
                 { label: "RFIs", value: project._count.rfis },
                 { label: "Submittals", value: project._count.submittals },
                 { label: "Meetings", value: project._count.meetings },
-                { label: "Budget", value: `$${Math.round((budget?.currentValue ?? 0) / 1000000)}M` },
+                { label: "Budget", value: `$${Math.round(toNum(budget?.currentValue) / 1000000)}M` },
               ]
             : [
                 { label: "Quantities", value: project._count.quantities },
                 { label: "Production entries", value: project._count.productionEntries },
                 { label: "Tickets", value: project._count.tickets },
-                { label: "Budget", value: `$${Math.round((budget?.currentValue ?? 0) / 1000000)}M` },
+                { label: "Budget", value: `$${Math.round(toNum(budget?.currentValue) / 1000000)}M` },
               ],
       latestSummary: project.dailyLogs[0]?.summary ?? "No daily summary yet",
       recentMessages:

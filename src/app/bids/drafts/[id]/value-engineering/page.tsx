@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { valueEngineeringIdeas } from "@/lib/estimating-ai";
 import { formatCurrency } from "@/lib/utils";
+import { toNum } from "@/lib/money";
 
 export default async function VePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,7 +26,7 @@ export default async function VePage({ params }: { params: Promise<{ id: string 
       <section className="grid gap-4 md:grid-cols-3">
         <StatTile label="Ideas" value={ideas.length} />
         <StatTile label="Potential savings" value={formatCurrency(totalSavings)} tone="good" />
-        <StatTile label="% of total" value={`${((totalSavings / Math.max(1, draft.totalValue)) * 100).toFixed(1)}%`} />
+        <StatTile label="% of total" value={`${((totalSavings / Math.max(1, toNum(draft.totalValue))) * 100).toFixed(1)}%`} />
       </section>
       {ideas.map((idea, i) => (
         <section key={i} className="card p-6">

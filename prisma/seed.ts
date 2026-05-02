@@ -966,7 +966,7 @@ async function seedLifecycle(project: { id: string; name: string; code: string; 
       data: {
         bidPackageId: bidPkg.id,
         vendorId: v.id,
-        bidAmount: bidPkg.estimatedValue * (0.94 + i * 0.04),
+        bidAmount: multiplyMoney(bidPkg.estimatedValue, 0.94 + i * 0.04),
         daysToComplete: 45 + i * 5,
         inclusions: "Labor, material, equipment, supervision.",
         exclusions: "Permits, testing, owner-furnished items.",

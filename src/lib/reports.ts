@@ -37,12 +37,12 @@ export async function wipReport(tenantId: string, _asOf: Date = new Date()): Pro
     where: { tenantId },
     include: { pnlSnapshot: true },
   });
-  return projects.map((p) => {
+  return projects.map((p): WipRow => {
     const snap = p.pnlSnapshot;
-    const contract = snap?.totalContractValue ?? toNum(p.contractValue);
-    const billed = snap?.billedToDate ?? 0;
-    const cost = snap?.costsToDate ?? 0;
-    const efc = snap?.forecastFinalCost ?? cost;
+    const contract: number = toNum(snap?.totalContractValue ?? p.contractValue);
+    const billed: number = toNum(snap?.billedToDate);
+    const cost: number = toNum(snap?.costsToDate);
+    const efc: number = snap?.forecastFinalCost != null ? toNum(snap.forecastFinalCost) : cost;
     const pct = efc > 0 ? Math.min(1, cost / efc) : 0;
     const earned = multiplyMoney(contract, pct);
     const over = Math.max(0, subtractMoney(billed, earned));
@@ -58,8 +58,8 @@ export async function wipReport(tenantId: string, _asOf: Date = new Date()): Pro
       earnedRevenue: earned,
       overBilled: over,
       underBilled: under,
-      forecastGrossMargin: snap?.forecastGrossMargin ?? 0,
-    } satisfies WipRow;
+      forecastGrossMargin: toNum(snap?.forecastGrossMargin),
+    };
   });
 }
 
@@ -90,9 +90,9 @@ export async function costToCompleteForecast(tenantId: string): Promise<CtcRow[]
   for (const p of projects) {
     for (const b of p.budgets) {
       for (const line of b.lines) {
-        const spent = line.actualCost ?? 0;
-        const committed = line.committedCost ?? 0;
-        const budgeted = line.budgetAmount ?? 0;
+        const spent = toNum(line.actualCost);
+        const committed = toNum(line.committedCost);
+        const budgeted = toNum(line.budgetAmount);
         const remaining = Math.max(0, subtractMoney(budgeted, sumMoney([spent, committed])));
         const eac = sumMoney([spent, committed, remaining]);
         out.push({
@@ -131,7 +131,7 @@ export async function marginFadeTrend(tenantId: string, monthsBack: number = 12)
     projectId: s.projectId,
     projectName: s.project.name,
     asOf: s.asOf,
-    forecastGrossMargin: s.forecastGrossMargin ?? 0,
+    forecastGrossMargin: toNum(s.forecastGrossMargin),
   }));
 }
 
@@ -187,10 +187,10 @@ export async function estimateAccuracyReport(tenantId: string): Promise<Estimate
     where: { tenantId, stage: { in: ["CLOSEOUT", "WARRANTY"] } },
     include: { pnlSnapshot: true },
   });
-  return projects.map((p) => {
+  return projects.map((p): EstimateAccuracyRow => {
     const snap = p.pnlSnapshot;
-    const bid = toNum(p.contractValue);
-    const actual = snap?.forecastFinalCost ?? snap?.costsToDate ?? 0;
+    const bid: number = toNum(p.contractValue);
+    const actual: number = snap?.forecastFinalCost != null ? toNum(snap.forecastFinalCost) : toNum(snap?.costsToDate);
     const variance = actual - bid;
     const pct = bid > 0 ? variance / bid : 0;
     return {

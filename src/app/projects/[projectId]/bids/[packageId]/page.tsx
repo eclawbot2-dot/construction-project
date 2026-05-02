@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney, subtractMoney, toNum } from "@/lib/money";
 
 export default async function BidPackageDetailPage({ params }: { params: Promise<{ projectId: string; packageId: string }> }) {
   const { projectId, packageId } = await params;
@@ -20,8 +21,8 @@ export default async function BidPackageDetailPage({ params }: { params: Promise
   if (!pkg) notFound();
 
   const bidsWithAmount = pkg.subBids.filter((b) => b.bidAmount != null);
-  const low = bidsWithAmount[0]?.bidAmount ?? null;
-  const avg = bidsWithAmount.length > 0 ? bidsWithAmount.reduce((s, b) => s + (b.bidAmount ?? 0), 0) / bidsWithAmount.length : null;
+  const low = bidsWithAmount[0]?.bidAmount == null ? null : toNum(bidsWithAmount[0].bidAmount);
+  const avg = bidsWithAmount.length > 0 ? sumMoney(bidsWithAmount.map((b) => b.bidAmount)) / bidsWithAmount.length : null;
   const selected = pkg.subBids.find((b) => b.status === "SELECTED");
 
   return (
@@ -36,7 +37,7 @@ export default async function BidPackageDetailPage({ params }: { params: Promise
         <StatTile label="Est. value" value={formatCurrency(pkg.estimatedValue)} />
         <StatTile label="Low bid" value={low !== null ? formatCurrency(low) : "—"} tone="good" />
         <StatTile label="Average bid" value={avg !== null ? formatCurrency(avg) : "—"} />
-        <StatTile label="Selected vs est." value={selected?.bidAmount != null ? formatCurrency(selected.bidAmount - pkg.estimatedValue) : "—"} tone={selected?.bidAmount != null && selected.bidAmount <= pkg.estimatedValue ? "good" : "warn"} />
+        <StatTile label="Selected vs est." value={selected?.bidAmount != null ? formatCurrency(subtractMoney(selected.bidAmount, pkg.estimatedValue)) : "—"} tone={selected?.bidAmount != null && toNum(selected.bidAmount) <= toNum(pkg.estimatedValue) ? "good" : "warn"} />
       </section>
 
       <section className="card p-6">
@@ -72,8 +73,8 @@ export default async function BidPackageDetailPage({ params }: { params: Promise
             </thead>
             <tbody className="divide-y divide-white/10 bg-slate-950/40">
               {pkg.subBids.map((b) => {
-                const deltaLow = b.bidAmount !== null && low !== null ? b.bidAmount - low : null;
-                const deltaEst = b.bidAmount !== null ? b.bidAmount - pkg.estimatedValue : null;
+                const deltaLow = b.bidAmount !== null && low !== null ? subtractMoney(b.bidAmount, low) : null;
+                const deltaEst = b.bidAmount !== null ? subtractMoney(b.bidAmount, pkg.estimatedValue) : null;
                 const awardable = pkg.status !== "AWARDED" && b.status !== "SELECTED" && b.bidAmount != null;
                 return (
                   <tr key={b.id} className="transition hover:bg-white/5">

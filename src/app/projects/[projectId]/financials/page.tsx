@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney, addMoney, toNum } from "@/lib/money";
 
 export default async function ProjectFinancialsPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -24,11 +25,11 @@ export default async function ProjectFinancialsPage({ params }: { params: Promis
   const journal = project.journalEntries;
   const costByCode = journal
     .filter((j) => j.entryType === "COST_OF_GOODS")
-    .reduce<Record<string, number>>((acc, j) => { const k = j.costCode ?? "unassigned"; acc[k] = (acc[k] ?? 0) + Math.abs(j.amount); return acc; }, {});
+    .reduce<Record<string, number>>((acc, j) => { const k = j.costCode ?? "unassigned"; acc[k] = addMoney(acc[k] ?? 0, Math.abs(toNum(j.amount))); return acc; }, {});
   const revenueRows = journal.filter((j) => j.entryType === "REVENUE");
-  const totalRev = revenueRows.reduce((s, j) => s + j.amount, 0);
+  const totalRev = sumMoney(revenueRows.map((j) => j.amount));
   const costRows = journal.filter((j) => j.entryType === "COST_OF_GOODS");
-  const totalCost = Math.abs(costRows.reduce((s, j) => s + j.amount, 0));
+  const totalCost = Math.abs(sumMoney(costRows.map((j) => j.amount)));
   const margin = totalRev > 0 ? ((totalRev - totalCost) / totalRev) * 100 : 0;
   const unreconciled = journal.filter((j) => j.reconciliationStatus === "UNREVIEWED" || j.reconciliationStatus === "NEEDS_INPUT").length;
 
@@ -40,12 +41,12 @@ export default async function ProjectFinancialsPage({ params }: { params: Promis
           <>
             <section className="grid gap-4 md:grid-cols-4">
               <StatTile label="Contract value" value={formatCurrency(pnl.totalContractValue)} sub={`orig ${formatCurrency(pnl.contractValue)} · COs ${formatCurrency(pnl.approvedCOValue)}`} />
-              <StatTile label="Billed" value={formatCurrency(pnl.billedToDate)} tone="good" sub={`${pnl.percentComplete.toFixed(1)}% complete`} />
+              <StatTile label="Billed" value={formatCurrency(pnl.billedToDate)} tone="good" sub={`${toNum(pnl.percentComplete).toFixed(1)}% complete`} />
               <StatTile label="Cost to date" value={formatCurrency(pnl.costsToDate)} tone="warn" sub={`committed ${formatCurrency(pnl.committedCost)}`} />
-              <StatTile label="Forecast margin" value={formatCurrency(pnl.forecastGrossMargin)} tone={pnl.forecastGrossMargin > 0 ? "good" : "bad"} />
+              <StatTile label="Forecast margin" value={formatCurrency(pnl.forecastGrossMargin)} tone={toNum(pnl.forecastGrossMargin) > 0 ? "good" : "bad"} />
             </section>
             <section className="grid gap-4 md:grid-cols-3">
-              <StatTile label="Over/under billing (WIP)" value={formatCurrency(pnl.wipOverUnder)} tone={pnl.wipOverUnder > 0 ? "good" : pnl.wipOverUnder < 0 ? "warn" : "default"} />
+              <StatTile label="Over/under billing (WIP)" value={formatCurrency(pnl.wipOverUnder)} tone={toNum(pnl.wipOverUnder) > 0 ? "good" : toNum(pnl.wipOverUnder) < 0 ? "warn" : "default"} />
               <StatTile label="Forecast final cost" value={formatCurrency(pnl.forecastFinalCost)} />
               <StatTile label="Last reconciled" value={formatDate(pnl.lastReconciledAt)} />
             </section>
@@ -99,7 +100,7 @@ export default async function ProjectFinancialsPage({ params }: { params: Promis
                     <td className="table-cell max-w-[280px]">{j.memo}</td>
                     <td className="table-cell text-slate-400">{j.vendorName ?? "—"}</td>
                     <td className="table-cell font-mono text-xs text-slate-400">{j.costCode ?? "—"}</td>
-                    <td className={"table-cell font-medium " + (j.amount < 0 ? "text-rose-200" : "text-emerald-200")}>{formatCurrency(j.amount)}</td>
+                    <td className={"table-cell font-medium " + (toNum(j.amount) < 0 ? "text-rose-200" : "text-emerald-200")}>{formatCurrency(j.amount)}</td>
                     <td className="table-cell text-slate-400">{j.allocationConfidence !== null ? `${j.allocationConfidence}%` : "—"}</td>
                     <td className="table-cell"><StatusBadge status={j.reconciliationStatus} /></td>
                   </tr>

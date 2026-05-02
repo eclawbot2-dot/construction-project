@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sweepAllSources } from "@/lib/rfp-autopilot";
+import { observeCronRun } from "@/lib/metrics";
 
 // Scheduled sweep endpoint — intended to be hit by an external scheduler
 // (cron, Cloudflare Worker, GitHub Action) at least 6x per business day.
@@ -31,16 +32,29 @@ function authorize(req: NextRequest): NextResponse | null {
   return null;
 }
 
+async function runSweep() {
+  const start = Date.now();
+  const result = await sweepAllSources();
+  observeCronRun({
+    name: "rfp-sweep",
+    startedAt: start,
+    finishedAt: Date.now(),
+    ok: true,
+    message: typeof result === "object" && result && "summary" in result ? String((result as { summary: unknown }).summary) : "completed",
+  });
+  return result;
+}
+
 export async function POST(req: NextRequest) {
   const denied = authorize(req);
   if (denied) return denied;
-  const result = await sweepAllSources();
+  const result = await runSweep();
   return NextResponse.json(result);
 }
 
 export async function GET(req: NextRequest) {
   const denied = authorize(req);
   if (denied) return denied;
-  const result = await sweepAllSources();
+  const result = await runSweep();
   return NextResponse.json(result);
 }

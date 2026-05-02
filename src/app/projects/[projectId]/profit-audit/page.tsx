@@ -5,7 +5,7 @@ import { ProjectTabs } from "@/components/layout/project-tabs";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/utils";
-import { sumMoney, subtractMoney, addMoney } from "@/lib/money";
+import { sumMoney, subtractMoney, addMoney, toNum } from "@/lib/money";
 
 /**
  * Bid-vs-execution profit audit. The full money lifecycle for one
@@ -49,24 +49,24 @@ export default async function ProfitAuditPage({ params }: { params: Promise<{ pr
   // Bid summary
   const opportunity = project.opportunities[0] ?? null;
   const bidDraft = opportunity?.bidDrafts[0] ?? null;
-  const bidEstimate = opportunity?.estimatedValue ?? 0;
+  const bidEstimate = toNum(opportunity?.estimatedValue);
   const bidLineTotal = bidDraft ? sumMoney(bidDraft.lineItems.map((l) => l.amount)) : 0;
   const awardedAt = opportunity?.awardDate ?? null;
 
   // Contract evolution
-  const originalContract = project.contractValue ?? 0;
+  const originalContract = toNum(project.contractValue);
   const approvedCOValue = sumMoney(project.changeOrders.filter((c) => c.status === "APPROVED").map((c) => c.amount));
   const pendingCOValue = sumMoney(project.changeOrders.filter((c) => c.status !== "APPROVED" && c.status !== "REJECTED").map((c) => c.amount));
   const currentContractValue = addMoney(originalContract, approvedCOValue);
 
   // Execution
   const pnl = project.pnlSnapshot;
-  const billedToDate = pnl?.billedToDate ?? 0;
-  const costsToDate = pnl?.costsToDate ?? 0;
-  const committedCost = pnl?.committedCost ?? 0;
-  const forecastFinalCost = pnl?.forecastFinalCost ?? costsToDate;
-  const forecastGM = pnl?.forecastGrossMargin ?? (currentContractValue - forecastFinalCost);
-  const percentComplete = pnl?.percentComplete ?? (forecastFinalCost > 0 ? (costsToDate / forecastFinalCost) * 100 : 0);
+  const billedToDate = toNum(pnl?.billedToDate);
+  const costsToDate = toNum(pnl?.costsToDate);
+  const committedCost = toNum(pnl?.committedCost);
+  const forecastFinalCost = pnl?.forecastFinalCost == null ? costsToDate : toNum(pnl.forecastFinalCost);
+  const forecastGM = pnl?.forecastGrossMargin == null ? subtractMoney(currentContractValue, forecastFinalCost) : toNum(pnl.forecastGrossMargin);
+  const percentComplete = pnl?.percentComplete == null ? (forecastFinalCost > 0 ? (costsToDate / forecastFinalCost) * 100 : 0) : toNum(pnl.percentComplete);
 
   // Margin at bid vs now
   const marginAtBid = bidLineTotal > 0 ? subtractMoney(bidEstimate, bidLineTotal) : null;

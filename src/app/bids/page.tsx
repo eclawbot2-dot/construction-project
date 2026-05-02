@@ -5,6 +5,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate, modeLabel } from "@/lib/utils";
+import { sumMoney, multiplyMoney, toNum } from "@/lib/money";
 
 export default async function BidsHubPage() {
   const tenant = await requireTenant();
@@ -13,8 +14,8 @@ export default async function BidsHubPage() {
     prisma.bidPackage.findMany({ where: { project: { tenantId: tenant.id } }, include: { project: true, subBids: true }, orderBy: { dueDate: "asc" } }),
   ]);
 
-  const pipelineValue = opportunities.filter((o) => o.stage !== "LOST" && o.stage !== "WITHDRAWN").reduce((s, o) => s + o.estimatedValue, 0);
-  const weightedValue = opportunities.filter((o) => o.stage !== "LOST" && o.stage !== "WITHDRAWN").reduce((s, o) => s + o.estimatedValue * (o.probability / 100), 0);
+  const pipelineValue = sumMoney(opportunities.filter((o) => o.stage !== "LOST" && o.stage !== "WITHDRAWN").map((o) => o.estimatedValue));
+  const weightedValue = sumMoney(opportunities.filter((o) => o.stage !== "LOST" && o.stage !== "WITHDRAWN").map((o) => multiplyMoney(o.estimatedValue, o.probability / 100)));
   const openPackages = bidPackages.filter((p) => p.status !== "AWARDED" && p.status !== "CANCELLED").length;
 
   return (
@@ -53,7 +54,7 @@ export default async function BidsHubPage() {
                     <td className="table-cell"><StatusBadge status={o.stage} /></td>
                     <td className="table-cell">{formatCurrency(o.estimatedValue)}</td>
                     <td className="table-cell">{o.probability}%</td>
-                    <td className="table-cell">{formatCurrency(o.estimatedValue * (o.probability / 100))}</td>
+                    <td className="table-cell">{formatCurrency(multiplyMoney(o.estimatedValue, o.probability / 100))}</td>
                     <td className="table-cell text-slate-400">{formatDate(o.dueDate)}</td>
                     <td className="table-cell text-slate-400">{o.ownerName ?? "—"}</td>
                   </tr>

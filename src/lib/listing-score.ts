@@ -17,6 +17,7 @@
  */
 
 import type { RfpListing } from "@prisma/client";
+import { toNum } from "@/lib/money";
 
 export type BidProfile = {
   targetNaics: string[];
@@ -54,7 +55,11 @@ const WEIGHTS = {
   tier: 0.10,
 };
 
-export function scoreListing(listing: Pick<RfpListing, "title" | "summary" | "agency" | "agencyKind" | "agencyTier" | "naicsCode" | "setAside" | "estimatedValue" | "placeOfPerformance">, profile: BidProfile): ListingScore {
+type ScoreableListing = Omit<Pick<RfpListing, "title" | "summary" | "agency" | "agencyKind" | "agencyTier" | "naicsCode" | "setAside" | "placeOfPerformance">, never> & {
+  estimatedValue: number | { toNumber: () => number } | null;
+};
+
+export function scoreListing(listing: ScoreableListing, profile: BidProfile): ListingScore {
   const signals: ListingScoreSignal[] = [];
 
   // 1. NAICS match.
@@ -108,7 +113,7 @@ export function scoreListing(listing: Pick<RfpListing, "title" | "summary" | "ag
   signals.push({ name: "Geography", weight: WEIGHTS.geo, fit: geoFit, note: geoNote });
 
   // 4. Value fit — within range = 1, just outside = 0.6, way out = 0.2.
-  const value = listing.estimatedValue ?? null;
+  const value: number | null = listing.estimatedValue == null ? null : toNum(listing.estimatedValue);
   let valueFit: number;
   let valueNote: string;
   if (value == null) {

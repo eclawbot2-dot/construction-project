@@ -197,12 +197,12 @@ export async function winProbability(opportunityId: string, tenantId: string): P
       if (clientTotal >= 3 && clientRate > 50) drivers.push(`Strong track record with ${opp.clientName} (${clientRate.toFixed(0)}% on ${clientTotal} decided bids).`);
       if (modeTotal >= 8 && modeRate > 45) drivers.push(`Tenant performs well in ${opp.mode} mode overall (${modeRate.toFixed(0)}% win rate on ${modeTotal} decided).`);
       if (opp.bidDrafts.length > 0) drivers.push(`${opp.bidDrafts.length} bid draft${opp.bidDrafts.length === 1 ? "" : "s"} already in progress — response capacity engaged.`);
-      if (opp.estimatedValue > 5_000_000) drivers.push(`High-value opportunity ($${opp.estimatedValue.toLocaleString()}) — strategic.`);
+      if (toNum(opp.estimatedValue) > 5_000_000) drivers.push(`High-value opportunity ($${toNum(opp.estimatedValue).toLocaleString()}) — strategic.`);
       if (opp.source) drivers.push(`Sourced from ${opp.source} — channel yields higher-quality leads.`);
 
       // Risks.
       if (clientTotal >= 3 && clientRate < 20) risks.push(`Low historical hit rate with ${opp.clientName} (${clientRate.toFixed(0)}%). Understand root cause before pursuing.`);
-      if (opp.estimatedValue < 250_000) risks.push("Small opportunity — price-driven; margin compression likely.");
+      if (toNum(opp.estimatedValue) < 250_000) risks.push("Small opportunity — price-driven; margin compression likely.");
       if (opp.stage === "LEAD" && ageDays < 14) risks.push("At LEAD stage — qualify before committing significant BD hours.");
       if (drivers.length === 0) drivers.push("No strong positive drivers identified — standard pursuit.");
 
@@ -273,15 +273,15 @@ export async function clientLtvPredict(tenantId: string): Promise<ClientLtv[]> {
         const weightedRevenue = won.reduce((s, o) => {
           const ageDays = (now - new Date(o.updatedAt).getTime()) / 86_400_000;
           const weight = Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
-          return s + (o.estimatedValue * weight);
+          return s + (toNum(o.estimatedValue) * weight);
         }, 0);
-        const rawPastRevenue = won.reduce((s, o) => s + o.estimatedValue, 0);
+        const rawPastRevenue = sumMoney(won.map((o) => o.estimatedValue));
 
         // Project 5 years forward: weighted annual rate × 5 × win probability.
         const oldestWin = won.length > 0 ? Math.min(...won.map((o) => new Date(o.updatedAt).getTime())) : now;
         const yearsObserved = Math.max(1, (now - oldestWin) / (365 * 86_400_000));
         const annualRate = weightedRevenue / yearsObserved;
-        const pipeline = list.filter((l) => ["LEAD", "QUALIFIED", "PROPOSAL", "BID"].includes(l.stage)).reduce((s, o) => s + o.estimatedValue, 0);
+        const pipeline = sumMoney(list.filter((l) => ["LEAD", "QUALIFIED", "PROPOSAL", "BID"].includes(l.stage)).map((o) => o.estimatedValue));
         const projected5Y = annualRate * 5 + pipeline * winRate;
 
         // Retention = recent activity / historical rate.

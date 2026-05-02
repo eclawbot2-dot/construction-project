@@ -854,16 +854,16 @@ model FleetAsset {
   category                String? // "Excavator", "Crane", "Truck", "Generator"
   serialNumber            String?
   purchaseDate            DateTime?
-  purchasePrice           Float?
-  salvageValue            Float     @default(0)
+  purchasePrice           Decimal?
+  salvageValue            Decimal   @default(0)
   usefulLifeMonths        Int?
   depreciationMethod      String    @default("STRAIGHT_LINE")
-  accumulatedDepreciation Float     @default(0)
+  accumulatedDepreciation Decimal   @default(0)
   // Internal cost-per-hour for charge-back when used on a project.
-  internalRateHour        Float?
-  internalRateDay         Float?
-  internalRateWeek        Float?
-  internalRateMonth       Float?
+  internalRateHour        Decimal?
+  internalRateDay         Decimal?
+  internalRateWeek        Decimal?
+  internalRateMonth       Decimal?
   active                  Boolean   @default(true)
   notes                   String?
   createdAt               DateTime  @default(now())
@@ -889,7 +889,7 @@ model FleetAssignment {
   startedAt    DateTime
   endedAt      DateTime?
   hoursLogged  Float      @default(0)
-  costAccrued  Float      @default(0)
+  costAccrued  Decimal    @default(0)
   notes        String?
   createdAt    DateTime   @default(now())
 
@@ -908,7 +908,7 @@ model FleetMaintenance {
   kind          String // "PREVENTIVE" | "CORRECTIVE" | "INSPECTION"
   scheduledAt   DateTime?
   completedAt   DateTime?
-  cost          Float      @default(0)
+  cost          Decimal    @default(0)
   vendorName    String?
   description   String
   hoursDownTime Float      @default(0)
@@ -941,10 +941,10 @@ model Employee {
   craftCode       String? // BLS / DBE craft code
   // Pay
   payType         String    @default("HOURLY") // HOURLY | SALARY | UNION
-  baseRate        Float     @default(0)
-  fringeRate      Float     @default(0) // hourly fringes for union/prevailing wage
-  perDiemRate     Float     @default(0)
-  burdenRate      Float     @default(0) // employer taxes + benefits as % of base
+  baseRate        Decimal   @default(0)
+  fringeRate      Decimal   @default(0) // hourly fringes for union/prevailing wage
+  perDiemRate     Decimal   @default(0)
+  burdenRate      Float     @default(0) // employer taxes + benefits as % of base (percentage, not dollars)
   // Tax / withholding setup (high-level; details in payroll system)
   w4Filing        String?
   state           String?
@@ -975,9 +975,9 @@ model PayrollRun {
   payDate            DateTime
   status             String   @default("CALCULATED")
   totalHours         Float    @default(0)
-  totalGross         Float    @default(0)
-  totalNet           Float    @default(0)
-  totalBurden        Float    @default(0)
+  totalGross         Decimal  @default(0)
+  totalNet           Decimal  @default(0)
+  totalBurden        Decimal  @default(0)
   isCertifiedPayroll Boolean  @default(false)
   notes              String?
   createdAt          DateTime @default(now())
@@ -1005,13 +1005,13 @@ model PayrollRunLine {
   regularHours Float      @default(0)
   otHours      Float      @default(0)
   dtHours      Float      @default(0)
-  baseRate     Float      @default(0)
-  fringeRate   Float      @default(0)
-  grossPay     Float      @default(0)
-  fringeAmount Float      @default(0)
-  perDiem      Float      @default(0)
-  burden       Float      @default(0)
-  totalCost    Float      @default(0) // gross + fringe + per-diem + burden — what hits job cost
+  baseRate     Decimal    @default(0)
+  fringeRate   Decimal    @default(0)
+  grossPay     Decimal    @default(0)
+  fringeAmount Decimal    @default(0)
+  perDiem      Decimal    @default(0)
+  burden       Decimal    @default(0)
+  totalCost    Decimal    @default(0) // gross + fringe + per-diem + burden — what hits job cost
   notes        String?
   createdAt    DateTime   @default(now())
 
@@ -1037,11 +1037,11 @@ model CertifiedPayrollRecord {
   ssnLast4       String? // form WH-347 expects last-4 only
   hoursStRegular Float    @default(0)
   hoursStOt      Float    @default(0)
-  rateBase       Float    @default(0)
-  rateFringe     Float    @default(0)
-  grossPay       Float    @default(0)
-  deductions     Float    @default(0)
-  netPay         Float    @default(0)
+  rateBase       Decimal  @default(0)
+  rateFringe     Decimal  @default(0)
+  grossPay       Decimal  @default(0)
+  deductions     Decimal  @default(0)
+  netPay         Decimal  @default(0)
   notes          String?
   createdAt      DateTime @default(now())
 
@@ -1060,10 +1060,10 @@ model Vendor1099Record {
   vendor                  Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   taxYear                 Int
   recipientTin            String?
-  box1NonemployeeComp     Float     @default(0)
-  box4FedTaxWithheld      Float     @default(0)
-  box6PaymentsForServices Float     @default(0)
-  totalPaid               Float     @default(0)
+  box1NonemployeeComp     Decimal   @default(0)
+  box4FedTaxWithheld      Decimal   @default(0)
+  box6PaymentsForServices Decimal   @default(0)
+  totalPaid               Decimal   @default(0)
   status                  String    @default("DRAFT") // DRAFT | FILED
   filedAt                 DateTime?
   createdAt               DateTime  @default(now())
@@ -1097,7 +1097,7 @@ model HistoricalEstimate {
   projectType    String?
   geography      String?
   lineItemCode   String?
-  unitCost       Float?
+  unitCost       Decimal?
   productionRate Float?
   confidencePct  Int?
   metadataJson   String      @default("{}")
@@ -1394,9 +1394,9 @@ model Budget {
   projectId     String
   project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name          String
-  originalValue Float
-  currentValue  Float
-  forecastFinal Float?
+  originalValue Decimal
+  currentValue  Decimal
+  forecastFinal Decimal?
   createdAt     DateTime @default(now())
 
   lines BudgetLine[]
@@ -1411,9 +1411,9 @@ model BudgetLine {
   code          String
   description   String
   lineType      BudgetLineType
-  budgetAmount  Float
-  committedCost Float          @default(0)
-  actualCost    Float          @default(0)
+  budgetAmount  Decimal
+  committedCost Decimal        @default(0)
+  actualCost    Decimal        @default(0)
   createdAt     DateTime       @default(now())
 
   @@index([budgetId])
@@ -1845,10 +1845,10 @@ model VendorPrequalification {
   status              String    @default("PENDING") // PENDING | APPROVED | REJECTED | EXPIRED
   // Financial data the prequal collects.
   yearsInBusiness     Int?
-  annualRevenue       Float?
-  largestProjectValue Float?
-  bondingCapacity     Float?
-  bondingAggregate    Float?
+  annualRevenue       Decimal?
+  largestProjectValue Decimal?
+  bondingCapacity     Decimal?
+  bondingAggregate    Decimal?
   emrRate             Float? // experience modification rate (safety)
   // Insurance + license summary (the actual records live in InsuranceCert + ContractorLicense).
   insuranceVerified   Boolean   @default(false)
@@ -1858,8 +1858,8 @@ model VendorPrequalification {
   // Scoring + decision.
   score               Float?
   scoreBreakdownJson  String    @default("{}")
-  qualifiedFromValue  Float?
-  qualifiedToValue    Float?
+  qualifiedFromValue  Decimal?
+  qualifiedToValue    Decimal?
   qualifiedTrades     String    @default("[]")
   expiresAt           DateTime?
   approvedAt          DateTime?
@@ -2263,7 +2263,7 @@ model NonConformanceReport {
   raisedAt           DateTime    @default(now())
   closedAt           DateTime?
   closedBy           String?
-  costImpact         Float       @default(0)
+  costImpact         Decimal     @default(0)
   scheduleImpactDays Int         @default(0)
   linkedRfiId        String?
   linkedRfi          RFI?        @relation("RfiLinkedNcrs", fields: [linkedRfiId], references: [id], onDelete: SetNull)
@@ -2308,7 +2308,7 @@ model Opportunity {
   name           String
   clientName     String?
   stage          OpportunityStage @default(LEAD)
-  estimatedValue Float            @default(0)
+  estimatedValue Decimal          @default(0)
   probability    Int              @default(20)
   dueDate        DateTime?
   awardDate      DateTime?
@@ -2342,7 +2342,7 @@ model Vendor {
   prequalStatus      PrequalificationStatus @default(NOT_STARTED)
   prequalScore       Int?
   prequalExpires     DateTime?
-  bondingCapacity    Float?
+  bondingCapacity    Decimal?
   defaultCostCode    String?
   defaultAccountCode String?
   createdAt          DateTime               @default(now())
@@ -2364,8 +2364,8 @@ model InsuranceCert {
   type           InsuranceType
   carrier        String
   policyNumber   String
-  limitEach      Float         @default(0)
-  limitAggregate Float         @default(0)
+  limitEach      Decimal       @default(0)
+  limitAggregate Decimal       @default(0)
   effectiveDate  DateTime
   expirationDate DateTime
   certificateUrl String?
@@ -2380,7 +2380,7 @@ model BidPackage {
   trade          String
   scopeSummary   String?
   dueDate        DateTime?
-  estimatedValue Float            @default(0)
+  estimatedValue Decimal          @default(0)
   status         BidPackageStatus @default(PLANNING)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -2397,7 +2397,7 @@ model SubBid {
   bidPackage          BidPackage   @relation(fields: [bidPackageId], references: [id], onDelete: Cascade)
   vendorId            String
   vendor              Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  bidAmount           Float?
+  bidAmount           Decimal?
   daysToComplete      Int?
   inclusions          String?
   exclusions          String?
@@ -2432,8 +2432,8 @@ model SubBidLine {
   description  String
   quantity     Float?
   uom          String?
-  unitPrice    Float?
-  amount       Float
+  unitPrice    Decimal?
+  amount       Decimal
   costCode     String?
   inclusion    Boolean  @default(true) // false = exclusion
   notes        String?
@@ -2476,8 +2476,8 @@ model CapitalProgram {
   description   String?
   ownerName     String?
   ownerType     String? // "PRIVATE" | "PUBLIC_AGENCY" | "INSTITUTIONAL"
-  totalBudget   Float?
-  contingency   Float?
+  totalBudget   Decimal?
+  contingency   Decimal?
   fundingSource String?
   startDate     DateTime?
   endDate       DateTime?
@@ -2502,7 +2502,7 @@ model CapitalProgramProject {
   capitalProgram   CapitalProgram @relation(fields: [capitalProgramId], references: [id], onDelete: Cascade)
   projectId        String
   project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  programBudget    Float?
+  programBudget    Decimal?
   drawSchedule     String?
   notes            String?
   createdAt        DateTime       @default(now())
@@ -2522,7 +2522,7 @@ model TimeEntry {
   regularHours    Float           @default(0)
   overtimeHours   Float           @default(0)
   doubleTimeHours Float           @default(0)
-  rate            Float           @default(0)
+  rate            Decimal         @default(0)
   costCode        String?
   status          TimeEntryStatus @default(DRAFT)
   submittedAt     DateTime?
@@ -2599,7 +2599,7 @@ model SubInvoice {
   jointPartyTaxId    String?
   // Sub default insurance — premium retained from each pay to fund
   // sub-default coverage on this contract.
-  subDefaultPremium  Float   @default(0)
+  subDefaultPremium  Decimal @default(0)
 
   lines   SubInvoiceLine[]
   waivers LienWaiver[]     @relation("LienWaiverSubInvoice")
@@ -2642,8 +2642,8 @@ model PurchaseOrder {
   vendor           Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   poNumber         String
   description      String
-  amount           Float     @default(0)
-  invoicedToDate   Float     @default(0)
+  amount           Decimal   @default(0)
+  invoicedToDate   Decimal   @default(0)
   status           String    @default("OPEN")
   issuedAt         DateTime  @default(now())
   issuedBy         String?
@@ -2682,8 +2682,8 @@ model PurchaseOrderLine {
   costCode        String?
   quantity        Float
   uom             String? // unit of measure
-  unitPrice       Float
-  amount          Float
+  unitPrice       Decimal
+  amount          Decimal
   receivedQty     Float         @default(0)
   invoicedQty     Float         @default(0)
   notes           String?
@@ -2772,7 +2772,7 @@ model Permit {
   holder            String?
   contractor        String?
   scopeDescription  String?
-  fee               Float                  @default(0)
+  fee               Decimal                @default(0)
   autoLookupEnabled Boolean                @default(false)
   lastLookupAt      DateTime?
   lastLookupStatus  InspectionLookupStatus @default(NEVER)
@@ -3025,7 +3025,7 @@ model RfpListing {
   solicitationNo     String?
   url                String?
   summary            String?
-  estimatedValue     Float?
+  estimatedValue     Decimal?
   dueAt              DateTime?
   postedAt           DateTime?
   setAside           String?
@@ -3091,8 +3091,8 @@ model TenantBidProfile {
   targetStatesJson       String   @default("[]")
   targetCitiesJson       String   @default("[]")
   // Dollar value range — listings outside the range take a hit.
-  minValue               Float?
-  maxValue               Float?
+  minValue               Decimal?
+  maxValue               Decimal?
   // Keywords / phrases boosting score when found in title/summary.
   boostKeywordsJson      String   @default("[]")
   // Keywords that should subtract from score (e.g. "demolition only"
@@ -3122,7 +3122,7 @@ model BidDraft {
   opportunity        Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
   title              String
   status             BidDraftStatus @default(DRAFT)
-  totalValue         Float          @default(0)
+  totalValue         Decimal        @default(0)
   overheadPct        Float          @default(10)
   profitPct          Float          @default(8)
   winThemes          String?
@@ -3150,13 +3150,13 @@ model BidDraftLineItem {
   category      String   @default("LABOR")
   quantity      Float    @default(1)
   unit          String?
-  unitCost      Float    @default(0)
-  laborCost     Float    @default(0)
-  materialCost  Float    @default(0)
-  equipmentCost Float    @default(0)
-  subCost       Float    @default(0)
+  unitCost      Decimal  @default(0)
+  laborCost     Decimal  @default(0)
+  materialCost  Decimal  @default(0)
+  equipmentCost Decimal  @default(0)
+  subCost       Decimal  @default(0)
   markupPct     Float    @default(0)
-  amount        Float    @default(0)
+  amount        Decimal  @default(0)
   createdAt     DateTime @default(now())
 
   @@index([draftId])
@@ -3168,9 +3168,9 @@ model RevenueProjection {
   project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   periodStart     DateTime
   periodEnd       DateTime
-  forecastRevenue Float    @default(0)
-  forecastCost    Float    @default(0)
-  forecastMargin  Float    @default(0)
+  forecastRevenue Decimal  @default(0)
+  forecastCost    Decimal  @default(0)
+  forecastMargin  Decimal  @default(0)
   confidence      Int      @default(50)
   source          String   @default("schedule-derived")
   createdAt       DateTime @default(now())
@@ -3322,27 +3322,27 @@ model BalanceSheetSnapshot {
   tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   asOf                DateTime
   // Assets
-  cash                Float    @default(0)
-  accountsReceivable  Float    @default(0)
-  retainageReceivable Float    @default(0)
-  costsInExcess       Float    @default(0)
-  inventory           Float    @default(0)
-  fixedAssetsNet      Float    @default(0)
-  otherAssets         Float    @default(0)
-  totalAssets         Float    @default(0)
+  cash                Decimal  @default(0)
+  accountsReceivable  Decimal  @default(0)
+  retainageReceivable Decimal  @default(0)
+  costsInExcess       Decimal  @default(0)
+  inventory           Decimal  @default(0)
+  fixedAssetsNet      Decimal  @default(0)
+  otherAssets         Decimal  @default(0)
+  totalAssets         Decimal  @default(0)
   // Liabilities
-  accountsPayable     Float    @default(0)
-  retainagePayable    Float    @default(0)
-  billingsInExcess    Float    @default(0)
-  accruedExpenses     Float    @default(0)
-  longTermDebt        Float    @default(0)
-  otherLiabilities    Float    @default(0)
-  totalLiabilities    Float    @default(0)
+  accountsPayable     Decimal  @default(0)
+  retainagePayable    Decimal  @default(0)
+  billingsInExcess    Decimal  @default(0)
+  accruedExpenses     Decimal  @default(0)
+  longTermDebt        Decimal  @default(0)
+  otherLiabilities    Decimal  @default(0)
+  totalLiabilities    Decimal  @default(0)
   // Equity
-  paidInCapital       Float    @default(0)
-  retainedEarnings    Float    @default(0)
-  currentEarnings     Float    @default(0)
-  totalEquity         Float    @default(0)
+  paidInCapital       Decimal  @default(0)
+  retainedEarnings    Decimal  @default(0)
+  currentEarnings     Decimal  @default(0)
+  totalEquity         Decimal  @default(0)
   source              String   @default("manual")
   createdAt           DateTime @default(now())
 
@@ -3365,7 +3365,7 @@ model CashFlowForecast {
   category     String // "INFLOW_BILLING" | "OUTFLOW_AP" | "OUTFLOW_LABOR" | "INFLOW_RETAINAGE_RELEASE"
   projectId    String?
   project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  amount       Float
+  amount       Decimal
   confidence   Float    @default(1.0) // 0-1
   scenario     String   @default("base") // "base" | "best" | "worst"
   notes        String?
@@ -3388,12 +3388,12 @@ model CashFlowStatement {
   periodLabel         String
   periodStart         DateTime
   periodEnd           DateTime
-  operatingActivities Float    @default(0)
-  investingActivities Float    @default(0)
-  financingActivities Float    @default(0)
-  netChange           Float    @default(0)
-  beginningCash       Float    @default(0)
-  endingCash          Float    @default(0)
+  operatingActivities Decimal  @default(0)
+  investingActivities Decimal  @default(0)
+  financingActivities Decimal  @default(0)
+  netChange           Decimal  @default(0)
+  beginningCash       Decimal  @default(0)
+  endingCash          Decimal  @default(0)
   source              String   @default("calc")
   createdAt           DateTime @default(now())
 
@@ -3457,12 +3457,12 @@ model FinancialStatement {
   statementType String
   periodStart   DateTime
   periodEnd     DateTime
-  revenue       Float    @default(0)
-  cogs          Float    @default(0)
-  grossProfit   Float    @default(0)
-  opex          Float    @default(0)
-  ebitda        Float    @default(0)
-  netIncome     Float    @default(0)
+  revenue       Decimal  @default(0)
+  cogs          Decimal  @default(0)
+  grossProfit   Decimal  @default(0)
+  opex          Decimal  @default(0)
+  ebitda        Decimal  @default(0)
+  netIncome     Decimal  @default(0)
   source        String   @default("manual")
   sourceRef     String?
   notes         String?
@@ -3486,7 +3486,7 @@ model JournalEntryRow {
   accountCode          String
   accountName          String
   entryType            JournalEntryType         @default(OPERATING_EXPENSE)
-  amount               Float
+  amount               Decimal
   vendorName           String?
   projectId            String?
   project              Project?                 @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -3510,17 +3510,17 @@ model ProjectPnlSnapshot {
   projectId           String    @unique
   project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   asOf                DateTime  @default(now())
-  contractValue       Float     @default(0)
-  approvedCOValue     Float     @default(0)
-  totalContractValue  Float     @default(0)
-  billedToDate        Float     @default(0)
-  costsToDate         Float     @default(0)
-  committedCost       Float     @default(0)
-  forecastFinalCost   Float     @default(0)
-  forecastGrossMargin Float     @default(0)
+  contractValue       Decimal   @default(0)
+  approvedCOValue     Decimal   @default(0)
+  totalContractValue  Decimal   @default(0)
+  billedToDate        Decimal   @default(0)
+  costsToDate         Decimal   @default(0)
+  committedCost       Decimal   @default(0)
+  forecastFinalCost   Decimal   @default(0)
+  forecastGrossMargin Decimal   @default(0)
   percentComplete     Float     @default(0)
-  wipOverUnder        Float     @default(0)
-  cashOnHand          Float     @default(0)
+  wipOverUnder        Decimal   @default(0)
+  cashOnHand          Decimal   @default(0)
   lastReconciledAt    DateTime?
   notes               String?
   createdAt           DateTime  @default(now())
@@ -3556,7 +3556,7 @@ model InvoiceInboxMessage {
   fromAddress       String
   receivedAt        DateTime
   vendorGuess       String?
-  amountGuess       Float?
+  amountGuess       Decimal?
   projectGuessId    String?
   projectGuess      Project? @relation(fields: [projectGuessId], references: [id], onDelete: SetNull)
   costCodeGuess     String?
@@ -3591,7 +3591,7 @@ model HistoricalImport {
   aiFlagsJson      String                 @default("[]")
   rowsDetected     Int                    @default(0)
   rowsImported     Int                    @default(0)
-  totalDollarValue Float                  @default(0)
+  totalDollarValue Decimal                @default(0)
   columnsJson      String                 @default("[]")
   headerRowJson    String                 @default("[]")
   createdAt        DateTime               @default(now())
@@ -3928,7 +3928,7 @@ model Candidate {
   skillsJson      String          @default("[]")
   resumeUrl       String?
   linkedInUrl     String?
-  rateExpectation Float?
+  rateExpectation Decimal?
   source          String?
   ownerUserId     String?
   notes           String?
@@ -3959,8 +3959,8 @@ model JobRequisition {
   laborCategory   String?
   location        String?
   remoteAllowed   Boolean      @default(false)
-  rateMin         Float?
-  rateMax         Float?
+  rateMin         Decimal?
+  rateMax         Decimal?
   status          JobReqStatus @default(DRAFT)
   openings        Int          @default(1)
   filledCount     Int          @default(0)
@@ -3991,7 +3991,7 @@ model Submission {
   req           JobRequisition  @relation(fields: [reqId], references: [id], onDelete: Cascade)
   stage         SubmissionStage @default(SUBMITTED)
   recruiterName String?
-  rateOffered   Float?
+  rateOffered   Decimal?
   notes         String?
   submittedAt   DateTime        @default(now())
   decidedAt     DateTime?
@@ -4024,8 +4024,8 @@ model Placement {
   department      String?
   startDate       DateTime
   endDate         DateTime?
-  billRate        Float?
-  payRate         Float?
+  billRate        Decimal?
+  payRate         Decimal?
   status          PlacementStatus @default(PENDING_START)
   performanceNote String?
   redeployable    Boolean         @default(true)
@@ -4073,8 +4073,8 @@ model CommissionRule {
   appliesTo      CommissionSourceType
   recipientRole  UserRoleTemplate?
   ratePct        Float                @default(0)
-  flatAmount     Float?
-  cap            Float?
+  flatAmount     Decimal?
+  cap            Decimal?
   active         Boolean              @default(true)
   effectiveFrom  DateTime?
   effectiveUntil DateTime?
@@ -4105,9 +4105,9 @@ model CommissionAccrual {
   sourceType      CommissionSourceType
   sourceId        String
   sourceLabel     String?
-  basis           Float                @default(0)
+  basis           Decimal              @default(0)
   ratePct         Float                @default(0)
-  amount          Float                @default(0)
+  amount          Decimal              @default(0)
   status          CommissionStatus     @default(ACCRUED)
   earnedAt        DateTime             @default(now())
   approvedAt      DateTime?
@@ -4182,7 +4182,7 @@ model CaptureRecord {
   solicitationNumber String?
   naicsCode          String?
   setAside           SetAsideCode @default(NONE)
-  estimatedValue     Float?
+  estimatedValue     Decimal?
   rfpReleaseDate     DateTime?
   proposalDueDate    DateTime?
   awardDate          DateTime?
@@ -4482,9 +4482,9 @@ model CompanyInsurance {
   policyNumber              String
   effectiveDate             DateTime
   expiresAt                 DateTime
-  perOccurrenceLimit        Float    @default(0)
-  aggregateLimit            Float    @default(0)
-  deductible                Float    @default(0)
+  perOccurrenceLimit        Decimal  @default(0)
+  aggregateLimit            Decimal  @default(0)
+  deductible                Decimal  @default(0)
   statesCoveredJson         String   @default("[]")
   additionalInsuredsJson    String   @default("[]")
   waiverOfSubrogation       Boolean  @default(false)
@@ -4510,12 +4510,12 @@ model CompanyBond {
   bondType          String
   surety            String
   bondNumber        String?
-  capacityAggregate Float     @default(0)
-  capacitySingle    Float     @default(0)
-  bondAmount        Float     @default(0)
+  capacityAggregate Decimal   @default(0)
+  capacitySingle    Decimal   @default(0)
+  bondAmount        Decimal   @default(0)
   effectiveDate     DateTime?
   expiresAt         DateTime?
-  premium           Float     @default(0)
+  premium           Decimal   @default(0)
   rate              Float?
   documentUrl       String?
   notes             String?

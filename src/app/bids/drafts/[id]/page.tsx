@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { toNum, sumMoney, multiplyMoney, addMoney } from "@/lib/money";
 
 export default async function BidDraftDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,10 +25,10 @@ export default async function BidDraftDetailPage({ params }: { params: Promise<{
 
   const latestRun = draft.complianceRuns[0];
   const wordCount = draft.sections.reduce((s, sc) => s + sc.wordCount, 0);
-  const rawTotal = draft.lineItems.reduce((s, l) => s + l.amount, 0);
-  const withOh = rawTotal * (1 + draft.overheadPct / 100);
-  const withProfit = withOh * (1 + draft.profitPct / 100);
-  const byCategory = draft.lineItems.reduce<Record<string, number>>((acc, l) => { acc[l.category] = (acc[l.category] ?? 0) + l.amount; return acc; }, {});
+  const rawTotal = sumMoney(draft.lineItems.map((l) => l.amount));
+  const withOh = multiplyMoney(rawTotal, 1 + draft.overheadPct / 100);
+  const withProfit = multiplyMoney(withOh, 1 + draft.profitPct / 100);
+  const byCategory = draft.lineItems.reduce<Record<string, number>>((acc, l) => { acc[l.category] = addMoney(acc[l.category] ?? 0, l.amount); return acc; }, {});
 
   return (
     <DetailShell

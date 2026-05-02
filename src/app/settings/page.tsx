@@ -56,6 +56,7 @@ export default async function SettingsPage() {
             <li><Link href="/settings/audit" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Audit log →</Link></li>
             <li><Link href="/settings/api" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">API & webhooks →</Link></li>
             <li><Link href="/settings/guests" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Guest accounts →</Link></li>
+            <li><Link href="/settings/observability" className="rounded-lg border border-white/10 px-3 py-1.5 hover:border-cyan-500/40">Observability →</Link></li>
           </ul>
         </nav>
 

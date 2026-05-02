@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/tenant";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { sumMoney, subtractMoney, multiplyMoney, toNum } from "@/lib/money";
 
 export default async function FinanceHubPage() {
   const tenant = await requireTenant();
@@ -18,17 +19,17 @@ export default async function FinanceHubPage() {
     prisma.journalEntryRow.count({ where: { tenantId: tenant.id, reconciliationStatus: "NEEDS_INPUT" } }),
   ]);
 
-  const ytdRevenue = statements.reduce((s, st) => s + st.revenue, 0);
-  const ytdCogs = statements.reduce((s, st) => s + st.cogs, 0);
-  const ytdOpex = statements.reduce((s, st) => s + st.opex, 0);
-  const ytdEbitda = statements.reduce((s, st) => s + st.ebitda, 0);
+  const ytdRevenue = sumMoney(statements.map((st) => st.revenue));
+  const ytdCogs = sumMoney(statements.map((st) => st.cogs));
+  const ytdOpex = sumMoney(statements.map((st) => st.opex));
+  const ytdEbitda = sumMoney(statements.map((st) => st.ebitda));
   const ytdMargin = ytdRevenue > 0 ? (ytdEbitda / ytdRevenue) * 100 : 0;
 
-  const totalBilled = snapshots.reduce((s, p) => s + p.billedToDate, 0);
-  const totalCost = snapshots.reduce((s, p) => s + p.costsToDate, 0);
-  const backlog = snapshots.reduce((s, p) => s + (p.totalContractValue - p.billedToDate), 0);
-  const overbilled = snapshots.filter((p) => p.wipOverUnder > 0).reduce((s, p) => s + p.wipOverUnder, 0);
-  const underbilled = snapshots.filter((p) => p.wipOverUnder < 0).reduce((s, p) => s + Math.abs(p.wipOverUnder), 0);
+  const totalBilled = sumMoney(snapshots.map((p) => p.billedToDate));
+  const totalCost = sumMoney(snapshots.map((p) => p.costsToDate));
+  const backlog = sumMoney(snapshots.map((p) => subtractMoney(p.totalContractValue, p.billedToDate)));
+  const overbilled = sumMoney(snapshots.filter((p) => toNum(p.wipOverUnder) > 0).map((p) => p.wipOverUnder));
+  const underbilled = sumMoney(snapshots.filter((p) => toNum(p.wipOverUnder) < 0).map((p) => Math.abs(toNum(p.wipOverUnder))));
 
   return (
     <AppLayout eyebrow="CFO · Finance hub" title="Financial operations" description="Xero-synced income statements, project-level P&amp;L, AI cost reconciliation, and invoice inbox monitoring.">
@@ -43,7 +44,7 @@ export default async function FinanceHubPage() {
         <section className="grid gap-4 md:grid-cols-4">
           <StatTile label="Billed to date (portfolio)" value={formatCurrency(totalBilled)} />
           <StatTile label="Costs to date (portfolio)" value={formatCurrency(totalCost)} />
-          <StatTile label="Cash position est." value={formatCurrency(totalBilled - totalCost + snapshots.reduce((s, p) => s + (p.totalContractValue * 0.10), 0))} sub="billed - costs + retainage equiv." tone="good" />
+          <StatTile label="Cash position est." value={formatCurrency(sumMoney([totalBilled, -totalCost, sumMoney(snapshots.map((p) => multiplyMoney(p.totalContractValue, 0.10)))]))} sub="billed - costs + retainage equiv." tone="good" />
           <StatTile label="Overbilled / underbilled" value={`${formatCurrency(overbilled)} / ${formatCurrency(underbilled)}`} tone="warn" href="/finance/ap-aging" />
         </section>
         <section className="flex flex-wrap gap-3">
@@ -169,7 +170,7 @@ export default async function FinanceHubPage() {
               </thead>
               <tbody className="divide-y divide-white/10 bg-slate-950/40">
                 {statements.map((st) => {
-                  const margin = st.revenue > 0 ? (st.ebitda / st.revenue) * 100 : 0;
+                  const margin = toNum(st.revenue) > 0 ? (toNum(st.ebitda) / toNum(st.revenue)) * 100 : 0;
                   return (
                     <tr key={st.id}>
                       <td className="table-cell">{formatDate(st.periodStart)} → {formatDate(st.periodEnd)}</td>
@@ -211,13 +212,13 @@ export default async function FinanceHubPage() {
                     <td className="table-cell">{formatCurrency(s.contractValue)}</td>
                     <td className="table-cell">{formatCurrency(s.approvedCOValue)}</td>
                     <td className="table-cell">{formatCurrency(s.billedToDate)}</td>
-                    <td className="table-cell">{s.percentComplete.toFixed(1)}%</td>
+                    <td className="table-cell">{toNum(s.percentComplete).toFixed(1)}%</td>
                     <td className="table-cell">{formatCurrency(s.costsToDate)}</td>
                     <td className="table-cell">
-                      <span className={s.forecastGrossMargin > 0 ? "text-emerald-300" : "text-rose-300"}>{formatCurrency(s.forecastGrossMargin)}</span>
+                      <span className={toNum(s.forecastGrossMargin) > 0 ? "text-emerald-300" : "text-rose-300"}>{formatCurrency(s.forecastGrossMargin)}</span>
                     </td>
                     <td className="table-cell">
-                      <span className={s.wipOverUnder === 0 ? "text-slate-400" : s.wipOverUnder > 0 ? "text-emerald-300" : "text-amber-300"}>{formatCurrency(s.wipOverUnder)}</span>
+                      <span className={toNum(s.wipOverUnder) === 0 ? "text-slate-400" : toNum(s.wipOverUnder) > 0 ? "text-emerald-300" : "text-amber-300"}>{formatCurrency(s.wipOverUnder)}</span>
                     </td>
                   </tr>
                 ))}

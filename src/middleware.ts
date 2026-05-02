@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { observeRequest, normalizePath } from "@/lib/metrics";
 
 /**
  * Edge-safe auth gate. Validates the NextAuth JWT cookie (session strategy:
@@ -12,6 +13,27 @@ import { getToken } from "next-auth/jwt";
  * the trust boundary.
  */
 export async function middleware(req: NextRequest) {
+  const tStart = Date.now();
+  // Only capture requests that middleware itself terminates (401/403/400).
+  // Success-path requests pass through NextResponse.next() into the route
+  // handler whose true status the middleware never sees — those get
+  // captured by the per-handler withMetrics() wrapper instead.
+  const finish = (res: NextResponse, captured: boolean = true): NextResponse => {
+    if (captured) {
+      const path = req.nextUrl.pathname;
+      if (!path.startsWith("/_next") && !path.startsWith("/static")) {
+        observeRequest({
+          t: tStart,
+          method: req.method,
+          path: normalizePath(path),
+          status: res.status,
+          ms: Date.now() - tStart,
+        });
+      }
+    }
+    return res;
+  };
+
   // Edge-level CSRF defense for state-mutating API routes. NextAuth's
   // session cookie defaults to SameSite=Lax which already blocks
   // most cross-site form posts, but a misconfigured cookie or proxy
@@ -26,10 +48,10 @@ export async function middleware(req: NextRequest) {
     if (origin && host) {
       try {
         if (new URL(origin).host !== host) {
-          return NextResponse.json({ error: "cross-origin request blocked" }, { status: 403 });
+          return finish(withSecurityHeaders(NextResponse.json({ error: "cross-origin request blocked" }, { status: 403 })));
         }
       } catch {
-        return NextResponse.json({ error: "bad origin header" }, { status: 400 });
+        return finish(withSecurityHeaders(NextResponse.json({ error: "bad origin header" }, { status: 400 })));
       }
     }
   }
@@ -46,17 +68,19 @@ export async function middleware(req: NextRequest) {
   });
 
   if (token?.userId) {
-    return withSecurityHeaders(NextResponse.next());
+    // Pass-through to the route handler. Don't record here — middleware
+    // doesn't see the handler's final status. The handler records itself.
+    return finish(withSecurityHeaders(NextResponse.next()), false);
   }
 
   const isApi = req.nextUrl.pathname.startsWith("/api/");
   if (isApi) {
-    return withSecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+    return finish(withSecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })));
   }
 
   const loginUrl = new URL("/login", req.url);
   loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname + req.nextUrl.search);
-  return withSecurityHeaders(NextResponse.redirect(loginUrl));
+  return finish(withSecurityHeaders(NextResponse.redirect(loginUrl)));
 }
 
 /**
