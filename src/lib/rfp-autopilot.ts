@@ -107,19 +107,30 @@ export async function sweepAllSources(): Promise<{
       ? bidProfileFromRow(source.tenant.bidProfile)
       : defaultProfile();
     const unscored = await prisma.rfpListing.findMany({
-      where: { sourceId: source.id, score: null },
+      where: {
+        sourceId: source.id,
+        score: null,
+        // Skip listings that already received an auto-draft attempt —
+        // a previous concurrent sweep may have processed them. This
+        // prevents double-firing autopilotListing on the same row.
+        autoDraftedAt: null,
+      },
       orderBy: { discoveredAt: "desc" },
       take: result.created,
     });
     for (const listing of unscored) {
       const breakdown = scoreListing(listing, profile);
-      await prisma.rfpListing.update({
-        where: { id: listing.id },
+      // Atomic guard: only score listings still null. If a parallel
+      // sweep wrote a score between our findMany and update, updateMany
+      // matches zero rows and we skip — no duplicate autopilot fire.
+      const updated = await prisma.rfpListing.updateMany({
+        where: { id: listing.id, score: null, autoDraftedAt: null },
         data: {
           score: breakdown.score,
           scoreExplanation: JSON.stringify(breakdown.signals),
         },
       });
+      if (updated.count === 0) continue;
       scored += 1;
 
       if (source.autoDraftEnabled && breakdown.score >= source.autoDraftMinScore) {

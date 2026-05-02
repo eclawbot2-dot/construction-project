@@ -1784,6 +1784,12 @@ model RfpListing {
   @@index([sourceId])
   @@index([tenantId, score])
   @@index([tenantId, dueAt])
+  // Prevent double-ingest from concurrent sweeps. SQLite treats NULL
+  // values as distinct in unique indexes (per SQL standard), so
+  // listings without a solicitationNo can still co-exist — but
+  // real-numbered listings can't be duplicated for the same tenant +
+  // agency. Pairs with the upsert in src/lib/rfp-crawl.ts.
+  @@unique([tenantId, agency, solicitationNo], name: "tenant_agency_sol_unique")
 }
 
 /// Per-tenant matching profile — what makes a listing a "good fit" for

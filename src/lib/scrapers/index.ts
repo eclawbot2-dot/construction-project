@@ -26,6 +26,8 @@
 import type { RfpSource, SolicitationPortalCatalog } from "@prisma/client";
 import { crawlSamGov } from "./sam-gov";
 import { crawlGenericRss } from "./generic-rss";
+import { crawlGenericHtml } from "./generic-html";
+import { crawlDefenseNews } from "./defense-news";
 
 export type CrawledListing = {
   title: string;
@@ -60,6 +62,8 @@ type ScraperImpl = (ctx: ScraperContext) => Promise<CrawledListing[]>;
 const REGISTRY: Record<string, ScraperImpl> = {
   "sam-gov": crawlSamGov,
   "generic-rss": crawlGenericRss,
+  "generic-html": crawlGenericHtml,
+  "defense-news": crawlDefenseNews,
 };
 
 /**

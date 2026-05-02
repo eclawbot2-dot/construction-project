@@ -8,7 +8,16 @@ import { formatDate } from "@/lib/utils";
 
 export default async function BidSourcesPage() {
   const tenant = await requireTenant();
-  const sources = await prisma.rfpSource.findMany({ where: { tenantId: tenant.id }, include: { listings: { take: 1, orderBy: { discoveredAt: "desc" } } }, orderBy: { label: "asc" } });
+  const sources = await prisma.rfpSource.findMany({
+    where: { tenantId: tenant.id },
+    include: {
+      listings: { take: 1, orderBy: { discoveredAt: "desc" } },
+      // Pull catalog so the table can show whether the source is
+      // backed by a real scraper (auto sweep) or is manual-only.
+      catalog: { select: { scraperKind: true, scraperModule: true } },
+    },
+    orderBy: { label: "asc" },
+  });
   const active = sources.filter((s) => s.status === "ACTIVE").length;
   const totalListings = await prisma.rfpListing.count({ where: { tenantId: tenant.id } });
 
@@ -51,6 +60,7 @@ export default async function BidSourcesPage() {
                   <th className="table-header">URL</th>
                   <th className="table-header">Cadence</th>
                   <th className="table-header">NAICS</th>
+                  <th className="table-header">Scraper</th>
                   <th className="table-header">Last checked</th>
                   <th className="table-header">Result</th>
                   <th className="table-header">Status</th>
@@ -65,6 +75,15 @@ export default async function BidSourcesPage() {
                     <td className="table-cell font-mono text-xs text-slate-400 truncate max-w-[280px]"><a href={s.url} target="_blank" rel="noopener" className="text-cyan-300 hover:underline">{s.url}</a></td>
                     <td className="table-cell">{s.cadence}</td>
                     <td className="table-cell text-slate-400">{s.naicsFilter ?? "—"}</td>
+                    <td className="table-cell">
+                      {(() => {
+                        const kind = s.catalog?.scraperKind;
+                        if (!kind || kind === "MANUAL" || kind === "DEPRECATED") {
+                          return <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-300">manual</span>;
+                        }
+                        return <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-emerald-300">auto · {kind.toLowerCase()}</span>;
+                      })()}
+                    </td>
                     <td className="table-cell text-slate-400">{formatDate(s.lastCheckedAt)}</td>
                     <td className="table-cell text-xs text-slate-400">{s.lastCheckNote ?? "—"}</td>
                     <td className="table-cell"><StatusBadge status={s.status} /></td>
@@ -93,7 +112,7 @@ export default async function BidSourcesPage() {
                     </td>
                   </tr>
                 ))}
-                {sources.length === 0 ? <tr><td colSpan={9} className="table-cell text-center text-slate-500">No sources yet. Add one above or via <Link href="/bids/discover" className="underline">Discover</Link>.</td></tr> : null}
+                {sources.length === 0 ? <tr><td colSpan={10} className="table-cell text-center text-slate-500">No sources yet. Add one above or via <Link href="/bids/discover" className="underline">Discover</Link>.</td></tr> : null}
               </tbody>
             </table>
           </div>

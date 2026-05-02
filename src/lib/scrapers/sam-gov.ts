@@ -68,6 +68,16 @@ export async function crawlSamGov(ctx: ScraperContext): Promise<CrawledListing[]
   if (ctx.source.geoState) {
     params.set("state", ctx.source.geoState);
   }
+  // Federal catalog rows that point at sam-gov can specify the parent
+  // organization name so the SAM API filters server-side instead of
+  // returning all 30k active opps. The agency name we display lives on
+  // the catalog row, but the SAM API expects the SAM Org name (e.g.,
+  // "DEPT OF THE NAVY"). We pass agencyHint as a candidate match —
+  // SAM's organizationName accepts a partial-match by default.
+  const agencyHint = ctx.catalog?.agencyName ?? ctx.source.agencyHint;
+  if (agencyHint) {
+    params.set("organizationName", agencyHint);
+  }
   const q = ctx.keywords.join(" OR ");
   if (q) params.set("q", q);
 

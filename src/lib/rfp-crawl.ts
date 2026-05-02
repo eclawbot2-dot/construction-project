@@ -75,33 +75,59 @@ export async function crawlSourceAndPersist(sourceId: string): Promise<{ ok: boo
       return { ok: false, fetched: 0, created: 0, note: result.note };
     }
 
+    // Atomic dedup via the (tenantId, agency, solicitationNo) unique
+    // index. Two concurrent sweeps could otherwise both pass a
+    // findFirst check before either created, leading to duplicates.
+    // We try the create; the DB returns P2002 if another sweep
+    // already wrote the row, in which case we update mutable fields.
     let created = 0;
     for (const row of result.listings) {
-      const existing = await prisma.rfpListing.findFirst({
-        where: { tenantId: source.tenantId, solicitationNo: row.solicitationNo, agency: row.agency },
-      });
-      if (existing) continue;
-      await prisma.rfpListing.create({
-        data: {
-          tenantId: source.tenantId,
-          sourceId: source.id,
-          title: row.title,
-          agency: row.agency,
-          agencyKind: source.catalog?.agencyKind ?? null,
-          agencyTier: source.catalog?.agencyTier ?? null,
-          solicitationNo: row.solicitationNo,
-          url: row.url,
-          summary: row.summary,
-          estimatedValue: row.estimatedValue ?? 0,
-          dueAt: row.dueAt,
-          postedAt: row.postedAt,
-          setAside: row.setAside,
-          naicsCode: row.naicsCode,
-          placeOfPerformance: row.placeOfPerformance,
-          matched: true,
-        },
-      });
-      created += 1;
+      try {
+        await prisma.rfpListing.create({
+          data: {
+            tenantId: source.tenantId,
+            sourceId: source.id,
+            title: row.title,
+            agency: row.agency,
+            agencyKind: source.catalog?.agencyKind ?? null,
+            agencyTier: source.catalog?.agencyTier ?? null,
+            solicitationNo: row.solicitationNo,
+            url: row.url,
+            summary: row.summary,
+            estimatedValue: row.estimatedValue ?? 0,
+            dueAt: row.dueAt,
+            postedAt: row.postedAt,
+            setAside: row.setAside,
+            naicsCode: row.naicsCode,
+            placeOfPerformance: row.placeOfPerformance,
+            matched: true,
+          },
+        });
+        created += 1;
+      } catch (err) {
+        const isUniqueConflict = err instanceof Error && /Unique constraint failed/i.test(err.message);
+        if (!isUniqueConflict) throw err;
+        // Another sweep got there first — refresh fields the portal
+        // can legitimately change between sweeps (deadline
+        // extensions, amendments). Don't touch score, autoDraftedAt,
+        // or status — those are owned by downstream logic.
+        await prisma.rfpListing.updateMany({
+          where: {
+            tenantId: source.tenantId,
+            agency: row.agency,
+            solicitationNo: row.solicitationNo,
+          },
+          data: {
+            dueAt: row.dueAt,
+            summary: row.summary,
+            estimatedValue: row.estimatedValue ?? 0,
+            url: row.url,
+            setAside: row.setAside,
+            naicsCode: row.naicsCode,
+            placeOfPerformance: row.placeOfPerformance,
+          },
+        });
+      }
     }
 
     await prisma.rfpSource.update({
